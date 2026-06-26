@@ -26,6 +26,7 @@ from app.repositories.static_geo_layers import StaticGeoLayerRepository
 from app.repositories.users import UserRepository
 from app.repositories.verification import VerificationRepository
 from app.schemas.forecast import GeoJSONFeature, GeoJSONFeatureCollection
+from app.services.privacy import CoordinatePrivacyService
 
 PUBLIC_FORECAST_LIMIT = 250
 RESEARCH_FORECAST_LIMIT = 500
@@ -50,6 +51,7 @@ class ForecastService:
         self.static_layers = StaticGeoLayerRepository(session)
         self.users = UserRepository(session)
         self.verification = VerificationRepository(session)
+        self.privacy = CoordinatePrivacyService()
 
     async def public_forecast(
         self,
@@ -602,12 +604,10 @@ class ForecastService:
         )
 
     def _public_coordinates(self, observation: Observation) -> tuple[Decimal, Decimal]:
-        if observation.privacy_level == PrivacyLevel.obscured:
-            return (
-                observation.latitude.quantize(Decimal("0.01")),
-                observation.longitude.quantize(Decimal("0.01")),
-            )
-        return observation.latitude, observation.longitude
+        coordinates = self.privacy.public_coordinates(observation)
+        if coordinates is None:
+            return observation.latitude, observation.longitude
+        return coordinates
 
     def _resolve_bbox(
         self,

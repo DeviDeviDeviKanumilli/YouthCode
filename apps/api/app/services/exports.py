@@ -28,6 +28,7 @@ from app.repositories.users import UserRepository
 from app.repositories.verification import VerificationRepository
 from app.schemas.exports import ExportCreate, ExportUpdate, ResearchExportCreate
 from app.services.nearby_records import NearbyRecordsService
+from app.services.privacy import CoordinatePrivacyService
 from app.services.research_observations import ResearchObservationSearchService
 
 CSV_COLUMNS = [
@@ -74,6 +75,7 @@ class ExportService:
         self.species = SpeciesRepository(session)
         self.users = UserRepository(session)
         self.verification = VerificationRepository(session)
+        self.privacy = CoordinatePrivacyService()
         self.session = session
 
     async def create_export(self, data: ExportCreate) -> Export:
@@ -238,7 +240,11 @@ class ExportService:
                     observation,
                     include_private=include_private,
                 ),
-                "sensitive_species": False,
+                "sensitive_species": self.privacy.is_sensitive_species(
+                    await self.species.get(identification.candidate_species_id)
+                    if identification and identification.candidate_species_id
+                    else None
+                ),
                 "candidate_scientific_name": (
                     identification.candidate_scientific_name if identification else None
                 ),
@@ -409,21 +415,13 @@ class ExportService:
         *,
         include_private: bool,
     ) -> tuple[str, str]:
-        if observation.privacy_level == PrivacyLevel.private and not include_private:
-            return "", ""
-        if observation.privacy_level == PrivacyLevel.obscured:
-            return (
-                str(observation.latitude.quantize(Decimal("0.01"))),
-                str(observation.longitude.quantize(Decimal("0.01"))),
-            )
-        return str(observation.latitude), str(observation.longitude)
+        return self.privacy.export_coordinates(
+            observation,
+            include_private=include_private,
+        )
 
     def _license_status(self, observation: Observation, *, include_private: bool) -> str:
-        if observation.privacy_level == PrivacyLevel.private and include_private:
-            return "private_admin_override"
-        if observation.privacy_level == PrivacyLevel.obscured:
-            return "obscured_generalized"
-        return observation.privacy_level.value
+        return self.privacy.license_status(observation, include_private=include_private)
 
     def _uuid_filter(self, filters: dict[str, Any], key: str) -> uuid.UUID | None:
         value = filters.get(key)

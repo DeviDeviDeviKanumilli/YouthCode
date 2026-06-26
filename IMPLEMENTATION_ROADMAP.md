@@ -183,4 +183,6 @@ M1.4 migration foundation:
 - M12.1 Auth integration is implemented with internal JWT support and locally verified with `make check` passing 205 tests.
 - M12.2 RBAC enforcement is implemented and locally verified with `make check` passing 206 tests.
 - M12.3 Input validation and rate limits are implemented and locally verified with `make check` passing 209 tests.
-- Next step: begin M12.4 Privacy and geolocation protection.
+- M12.4 Privacy and geolocation protection are implemented and locally verified with `make check` passing 213 tests.
+- M12 is complete against the current local verification gates.
+- Next step: begin M13.1 Job queue setup.

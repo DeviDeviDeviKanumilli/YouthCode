@@ -120,8 +120,9 @@ def test_recompute_placeholder_context(environmental_context_client: TestClient)
 
     assert response.status_code == 200
     body = response.json()
-    assert body["enrichment_version"] == "mock-0.1.0"
+    assert body["enrichment_version"] == "mock-0.2.0"
     assert body["data_sources"]["provider"] == "mock_enrichment"
+    assert "distance_to_water_m" in body["data_sources"]["fields"]
 
 
 def test_upsert_environmental_context(environmental_context_client: TestClient) -> None:

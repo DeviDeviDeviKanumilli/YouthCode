@@ -146,4 +146,5 @@ M1.4 migration foundation:
 - M4.3 Taxonomy normalization service is implemented and locally verified with `make check` passing 94 tests.
 - M4.4 MVP species seed data is implemented and locally verified with `make check` passing 97 tests. Alembic head is `0011`.
 - M4 is complete against the current local verification gates.
-- Next step: begin M5.1 Environmental enrichment provider interface.
+- M5.1 Environmental enrichment provider interface is implemented and locally verified with `make check` passing 102 tests.
+- Next step: begin M5.2 Static geospatial layers.

@@ -7,6 +7,7 @@ from app.models.observation import Observation, ObservationSource, PrivacyLevel
 from app.models.signal_score import SignalScore, SignalScoreLabel
 from app.models.species import Species
 from app.models.user import User, UserRole
+from app.models.verification import Verification, VerificationStatus
 
 __all__ = [
     "AIIdentification",
@@ -22,4 +23,6 @@ __all__ = [
     "Species",
     "User",
     "UserRole",
+    "Verification",
+    "VerificationStatus",
 ]

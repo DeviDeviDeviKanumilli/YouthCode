@@ -143,7 +143,7 @@ def test_user_observations_include_summary_fields(user_sightings_client: TestCli
     item = response.json()[0]
     assert item["thumbnail_url"] == "http://localhost/photo.jpg"
     assert item["possible_species"] == "Japanese knotweed"
-    assert item["signal_label"] == "moderate_signal"
+    assert item["signal_label"] == "low_signal"
     assert item["verification_status"] == "raw"
 
 

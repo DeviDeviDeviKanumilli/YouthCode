@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 
 from app.core.errors import AppError
+from app.models.environmental_context import EnvironmentalContext
 from app.models.identification import AIIdentification
 from app.models.observation import Observation
 from app.models.signal_score import SignalScore, SignalScoreLabel
@@ -13,6 +14,17 @@ from app.repositories.identifications import IdentificationRepository
 from app.repositories.observations import ObservationRepository
 from app.repositories.signal_scores import SignalScoreRepository
 from app.schemas.signal_scores import SignalScoreCreate
+from app.services.component_scoring import (
+    score_ecological_sensitivity,
+    score_habitat_match,
+    score_identity_confidence,
+    score_local_novelty,
+    score_nearby_verified_record_context,
+    score_pathway_risk,
+    score_sampling_gap_value,
+    score_temporal_cluster,
+    score_uncertainty_penalty,
+)
 from app.services.scoring_model import (
     MODEL_VERSION,
     calculate_signal_priority,
@@ -49,7 +61,7 @@ class SignalScoreService:
         identifications = await self.identifications.list_for_observation(observation_id)
         latest_identification = identifications[0] if identifications else None
         context = await self.environmental_context.get(observation_id)
-        score_data = self._compute_score(observation, latest_identification, context is not None)
+        score_data = self._compute_score(observation, latest_identification, context)
         score = await self.repository.upsert(observation_id, score_data)
         await self.session.commit()
         return score
@@ -68,82 +80,55 @@ class SignalScoreService:
         self,
         observation: Observation,
         identification: AIIdentification | None,
-        has_environmental_context: bool,
+        context: EnvironmentalContext | None,
     ) -> SignalScoreCreate:
-        reasons: list[dict[str, str]] = []
         insufficient_evidence = identification is None
-
-        if identification is None:
-            identity_confidence = Decimal("0")
-            uncertainty_penalty = Decimal("35")
-            reasons.append(
-                {
-                    "code": "missing_identification",
-                    "summary": "No AI-assisted candidate identification is available yet.",
-                }
-            )
-        else:
-            identity_confidence = (identification.confidence * Decimal("100")).quantize(
-                Decimal("0.01")
-            )
-            uncertainty_penalty = (
-                max(Decimal("0"), Decimal("100") - identity_confidence) * Decimal("0.25")
-            )
-            reasons.append(
-                {
-                    "code": "identity_confidence",
-                    "summary": f"Candidate confidence is {identification.confidence_label}.",
-                }
-            )
-
-        habitat_match = Decimal("60") if has_environmental_context else Decimal("25")
-        if has_environmental_context:
-            reasons.append(
-                {
-                    "code": "environmental_context_available",
-                    "summary": "Environmental context is available for scoring.",
-                }
-            )
-        else:
-            reasons.append(
-                {
-                    "code": "missing_environmental_context",
-                    "summary": "Environmental context is not available yet.",
-                }
-            )
-
-        local_novelty = Decimal("40")
-        pathway_risk = Decimal("45") if observation.region_code else Decimal("25")
-        nearby_verified_record_context = Decimal("0")
-        ecological_sensitivity = Decimal("30")
-        sampling_gap_value = Decimal("35")
-        temporal_cluster_score = Decimal("0")
+        identity = score_identity_confidence(identification)
+        local_novelty = score_local_novelty(None)
+        habitat_match = score_habitat_match(observation, context)
+        pathway_risk = score_pathway_risk(context)
+        nearby_verified_record_context = score_nearby_verified_record_context(None)
+        ecological_sensitivity = score_ecological_sensitivity(context)
+        sampling_gap_value = score_sampling_gap_value(None)
+        temporal_cluster = score_temporal_cluster(None)
+        uncertainty_penalty = score_uncertainty_penalty(observation, identification, context)
+        reasons = [
+            *identity.reasons,
+            *local_novelty.reasons,
+            *habitat_match.reasons,
+            *pathway_risk.reasons,
+            *nearby_verified_record_context.reasons,
+            *ecological_sensitivity.reasons,
+            *sampling_gap_value.reasons,
+            *temporal_cluster.reasons,
+            *uncertainty_penalty.reasons,
+        ]
 
         scoring_result = calculate_signal_priority(
             {
-                "identity_confidence": identity_confidence,
-                "local_novelty": local_novelty,
-                "habitat_match": habitat_match,
-                "pathway_risk": pathway_risk,
-                "nearby_verified_record_context": nearby_verified_record_context,
-                "ecological_sensitivity": ecological_sensitivity,
-                "sampling_gap_value": sampling_gap_value,
-                "temporal_cluster_score": temporal_cluster_score,
+                "identity_confidence": identity.score,
+                "local_novelty": local_novelty.score,
+                "habitat_match": habitat_match.score,
+                "pathway_risk": pathway_risk.score,
+                "nearby_verified_record_context": nearby_verified_record_context.score,
+                "ecological_sensitivity": ecological_sensitivity.score,
+                "sampling_gap_value": sampling_gap_value.score,
+                "temporal_cluster_score": temporal_cluster.score,
             },
-            uncertainty_penalty=uncertainty_penalty,
+            uncertainty_penalty=uncertainty_penalty.score,
             insufficient_evidence=insufficient_evidence,
         )
 
         return SignalScoreCreate(
-            identity_confidence=identity_confidence,
-            local_novelty=local_novelty,
-            habitat_match=habitat_match,
-            pathway_risk=pathway_risk,
-            nearby_verified_record_context=nearby_verified_record_context,
-            ecological_sensitivity=ecological_sensitivity,
-            sampling_gap_value=sampling_gap_value,
-            temporal_cluster_score=temporal_cluster_score,
-            uncertainty_penalty=uncertainty_penalty.quantize(Decimal("0.01")),
+            identity_confidence=identity.score,
+            local_novelty=local_novelty.score,
+            habitat_match=habitat_match.score,
+            pathway_risk=pathway_risk.score,
+            nearby_verified_record_context=nearby_verified_record_context.score,
+            ecological_sensitivity=ecological_sensitivity.score,
+            sampling_gap_value=sampling_gap_value.score,
+            temporal_cluster_score=temporal_cluster.score,
+            uncertainty_penalty=uncertainty_penalty.score,
             final_signal_priority=scoring_result.final_signal_priority,
             label=scoring_result.label,
             reasons=reasons,

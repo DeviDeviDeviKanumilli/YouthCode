@@ -152,4 +152,5 @@ M1.4 migration foundation:
 - M5.4 Nearby records summary is implemented and locally verified with `make check` passing 112 tests.
 - M5 is complete against the current local verification gates.
 - M6.1 Scoring model definition is implemented and locally verified with `make check` passing 119 tests.
-- Next step: begin M6.2 Component scoring.
+- M6.2 Component scoring is implemented and locally verified with `make check` passing 129 tests.
+- Next step: begin M6.3 Recompute score endpoint integration.

@@ -43,6 +43,17 @@ class EnvironmentalContextService:
         result = await self.enrichment.enrich_observation(observation_id)
         return await self.upsert_context(observation_id, result.to_context_create())
 
+    async def enrich_context(
+        self,
+        observation_id: uuid.UUID,
+        provider_name: str = "static",
+    ) -> EnvironmentalContext:
+        result = await self.enrichment.enrich_observation(
+            observation_id,
+            provider_name=provider_name,
+        )
+        return await self.upsert_context(observation_id, result.to_context_create())
+
     async def _require_observation(self, observation_id: uuid.UUID) -> Observation:
         observation = await self.observations.get(observation_id)
         if observation is None:

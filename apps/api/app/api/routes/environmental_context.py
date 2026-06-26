@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
@@ -35,6 +35,21 @@ async def upsert_environmental_context(
     session: SessionDep,
 ) -> EnvironmentalContext:
     return await EnvironmentalContextService(session).upsert_context(observation_id, payload)
+
+
+@router.post(
+    "/observations/{observation_id}/enrich",
+    response_model=EnvironmentalContextRead,
+)
+async def enrich_observation(
+    observation_id: uuid.UUID,
+    session: SessionDep,
+    provider_name: Annotated[str, Query(min_length=1, max_length=120)] = "static",
+) -> EnvironmentalContext:
+    return await EnvironmentalContextService(session).enrich_context(
+        observation_id,
+        provider_name=provider_name,
+    )
 
 
 @router.post(

@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator, Generator
+from decimal import Decimal
 from typing import Any, cast
 
 import pytest
@@ -10,7 +11,15 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_async_session
 from app.main import create_app
-from app.models import EnvironmentalContext, Observation, User
+from app.models import (
+    EnvironmentalContext,
+    Observation,
+    RoadTrailType,
+    StaticPark,
+    StaticRoadTrail,
+    StaticWaterway,
+    User,
+)
 
 
 @pytest.fixture
@@ -28,6 +37,9 @@ def environmental_context_client() -> Generator[TestClient, None, None]:
     tables = [
         cast(Table, User.__table__),
         cast(Table, Observation.__table__),
+        cast(Table, StaticWaterway.__table__),
+        cast(Table, StaticRoadTrail.__table__),
+        cast(Table, StaticPark.__table__),
         cast(Table, EnvironmentalContext.__table__),
     ]
 
@@ -38,6 +50,47 @@ def environmental_context_client() -> Generator[TestClient, None, None]:
     async def create_tables() -> None:
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all, tables=tables)
+        async with session_factory() as session:
+            session.add_all(
+                [
+                    StaticWaterway(
+                        name="Demo Creek",
+                        geom="MULTILINESTRING((-74.006 40.713,-74.005 40.714))",
+                        representative_latitude=Decimal("40.713000"),
+                        representative_longitude=Decimal("-74.006000"),
+                        source="demo_static_waterways",
+                    ),
+                    StaticRoadTrail(
+                        name="Demo Road",
+                        type=RoadTrailType.road,
+                        geom="MULTILINESTRING((-74.006 40.713,-74.010 40.713))",
+                        representative_latitude=Decimal("40.713000"),
+                        representative_longitude=Decimal("-74.007000"),
+                        source="demo_static_roads",
+                    ),
+                    StaticRoadTrail(
+                        name="Demo Trail",
+                        type=RoadTrailType.trail,
+                        geom="MULTILINESTRING((-74.004 40.713,-74.004 40.714))",
+                        representative_latitude=Decimal("40.713000"),
+                        representative_longitude=Decimal("-74.004000"),
+                        source="demo_static_trails",
+                    ),
+                    StaticPark(
+                        name="Demo Park",
+                        geom=(
+                            "MULTIPOLYGON((("
+                            "-74.006 40.713,-74.005 40.713,"
+                            "-74.005 40.714,-74.006 40.713"
+                            ")))"
+                        ),
+                        representative_latitude=Decimal("40.714000"),
+                        representative_longitude=Decimal("-74.005000"),
+                        source="demo_static_parks",
+                    ),
+                ]
+            )
+            await session.commit()
 
     async def drop_tables() -> None:
         async with engine.begin() as connection:
@@ -125,6 +178,40 @@ def test_recompute_placeholder_context(environmental_context_client: TestClient)
     assert "distance_to_water_m" in body["data_sources"]["fields"]
 
 
+def test_enrich_observation_creates_static_context(
+    environmental_context_client: TestClient,
+) -> None:
+    observation_id = create_observation(environmental_context_client)
+
+    response = environmental_context_client.post(f"/observations/{observation_id}/enrich")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["observation_id"] == observation_id
+    assert body["enrichment_version"] == "static-demo-0.1.0"
+    assert Decimal(body["distance_to_water_m"]) < Decimal("30")
+    assert body["data_sources"]["provider"] == "static_geo_data"
+    assert body["data_sources"]["fields"]["distance_to_water_m"] == "demo_static_waterways"
+    assert body["data_sources"]["static_layers"]["distance_to_park_m"]["name"] == "Demo Park"
+
+
+def test_enrich_observation_updates_existing_context(
+    environmental_context_client: TestClient,
+) -> None:
+    observation_id = create_observation(environmental_context_client)
+    environmental_context_client.post(
+        f"/observations/{observation_id}/environmental-context",
+        json={"land_cover_class": "forest", "enrichment_version": "manual-v1"},
+    )
+
+    response = environmental_context_client.post(f"/observations/{observation_id}/enrich")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["land_cover_class"] == "developed_open_space"
+    assert body["enrichment_version"] == "static-demo-0.1.0"
+
+
 def test_upsert_environmental_context(environmental_context_client: TestClient) -> None:
     observation_id = create_observation(environmental_context_client)
     url = f"/observations/{observation_id}/environmental-context"
@@ -146,6 +233,15 @@ def test_upsert_environmental_context(environmental_context_client: TestClient) 
 def test_missing_observation_rejected(environmental_context_client: TestClient) -> None:
     response = environmental_context_client.post(
         "/observations/11111111-1111-1111-1111-111111111111/environmental-context/recompute"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "observation_not_found"
+
+
+def test_enrich_missing_observation_rejected(environmental_context_client: TestClient) -> None:
+    response = environmental_context_client.post(
+        "/observations/11111111-1111-1111-1111-111111111111/enrich"
     )
 
     assert response.status_code == 404

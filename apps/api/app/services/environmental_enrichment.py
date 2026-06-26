@@ -9,6 +9,7 @@ from app.core.errors import AppError
 from app.models.observation import Observation
 from app.repositories.observations import ObservationRepository
 from app.schemas.environmental_enrichment import EnvironmentalContextResult
+from app.services.static_geo_layers import StaticGeoLayerService
 
 ENRICHED_FIELDS = (
     "land_cover_class",
@@ -148,6 +149,7 @@ def get_enrichment_provider(provider_name: str = "mock") -> EnvironmentalEnrichm
 class EnvironmentalEnrichmentService:
     def __init__(self, session: AsyncSession) -> None:
         self.observations = ObservationRepository(session)
+        self.static_layers = StaticGeoLayerService(session)
 
     async def enrich_observation(
         self,
@@ -169,4 +171,55 @@ class EnvironmentalEnrichmentService:
                 message=str(exc),
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             ) from exc
-        return await provider.enrich_observation(observation)
+        result = await provider.enrich_observation(observation)
+        if provider_name == "static":
+            return await self._with_static_distances(observation, result)
+        return result
+
+    async def _with_static_distances(
+        self,
+        observation: Observation,
+        result: EnvironmentalContextResult,
+    ) -> EnvironmentalContextResult:
+        water = await self.static_layers.distance_to_nearest_waterway(
+            observation.latitude,
+            observation.longitude,
+        )
+        road = await self.static_layers.distance_to_nearest_road(
+            observation.latitude,
+            observation.longitude,
+        )
+        trail = await self.static_layers.distance_to_nearest_trail(
+            observation.latitude,
+            observation.longitude,
+        )
+        park = await self.static_layers.distance_to_nearest_park(
+            observation.latitude,
+            observation.longitude,
+        )
+        field_sources = dict(result.data_sources.get("fields", {}))
+        layer_sources: dict[str, object] = {}
+        updates: dict[str, object] = {}
+        for field_name, layer in {
+            "distance_to_water_m": water,
+            "distance_to_road_m": road,
+            "distance_to_trail_m": trail,
+            "distance_to_park_m": park,
+        }.items():
+            if layer is None:
+                continue
+            updates[field_name] = layer.distance_m
+            field_sources[field_name] = layer.source
+            layer_sources[field_name] = layer.model_dump(mode="json")
+
+        data_sources = {
+            **result.data_sources,
+            "fields": field_sources,
+            "static_layers": layer_sources,
+        }
+        return result.model_copy(
+            update={
+                **updates,
+                "data_sources": data_sources,
+            }
+        )

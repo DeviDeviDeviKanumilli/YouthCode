@@ -70,8 +70,8 @@ Consumer app:
 - `POST /observations/{observation_id}/media`
 - `GET /observations/{observation_id}/media`
 - `POST /observations/{observation_id}/identify`
-- `GET /observations/{observation_id}/card`
-- `GET /users/{user_id}/sightings`
+- `GET /observations/{observation_id}/intelligence-card`
+- `GET /users/{user_id}/observations`
 - `GET /regions/nearby`
 - `GET /assistant/context/observation/{observation_id}`
 - `GET /assistant/context/region`
@@ -83,12 +83,12 @@ Species, enrichment, and scoring:
 - `GET /species/search`
 - `GET /species/{species_id}`
 - `PATCH /species/{species_id}`
-- `POST /environmental-context/{observation_id}/enrich`
-- `GET /environmental-context/{observation_id}`
-- `GET /nearby-records/{observation_id}`
-- `POST /signal-scores/{observation_id}/recompute`
-- `GET /signal-scores/{observation_id}`
-- `GET /signal-scores/{observation_id}/explanation`
+- `POST /observations/{observation_id}/environmental-context/recompute`
+- `GET /observations/{observation_id}/environmental-context`
+- `GET /observations/{observation_id}/nearby-records`
+- `POST /observations/{observation_id}/signal-score/recompute`
+- `GET /observations/{observation_id}/signal-score`
+- `GET /observations/{observation_id}/signal-score/explanation`
 - `GET /observations/{observation_id}/pipeline-status`
 
 Maps and sampling gaps:
@@ -101,11 +101,11 @@ Research dashboard:
 
 - `GET /research/observations`
 - `GET /research/verification-queue`
-- `POST /research/verification/{observation_id}/actions`
-- `GET /research/verification/{observation_id}/events`
+- `POST /verification/{observation_id}`
+- `GET /verification/{observation_id}/history`
 - `POST /research/exports`
 - `GET /research/exports`
-- `GET /exports/{export_id}`
+- `GET /research/exports/{export_id}`
 - `GET /assistant/context/research`
 
 Demo:

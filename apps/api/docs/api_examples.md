@@ -109,7 +109,7 @@ Useful filters:
 ## Verification Action
 
 ```bash
-curl -sS -X POST http://127.0.0.1:8000/research/verification/{observation_id}/actions \
+curl -sS -X POST http://127.0.0.1:8000/verification/{observation_id} \
   -H "Content-Type: application/json" \
   -d '{
     "requester_id": "{reviewer_id}",

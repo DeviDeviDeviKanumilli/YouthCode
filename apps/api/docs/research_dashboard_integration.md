@@ -123,7 +123,7 @@ Prioritize rows with:
 Use:
 
 ```text
-POST /research/verification/{observation_id}/actions
+POST /verification/{observation_id}
 ```
 
 Common statuses:
@@ -135,7 +135,7 @@ Common statuses:
 
 After an action, refresh:
 
-- `GET /research/verification/{observation_id}/events`
+- `GET /verification/{observation_id}/history`
 - `GET /research/observations`
 - `GET /forecast/research`
 
@@ -156,7 +156,7 @@ GET /research/exports?requester_id={researcher_id}
 Fetch one export record:
 
 ```text
-GET /exports/{export_id}
+GET /research/exports/{export_id}
 ```
 
 Supported formats:

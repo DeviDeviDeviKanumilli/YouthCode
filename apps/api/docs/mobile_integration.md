@@ -18,7 +18,7 @@ when possible.
 2. Send `POST /observations`.
 3. Upload or register image metadata with `POST /observations/{observation_id}/media`.
 4. Trigger identification with `POST /observations/{observation_id}/identify`.
-5. Show `GET /observations/{observation_id}/card` as the user-facing summary.
+5. Show `GET /observations/{observation_id}/intelligence-card` as the user-facing summary.
 
 Recommended privacy defaults:
 
@@ -60,7 +60,7 @@ recent map points, and uncertainty copy.
 Use:
 
 ```text
-GET /users/{user_id}/sightings
+GET /users/{user_id}/observations
 ```
 
 List items include summary fields for candidate species, signal labels, verification status,

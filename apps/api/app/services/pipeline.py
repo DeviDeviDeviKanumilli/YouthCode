@@ -10,6 +10,7 @@ from app.jobs.queue import InMemoryJobBackend, JobQueue, JobStatus
 from app.models.pipeline import ObservationPipelineRun, PipelineRunStatus
 from app.repositories.observations import ObservationRepository
 from app.repositories.pipeline import PipelineRunRepository
+from app.schemas.pipeline import PipelineStatusResponse
 
 PIPELINE_STEPS = [
     "identify_observation",
@@ -77,3 +78,45 @@ class ObservationPipelineService:
         await self.repository.save(run)
         await self.session.commit()
         return run
+
+    async def pipeline_status(self, observation_id: uuid.UUID) -> PipelineStatusResponse:
+        observation = await self.observations.get(observation_id)
+        if observation is None:
+            raise AppError(
+                code="observation_not_found",
+                message="Observation was not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        run = await self.repository.latest_for_observation(observation_id)
+        if run is None:
+            return PipelineStatusResponse(
+                observation_id=observation_id,
+                current_status=PipelineRunStatus.pending,
+                completed_steps=[],
+                failed_steps=[],
+                next_available_user_action="attach_media_or_wait_for_processing",
+            )
+        completed_steps = [
+            step["name"] for step in run.steps if step.get("status") == "complete"
+        ]
+        failed_steps = [
+            {"name": step["name"], "error": step.get("error")}
+            for step in run.steps
+            if step.get("status") == "failed"
+        ]
+        return PipelineStatusResponse(
+            observation_id=observation_id,
+            current_status=run.status,
+            completed_steps=completed_steps,
+            failed_steps=failed_steps,
+            next_available_user_action=self._next_action(run.status),
+        )
+
+    def _next_action(self, status: PipelineRunStatus) -> str:
+        if status == PipelineRunStatus.complete:
+            return "review_results"
+        if status == PipelineRunStatus.failed:
+            return "review_error_and_retry_or_add_evidence"
+        if status == PipelineRunStatus.running:
+            return "wait_for_processing"
+        return "attach_media_or_wait_for_processing"

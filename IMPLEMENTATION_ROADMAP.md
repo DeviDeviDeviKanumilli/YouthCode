@@ -187,4 +187,6 @@ M1.4 migration foundation:
 - M12 is complete against the current local verification gates.
 - M13.1 Job queue setup is implemented and locally verified with `make check` passing 216 tests.
 - M13.2 Observation pipeline orchestrator is implemented and locally verified with `make check` passing 219 tests. Alembic head is `0016`.
-- Next step: begin M13.3 Pipeline status endpoint.
+- M13.3 Pipeline status endpoint is implemented and locally verified with `make check` passing 222 tests.
+- M13 is complete against the current local verification gates.
+- Next step: begin M14.1 Seed demo region.

@@ -15,7 +15,9 @@ from app.schemas.observations import (
     ObservationRead,
     ObservationUpdate,
 )
+from app.schemas.pipeline import PipelineStatusResponse
 from app.services.observations import ObservationService
+from app.services.pipeline import ObservationPipelineService
 
 router = APIRouter(prefix="/observations", tags=["observations"])
 SessionDep = Annotated[AsyncSession, Depends(get_async_session)]
@@ -92,6 +94,14 @@ async def get_observation(
     session: SessionDep,
 ) -> Observation:
     return await ObservationService(session).get_observation(observation_id)
+
+
+@router.get("/{observation_id}/pipeline-status", response_model=PipelineStatusResponse)
+async def get_pipeline_status(
+    observation_id: uuid.UUID,
+    session: SessionDep,
+) -> PipelineStatusResponse:
+    return await ObservationPipelineService(session).pipeline_status(observation_id)
 
 
 @router.patch("/{observation_id}", response_model=ObservationRead)

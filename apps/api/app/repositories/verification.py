@@ -26,6 +26,14 @@ class VerificationRepository:
             await self.session.refresh(verification)
         return verification
 
+    async def mark_ai_suggested(self, observation_id: uuid.UUID) -> Verification:
+        verification = await self.ensure_raw(observation_id)
+        if verification.status == VerificationStatus.raw:
+            verification.status = VerificationStatus.ai_suggested
+            await self.session.flush()
+            await self.session.refresh(verification)
+        return verification
+
     async def set_status(
         self,
         observation_id: uuid.UUID,

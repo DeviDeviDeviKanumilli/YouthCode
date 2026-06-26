@@ -10,6 +10,7 @@ from app.repositories.identifications import IdentificationRepository
 from app.repositories.media import MediaRepository
 from app.repositories.observations import ObservationRepository
 from app.repositories.species import SpeciesRepository
+from app.repositories.verification import VerificationRepository
 from app.schemas.identifications import AIIdentificationCreate, AIIdentificationRunCreate
 from app.services.identification_providers import (
     IdentificationProviderUnavailableError,
@@ -33,6 +34,7 @@ class IdentificationService:
         self.media = MediaRepository(session)
         self.observations = ObservationRepository(session)
         self.species = SpeciesRepository(session)
+        self.verification = VerificationRepository(session)
         self.session = session
 
     async def create_identification(
@@ -98,7 +100,13 @@ class IdentificationService:
                 message=str(exc),
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             ) from exc
-        return await self.create_identification(observation_id, result.to_identification_create())
+        identification = await self.create_identification(
+            observation_id,
+            result.to_identification_create(),
+        )
+        await self.verification.mark_ai_suggested(observation_id)
+        await self.session.commit()
+        return identification
 
     async def list_observation_identifications(
         self,

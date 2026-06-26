@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_async_session
 from app.main import create_app
-from app.models import AIIdentification, Media, Observation, Species, User
+from app.models import AIIdentification, Media, Observation, Species, User, Verification
 
 
 @pytest.fixture
@@ -31,6 +31,7 @@ def identifications_client() -> Generator[TestClient, None, None]:
         cast(Table, Observation.__table__),
         cast(Table, Media.__table__),
         cast(Table, AIIdentification.__table__),
+        cast(Table, Verification.__table__),
     ]
 
     async def override_session() -> AsyncGenerator[AsyncSession, None]:
@@ -214,6 +215,11 @@ def test_identify_observation_media_with_mock_provider(
     assert body["model_name"] == "mock-vision"
     assert body["needs_verification"] is True
     assert body["raw_model_output"]["media_id"] == media["id"]
+    verification_response = identifications_client.get(
+        f"/observations/{observation_id}/verification"
+    )
+    assert verification_response.status_code == 200
+    assert verification_response.json()["status"] == "ai_suggested"
 
 
 def test_identify_rejects_missing_media(identifications_client: TestClient) -> None:

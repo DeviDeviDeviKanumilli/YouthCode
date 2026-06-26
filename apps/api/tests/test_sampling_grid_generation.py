@@ -143,6 +143,7 @@ def test_simple_labels_are_deterministic(sampling_grid_session: AsyncSession) ->
         service.assign_simple_label(
             observation_count=5,
             verified_count=2,
+            source_count=2,
             distance_to_road_m=None,
             distance_to_trail_m=None,
             distance_to_park_m=None,
@@ -156,6 +157,7 @@ def test_simple_labels_are_deterministic(sampling_grid_session: AsyncSession) ->
             distance_to_road_m=Decimal("50"),
             distance_to_trail_m=None,
             distance_to_park_m=None,
+            road_trail_observation_ratio=Decimal("1"),
         )
         == SamplingLabel.road_trail_biased
     )

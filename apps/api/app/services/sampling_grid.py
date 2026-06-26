@@ -82,9 +82,17 @@ class SamplingGridGenerationService:
                 label = self.assign_simple_label(
                     observation_count=len(cell_observations),
                     verified_count=verified_count,
+                    source_count=len({observation.source for observation in cell_observations}),
+                    recent_observation_count=recent_count,
                     distance_to_road_m=road.distance_m if road else None,
                     distance_to_trail_m=trail.distance_m if trail else None,
                     distance_to_park_m=park.distance_m if park else None,
+                    road_trail_observation_ratio=(
+                        Decimal("1") if cell_observations and (road or trail) else Decimal("0")
+                    ),
+                    park_observation_ratio=(
+                        Decimal("1") if cell_observations and park else Decimal("0")
+                    ),
                 )
                 cells.append(
                     SamplingGridCell(
@@ -119,25 +127,59 @@ class SamplingGridGenerationService:
         *,
         observation_count: int,
         verified_count: int,
+        source_count: int = 1,
+        recent_observation_count: int = 0,
+        distance_to_road_m: Decimal | None = None,
+        distance_to_trail_m: Decimal | None = None,
+        distance_to_park_m: Decimal | None = None,
+        road_trail_observation_ratio: Decimal = Decimal("0"),
+        park_observation_ratio: Decimal = Decimal("0"),
+    ) -> SamplingLabel:
+        return self.assign_sampling_label(
+            observation_count=observation_count,
+            verified_count=verified_count,
+            source_count=source_count,
+            recent_observation_count=recent_observation_count,
+            distance_to_road_m=distance_to_road_m,
+            distance_to_trail_m=distance_to_trail_m,
+            distance_to_park_m=distance_to_park_m,
+            road_trail_observation_ratio=road_trail_observation_ratio,
+            park_observation_ratio=park_observation_ratio,
+        )
+
+    def assign_sampling_label(
+        self,
+        *,
+        observation_count: int,
+        verified_count: int,
+        source_count: int,
+        recent_observation_count: int,
         distance_to_road_m: Decimal | None,
         distance_to_trail_m: Decimal | None,
         distance_to_park_m: Decimal | None,
+        road_trail_observation_ratio: Decimal,
+        park_observation_ratio: Decimal,
     ) -> SamplingLabel:
         near_road_or_trail = any(
             distance is not None and distance <= Decimal("150")
             for distance in [distance_to_road_m, distance_to_trail_m]
         )
         near_park = distance_to_park_m is not None and distance_to_park_m <= Decimal("150")
-        if observation_count >= 5 and verified_count >= 2:
-            return SamplingLabel.well_sampled
-        if observation_count >= 2:
-            if near_road_or_trail:
-                return SamplingLabel.road_trail_biased
-            if near_park:
-                return SamplingLabel.park_biased
-            return SamplingLabel.moderately_sampled
-        if observation_count == 0 and (near_road_or_trail or near_park):
+        high_risk_context = near_road_or_trail or near_park
+        if observation_count == 0 and high_risk_context:
             return SamplingLabel.likely_false_absence
+        if observation_count >= 2 and road_trail_observation_ratio >= Decimal("0.70"):
+            return SamplingLabel.road_trail_biased
+        if observation_count >= 2 and park_observation_ratio >= Decimal("0.70"):
+            return SamplingLabel.park_biased
+        if observation_count <= 1 and near_park:
+            return SamplingLabel.needs_structured_survey
+        if observation_count <= 1 and near_road_or_trail:
+            return SamplingLabel.high_risk_under_sampled
+        if observation_count >= 5 and verified_count >= 2 and source_count >= 2:
+            return SamplingLabel.well_sampled
+        if observation_count >= 2 or recent_observation_count >= 2:
+            return SamplingLabel.moderately_sampled
         return SamplingLabel.under_sampled
 
     async def _verified_count(self, observations: list[Observation]) -> int:

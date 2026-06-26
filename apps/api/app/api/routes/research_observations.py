@@ -5,10 +5,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette import status
 
+from app.api.deps import get_current_user_optional
+from app.core.errors import AppError
 from app.db.session import get_async_session
 from app.models.sampling_grid import SamplingLabel
 from app.models.signal_score import SignalScoreLabel
+from app.models.user import User
 from app.models.verification import VerificationStatus
 from app.schemas.research_observations import ResearchObservationPage
 from app.services.research_observations import ResearchObservationSearchService, ResearchSort
@@ -20,7 +24,8 @@ SessionDep = Annotated[AsyncSession, Depends(get_async_session)]
 @router.get("/observations", response_model=ResearchObservationPage)
 async def search_research_observations(
     session: SessionDep,
-    requester_id: uuid.UUID,
+    current_user: Annotated[User | None, Depends(get_current_user_optional)],
+    requester_id: uuid.UUID | None = None,
     species_id: uuid.UUID | None = None,
     candidate_name: Annotated[str | None, Query(max_length=255)] = None,
     verification_status: VerificationStatus | None = None,
@@ -38,8 +43,15 @@ async def search_research_observations(
     offset: Annotated[int, Query(ge=0)] = 0,
     sort: ResearchSort = "submitted_at_desc",
 ) -> ResearchObservationPage:
+    resolved_requester_id = current_user.id if current_user else requester_id
+    if resolved_requester_id is None:
+        raise AppError(
+            code="auth_required",
+            message="Provide a bearer token or requester_id.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+        )
     return await ResearchObservationSearchService(session).search(
-        requester_id=requester_id,
+        requester_id=resolved_requester_id,
         species_id=species_id,
         candidate_name=candidate_name,
         verification_status=verification_status,

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes.assistant_context import router as assistant_context_router
+from app.api.routes.auth import router as auth_router
 from app.api.routes.environmental_context import router as environmental_context_router
 from app.api.routes.exports import router as exports_router
 from app.api.routes.exports import single_export_router
@@ -25,6 +26,7 @@ settings = get_settings()
 
 api_router = APIRouter()
 api_router.include_router(assistant_context_router)
+api_router.include_router(auth_router)
 api_router.include_router(environmental_context_router)
 api_router.include_router(exports_router)
 api_router.include_router(single_export_router)

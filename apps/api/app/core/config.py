@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     database_health_enabled: bool = True
     redis_health_enabled: bool = True
+    auth_token_secret: str = "dev-only-change-me"
+    auth_token_issuer: str = "ecosentinel-api"
 
     storage_backend: Literal["local", "s3"] = "local"
     local_storage_dir: str = ".local/storage"

@@ -137,6 +137,39 @@ def test_reject_unsupported_file_type(media_client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def test_reject_mismatched_mime_type(media_client: TestClient) -> None:
+    observation_id = create_observation(media_client)
+
+    response = media_client.post(
+        f"/observations/{observation_id}/media",
+        json={
+            "file_type": "image",
+            "mime_type": "application/pdf",
+            "storage_key": "bad.pdf",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "unsupported_media_type"
+
+
+def test_reject_oversized_media(media_client: TestClient) -> None:
+    observation_id = create_observation(media_client)
+
+    response = media_client.post(
+        f"/observations/{observation_id}/media",
+        json={
+            "file_type": "image",
+            "mime_type": "image/jpeg",
+            "storage_key": "large.jpg",
+            "size_bytes": 26214401,
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "media_too_large"
+
+
 def test_missing_observation_rejected(media_client: TestClient) -> None:
     response = media_client.post(
         "/observations/11111111-1111-1111-1111-111111111111/media",

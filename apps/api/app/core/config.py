@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     redis_health_enabled: bool = True
     auth_token_secret: str = "dev-only-change-me"
     auth_token_issuer: str = "ecosentinel-api"
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 60
+    rate_limit_window_seconds: int = 60
+    media_max_file_size_bytes: int = 25 * 1024 * 1024
 
     storage_backend: Literal["local", "s3"] = "local"
     local_storage_dir: str = ".local/storage"

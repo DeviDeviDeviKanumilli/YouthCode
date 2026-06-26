@@ -4,6 +4,7 @@ from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging
+from app.core.rate_limit import RateLimitMiddleware
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -20,6 +21,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = app_settings
 
     register_exception_handlers(app)
+    app.add_middleware(RateLimitMiddleware, settings=app_settings)
     app.include_router(api_router)
     return app
 

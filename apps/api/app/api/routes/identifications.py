@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
 from app.models.identification import AIIdentification
-from app.schemas.identifications import AIIdentificationCreate, AIIdentificationRead
+from app.schemas.identifications import (
+    AIIdentificationCreate,
+    AIIdentificationRead,
+    AIIdentificationRunCreate,
+)
 from app.services.identifications import IdentificationService
 
 router = APIRouter(tags=["identifications"])
@@ -24,6 +28,19 @@ async def create_observation_identification(
     session: SessionDep,
 ) -> AIIdentification:
     return await IdentificationService(session).create_identification(observation_id, payload)
+
+
+@router.post(
+    "/observations/{observation_id}/identify",
+    response_model=AIIdentificationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def identify_observation_media(
+    observation_id: uuid.UUID,
+    payload: AIIdentificationRunCreate,
+    session: SessionDep,
+) -> AIIdentification:
+    return await IdentificationService(session).identify_from_media(observation_id, payload)
 
 
 @router.get(

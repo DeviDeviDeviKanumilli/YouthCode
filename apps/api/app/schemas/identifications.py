@@ -23,6 +23,13 @@ class AIIdentificationCreate(BaseModel):
     needs_verification: bool = True
 
 
+class AIIdentificationRunCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    media_id: uuid.UUID
+    provider_name: str = Field(default="mock", min_length=1, max_length=120)
+
+
 class AIIdentificationRead(BaseModel):
     model_config = ConfigDict(from_attributes=True, extra="forbid")
 

@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_async_session
 from app.main import create_app
-from app.models import AIIdentification, Observation, Species, User
+from app.models import AIIdentification, Media, Observation, Species, User
 
 
 @pytest.fixture
@@ -29,6 +29,7 @@ def identifications_client() -> Generator[TestClient, None, None]:
         cast(Table, User.__table__),
         cast(Table, Species.__table__),
         cast(Table, Observation.__table__),
+        cast(Table, Media.__table__),
         cast(Table, AIIdentification.__table__),
     ]
 
@@ -82,6 +83,21 @@ def create_species(client: TestClient) -> str:
     )
     assert response.status_code == 201
     return str(response.json()["id"])
+
+
+def create_media(client: TestClient, observation_id: str) -> dict[str, Any]:
+    response = client.post(
+        f"/observations/{observation_id}/media",
+        json={
+            "file_type": "image",
+            "mime_type": "image/jpeg",
+            "storage_key": f"observations/{observation_id}/photo.jpg",
+            "quality_score": "88.0",
+            "metadata_removed": True,
+        },
+    )
+    assert response.status_code == 201
+    return cast(dict[str, Any], response.json())
 
 
 def test_add_candidate_identification(identifications_client: TestClient) -> None:
@@ -179,3 +195,63 @@ def test_missing_candidate_species_rejected(identifications_client: TestClient) 
 
     assert response.status_code == 404
     assert response.json()["code"] == "species_not_found"
+
+
+def test_identify_observation_media_with_mock_provider(
+    identifications_client: TestClient,
+) -> None:
+    observation_id = create_observation(identifications_client)
+    media = create_media(identifications_client, observation_id)
+
+    response = identifications_client.post(
+        f"/observations/{observation_id}/identify",
+        json={"media_id": media["id"]},
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["observation_id"] == observation_id
+    assert body["model_name"] == "mock-vision"
+    assert body["needs_verification"] is True
+    assert body["raw_model_output"]["media_id"] == media["id"]
+
+
+def test_identify_rejects_missing_media(identifications_client: TestClient) -> None:
+    observation_id = create_observation(identifications_client)
+
+    response = identifications_client.post(
+        f"/observations/{observation_id}/identify",
+        json={"media_id": "11111111-1111-1111-1111-111111111111"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "media_not_found"
+
+
+def test_identify_rejects_media_from_another_observation(
+    identifications_client: TestClient,
+) -> None:
+    observation_id = create_observation(identifications_client)
+    other_observation_id = create_observation(identifications_client)
+    other_media = create_media(identifications_client, other_observation_id)
+
+    response = identifications_client.post(
+        f"/observations/{observation_id}/identify",
+        json={"media_id": other_media["id"]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "media_observation_mismatch"
+
+
+def test_identify_reports_unavailable_provider(identifications_client: TestClient) -> None:
+    observation_id = create_observation(identifications_client)
+    media = create_media(identifications_client, observation_id)
+
+    response = identifications_client.post(
+        f"/observations/{observation_id}/identify",
+        json={"media_id": media["id"], "provider_name": "external-placeholder"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "identification_provider_unavailable"

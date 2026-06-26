@@ -136,4 +136,6 @@ M1.4 migration foundation:
 - M2.8 verification table is implemented, locally verified, committed, and pushed.
 - M2.9 export tracking table is implemented, locally verified, committed, and pushed.
 - M2 is complete against the current local verification gates: `make check` passes with 64 tests and Alembic head is `0010`.
-- Next step: begin M3.2 habitat answer validation. M3.1 is already covered by the observation and media APIs from M2.3 and M2.4.
+- M3.1 consumer observation/media flow is covered by the observation and media APIs from M2.3 and M2.4.
+- M3.2 adaptive habitat answer validation is implemented, locally verified, and ready to push.
+- Next step: begin M3.3 Sighting Intelligence Card API.

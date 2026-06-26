@@ -3,9 +3,10 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.observation import ObservationSource, PrivacyLevel
+from app.schemas.habitat import validate_habitat_answers
 
 
 class ObservationCreate(BaseModel):
@@ -23,6 +24,12 @@ class ObservationCreate(BaseModel):
     survey_session_id: uuid.UUID | None = None
     privacy_level: PrivacyLevel = PrivacyLevel.public
 
+    @field_validator("habitat_answers")
+    @classmethod
+    def validate_adaptive_habitat_answers(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return validate_habitat_answers(value)
+
+
 class ObservationUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -34,6 +41,16 @@ class ObservationUpdate(BaseModel):
     raw_note: str | None = None
     habitat_answers: dict[str, Any] | None = None
     privacy_level: PrivacyLevel | None = None
+
+    @field_validator("habitat_answers")
+    @classmethod
+    def validate_updated_habitat_answers(
+        cls,
+        value: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        return validate_habitat_answers(value)
 
 
 class ObservationRead(BaseModel):

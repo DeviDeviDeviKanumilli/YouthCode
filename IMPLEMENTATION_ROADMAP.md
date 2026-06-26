@@ -190,4 +190,5 @@ M1.4 migration foundation:
 - M13.3 Pipeline status endpoint is implemented and locally verified with `make check` passing 222 tests.
 - M13 is complete against the current local verification gates.
 - M14.1 Seed demo region is implemented and locally verified with `make check` passing 225 tests.
-- Next step: begin M14.2 Demo scenarios.
+- M14.2 Demo scenarios are implemented and locally verified with `make check` passing 230 tests.
+- Next step: begin M14.3 API documentation.

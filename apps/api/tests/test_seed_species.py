@@ -135,10 +135,10 @@ async def test_seed_demo_region_is_idempotent(demo_seed_session: AsyncSession) -
         select(func.count()).select_from(SamplingGridCell)
     )
 
-    assert first == {"observations": 3, "sampling_grid_cells": 2}
-    assert second == {"observations": 3, "sampling_grid_cells": 2}
+    assert first == {"observations": 3, "sampling_grid_cells": 3}
+    assert second == {"observations": 3, "sampling_grid_cells": 3}
     assert observation_count == 3
-    assert sampling_count == 2
+    assert sampling_count == 3
 
 
 @pytest.mark.anyio
@@ -172,5 +172,7 @@ async def test_seed_demo_region_supports_scoring(demo_seed_session: AsyncSession
 
     scores = list((await demo_seed_session.execute(select(SignalScore))).scalars().all())
 
-    assert len(scores) == 3
-    assert {score.label.value for score in scores} == {"high_value_verification_candidate"}
+    assert {score.label.value for score in scores} == {
+        "high_value_verification_candidate",
+        "moderate_signal",
+    }

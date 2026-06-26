@@ -228,8 +228,8 @@ async def seed_demo_region(session: AsyncSession) -> dict[str, int]:
                 candidate_species_id=knotweed.id,
                 candidate_scientific_name=knotweed.scientific_name,
                 candidate_common_name=knotweed.common_name,
-                confidence=Decimal("0.8600"),
-                confidence_label=ConfidenceLabel.high,
+                confidence=Decimal("0.8200"),
+                confidence_label=ConfidenceLabel.medium_high,
                 model_name="demo",
                 model_version="0.1",
             ),
@@ -245,7 +245,25 @@ async def seed_demo_region(session: AsyncSession) -> dict[str, int]:
             ),
         ]
     )
-    for observation in observations:
+    score_definitions = [
+        (
+            Decimal("82.00"),
+            SignalScoreLabel.high_value_verification_candidate,
+            Decimal("67.00"),
+        ),
+        (
+            Decimal("62.00"),
+            SignalScoreLabel.moderate_signal,
+            Decimal("42.00"),
+        ),
+        (
+            Decimal("80.00"),
+            SignalScoreLabel.high_value_verification_candidate,
+            Decimal("71.00"),
+        ),
+    ]
+    for observation, score_definition in zip(observations, score_definitions, strict=True):
+        sampling_gap_value, label, final_signal_priority = score_definition
         session.add(
             EnvironmentalContext(
                 observation_id=observation.id,
@@ -266,11 +284,11 @@ async def seed_demo_region(session: AsyncSession) -> dict[str, int]:
                 pathway_risk=Decimal("75.00"),
                 nearby_verified_record_context=Decimal("30.00"),
                 ecological_sensitivity=Decimal("60.00"),
-                sampling_gap_value=Decimal("80.00"),
+                sampling_gap_value=sampling_gap_value,
                 temporal_cluster_score=Decimal("10.00"),
                 uncertainty_penalty=Decimal("5.00"),
-                final_signal_priority=Decimal("67.00"),
-                label=SignalScoreLabel.high_value_verification_candidate,
+                final_signal_priority=final_signal_priority,
+                label=label,
                 reasons=[{"code": "demo_seed"}],
                 model_version="demo-0.1",
             )
@@ -291,6 +309,20 @@ async def seed_demo_region(session: AsyncSession) -> dict[str, int]:
                 sampling_label=SamplingLabel.moderately_sampled,
             ),
             SamplingGridCell(
+                region_code="NJ",
+                geom="POLYGON((-74.01 40.71,-73.99 40.71,-73.99 40.73,-74.01 40.73,-74.01 40.71))",
+                min_latitude=Decimal("40.710000"),
+                min_longitude=Decimal("-74.010000"),
+                max_latitude=Decimal("40.730000"),
+                max_longitude=Decimal("-73.990000"),
+                observation_count=8,
+                verified_count=3,
+                recent_observation_count=1,
+                distance_to_park_m=Decimal("30.00"),
+                risk_context={"demo_seed": True},
+                sampling_label=SamplingLabel.well_sampled,
+            ),
+            SamplingGridCell(
                 region_code="PA",
                 geom="POLYGON((-74.00 40.73,-73.98 40.73,-73.98 40.75,-74.00 40.75,-74.00 40.73))",
                 min_latitude=Decimal("40.730000"),
@@ -306,7 +338,7 @@ async def seed_demo_region(session: AsyncSession) -> dict[str, int]:
         ]
     )
     await session.commit()
-    return {"observations": len(observations), "sampling_grid_cells": 2}
+    return {"observations": len(observations), "sampling_grid_cells": 3}
 
 
 async def _clear_demo_region(session: AsyncSession) -> None:

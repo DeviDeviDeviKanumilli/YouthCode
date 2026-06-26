@@ -22,6 +22,7 @@ From the repository root:
 
 ```bash
 make dev
+make api-dev
 make test
 make lint
 make typecheck
@@ -41,4 +42,24 @@ python -m mypy app tests
 - `GET /health`
 - `GET /version`
 
-Database, Redis, Docker Compose, and Alembic setup are added in later M1 sub-milestones.
+Alembic migrations are added in M1.4.
+
+## Docker Compose
+
+From the repository root:
+
+```bash
+make dev
+```
+
+This starts:
+
+- API at `http://localhost:8000`
+- PostgreSQL/PostGIS at `localhost:5432`
+- Redis at `localhost:6379`
+
+Optional MinIO storage can be started with:
+
+```bash
+docker compose --profile storage up --build
+```

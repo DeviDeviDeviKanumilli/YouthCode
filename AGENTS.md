@@ -2,6 +2,12 @@
 
 This file is the working memory for agents building EcoSentinel in this workspace. Use it before making architecture, product, API, or wording decisions.
 
+## Git Workflow
+
+- Work in the GitHub repository `DeviDeviDeviKanumilli/YouthCode`.
+- Use the `mobile-ui` branch for this workspace.
+- Push all major changes to the remote `mobile-ui` branch after committing them.
+
 ## Product Identity
 
 EcoSentinel is an AI ecological intelligence platform. It is not a basic species identification app, a generic citizen-science feed, or a static map of pins.

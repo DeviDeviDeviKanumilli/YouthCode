@@ -126,4 +126,5 @@ M1.4 migration foundation:
 - M1.2 Docker Compose local environment is implemented; Docker runtime verification is pending because Docker is not installed in this environment.
 - M1.3 health and system endpoints are implemented, verified, committed, and pushed.
 - M1.4 migration foundation is implemented and locally verified with Alembic head discovery. Real `upgrade head` verification is pending until Postgres/Docker or an active Supabase project is available.
-- Next step: begin M2.1 users and roles.
+- M2.1 users and roles is implemented, locally verified, and ready to push.
+- Next step: begin M2.2 species table.

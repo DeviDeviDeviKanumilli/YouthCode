@@ -428,3 +428,71 @@ def test_research_geojson_export_filters_and_excludes_private_records(
     assert [feature["properties"]["observation_id"] for feature in collection["features"]] == [
         ny_id
     ]
+
+
+def test_research_exports_generalize_obscured_coordinates(exports_client: TestClient) -> None:
+    requester_id = create_researcher(exports_client)
+    observation_id = seed_export_observation(
+        exports_client,
+        region_code="NY",
+        privacy_level=PrivacyLevel.obscured,
+    )
+
+    response = exports_client.post(
+        "/research/export",
+        json={
+            "requester_id": requester_id,
+            "format": "geojson",
+            "filters": {"region_code": "NY"},
+        },
+    )
+
+    assert response.status_code == 201
+    feature = decoded_geojson(response.json()["download_url"])["features"][0]
+    assert feature["properties"]["observation_id"] == observation_id
+    assert feature["geometry"]["coordinates"] == [-74.01, 40.71]
+    assert feature["properties"]["license_or_consent_status"] == "obscured_generalized"
+
+
+def test_research_export_include_private_requires_admin(exports_client: TestClient) -> None:
+    requester_id = create_researcher(exports_client)
+    seed_export_observation(exports_client, region_code="NY", privacy_level=PrivacyLevel.private)
+
+    response = exports_client.post(
+        "/research/export",
+        json={
+            "requester_id": requester_id,
+            "format": "csv",
+            "filters": {"region_code": "NY", "include_private": True},
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "private_export_forbidden"
+
+
+def test_admin_can_export_private_records(exports_client: TestClient) -> None:
+    admin = exports_client.post(
+        "/users",
+        json={"email": "admin@example.com", "role": "admin"},
+    ).json()
+    private_id = seed_export_observation(
+        exports_client,
+        region_code="NY",
+        privacy_level=PrivacyLevel.private,
+    )
+
+    response = exports_client.post(
+        "/research/export",
+        json={
+            "requester_id": admin["id"],
+            "format": "csv",
+            "filters": {"region_code": "NY", "include_private": True},
+        },
+    )
+
+    assert response.status_code == 201
+    rows = decoded_csv_rows(response.json()["download_url"])
+    assert rows[0]["observation_id"] == private_id
+    assert rows[0]["latitude"] == "40.712800"
+    assert rows[0]["license_or_consent_status"] == "private_admin_override"

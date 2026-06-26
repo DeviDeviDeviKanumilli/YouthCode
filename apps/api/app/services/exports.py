@@ -103,6 +103,15 @@ class ExportService:
                 message="Only research, reviewer, or admin users can create research exports.",
                 status_code=status.HTTP_403_FORBIDDEN,
             )
+        if (
+            self._bool_filter(data.filters, "include_private") is True
+            and requester.role != UserRole.admin
+        ):
+            raise AppError(
+                code="private_export_forbidden",
+                message="Only admins can include private records in research exports.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
         export_text = (
             await self._build_csv(data)
             if data.format == ExportFormat.csv
@@ -176,6 +185,7 @@ class ExportService:
                     score=score if data.include_signal_scores else None,
                     verification=verification if data.include_verification else None,
                     context=context if data.include_environmental_context else None,
+                    include_private_coordinates=include_private,
                 )
             )
         return output.getvalue()
@@ -208,7 +218,10 @@ class ExportService:
                 continue
             if observation.privacy_level == PrivacyLevel.private and not include_private:
                 continue
-            latitude, longitude = self._export_coordinates(observation)
+            latitude, longitude = self._export_coordinates(
+                observation,
+                include_private=include_private,
+            )
             if not latitude or not longitude:
                 continue
             identification = await self._latest_identification(item.observation_id)
@@ -221,6 +234,11 @@ class ExportService:
                 "source": observation.source.value,
                 "region_code": observation.region_code,
                 "privacy_level": observation.privacy_level.value,
+                "license_or_consent_status": self._license_status(
+                    observation,
+                    include_private=include_private,
+                ),
+                "sensitive_species": False,
                 "candidate_scientific_name": (
                     identification.candidate_scientific_name if identification else None
                 ),
@@ -297,6 +315,7 @@ class ExportService:
         score: SignalScore | None,
         verification: Verification | None,
         context: Any | None,
+        include_private_coordinates: bool,
     ) -> dict[str, str]:
         verified_species = (
             await self.species.get(verification.verified_species_id)
@@ -311,7 +330,10 @@ class ExportService:
                 radius_km=Decimal("2"),
             )
             nearby_count = str(nearby.record_count)
-        latitude, longitude = self._export_coordinates(observation)
+        latitude, longitude = self._export_coordinates(
+            observation,
+            include_private=include_private_coordinates,
+        )
         return {
             "observation_id": str(observation.id),
             "scientific_name": identification.candidate_scientific_name if identification else "",
@@ -368,7 +390,10 @@ class ExportService:
             "final_signal_priority": str(score.final_signal_priority) if score else "",
             "signal_label": score.label.value if score else "",
             "model_version": score.model_version if score else "",
-            "license_or_consent_status": observation.privacy_level.value,
+            "license_or_consent_status": self._license_status(
+                observation,
+                include_private=include_private_coordinates,
+            ),
         }
 
     async def _latest_identification(
@@ -378,8 +403,13 @@ class ExportService:
         identifications = await self.identifications.list_for_observation(observation_id)
         return identifications[0] if identifications else None
 
-    def _export_coordinates(self, observation: Observation) -> tuple[str, str]:
-        if observation.privacy_level == PrivacyLevel.private:
+    def _export_coordinates(
+        self,
+        observation: Observation,
+        *,
+        include_private: bool,
+    ) -> tuple[str, str]:
+        if observation.privacy_level == PrivacyLevel.private and not include_private:
             return "", ""
         if observation.privacy_level == PrivacyLevel.obscured:
             return (
@@ -387,6 +417,13 @@ class ExportService:
                 str(observation.longitude.quantize(Decimal("0.01"))),
             )
         return str(observation.latitude), str(observation.longitude)
+
+    def _license_status(self, observation: Observation, *, include_private: bool) -> str:
+        if observation.privacy_level == PrivacyLevel.private and include_private:
+            return "private_admin_override"
+        if observation.privacy_level == PrivacyLevel.obscured:
+            return "obscured_generalized"
+        return observation.privacy_level.value
 
     def _uuid_filter(self, filters: dict[str, Any], key: str) -> uuid.UUID | None:
         value = filters.get(key)

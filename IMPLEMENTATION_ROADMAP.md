@@ -191,4 +191,6 @@ M1.4 migration foundation:
 - M13 is complete against the current local verification gates.
 - M14.1 Seed demo region is implemented and locally verified with `make check` passing 225 tests.
 - M14.2 Demo scenarios are implemented and locally verified with `make check` passing 230 tests.
-- Next step: begin M14.3 API documentation.
+- M14.3 API documentation is implemented and locally verified with `make check` passing 230 tests.
+- M14 is complete against the current local verification gates.
+- Next step: begin M15.1 Full test suite.

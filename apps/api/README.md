@@ -44,6 +44,7 @@ python -m pytest
 python -m ruff check .
 python -m mypy app tests
 python -m alembic upgrade head
+python -m app.scripts.demo
 ```
 
 ## Endpoint Overview
@@ -138,6 +139,17 @@ Demo scenario IDs:
 - `student_knotweed_near_creek`
 - `resident_low_priority_park`
 - `student_under_sampled_survey`
+
+For the backend-only final demo flow, run:
+
+```bash
+cd apps/api
+python -m app.scripts.demo
+```
+
+The script seeds demo data, creates users and an observation, registers media, runs
+identification, enrichment, scoring, fetches the intelligence card and forecast layer, opens
+the research queue, verifies the observation, and produces CSV and GeoJSON exports.
 
 Alembic migrations live in `apps/api/alembic`.
 

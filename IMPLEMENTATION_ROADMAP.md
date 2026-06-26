@@ -196,4 +196,6 @@ M1.4 migration foundation:
 - M15.1 Full test suite is locally verified with `make check` passing 230 tests and no skipped tests found.
 - M15.2 Code quality is locally verified with `make check` passing 230 tests, `.env.example` complete for current settings, non-test tracked secret scan clean, and intentional abstract interface placeholders reviewed.
 - M15.3 API contract freeze for frontend is implemented and locally verified with `make check` passing 231 tests.
-- Next step: begin M15.4 Final backend demo script.
+- M15.4 Final backend demo script is implemented and locally verified with `make check` passing 232 tests.
+- M15 is complete against the current local verification gates.
+- Backend roadmap is complete against the current product and backend plans.

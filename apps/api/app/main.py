@@ -22,6 +22,7 @@ OPENAPI_TAGS = [
     {"name": "verification", "description": "Verification queue actions and audit history."},
     {"name": "assistant-context", "description": "Grounded context payloads for AI assistants."},
     {"name": "demo", "description": "Deterministic product demo scenarios and seed outputs."},
+    {"name": "consumer-watch", "description": "Dynamic consumer Watch tab cards and details."},
 ]
 
 

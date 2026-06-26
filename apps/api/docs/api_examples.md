@@ -86,6 +86,22 @@ curl -sS "http://127.0.0.1:8000/sampling-gaps?bbox=-74.03,40.69,-73.98,40.75&mod
 
 Use `mode=research` when the dashboard needs detailed counts and risk context.
 
+## Consumer Watch Tab
+
+```bash
+curl -sS "http://127.0.0.1:8000/consumer/watch?lat=40.714&lon=-74.006&radius_km=5"
+```
+
+Open details for a returned card:
+
+```bash
+curl -sS "http://127.0.0.1:8000/consumer/watch/items/{watch_item_id}"
+curl -sS "http://127.0.0.1:8000/consumer/watch/places/{place_id}"
+```
+
+The response uses deterministic templates and includes `nextAction` metadata for report-flow
+prefill.
+
 ## Research Search
 
 Research routes require either a bearer token or `requester_id` for local development.

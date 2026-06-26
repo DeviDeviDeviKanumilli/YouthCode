@@ -16,6 +16,9 @@ Public or anonymous flows:
 
 - `GET /health`
 - `GET /version`
+- `GET /consumer/watch`
+- `GET /consumer/watch/items/{watch_item_id}`
+- `GET /consumer/watch/places/{place_id}`
 - `POST /observations`
 - `GET /observations/{observation_id}`
 - `POST /observations/{observation_id}/media`
@@ -81,6 +84,9 @@ User and personal history:
 
 Consumer map and local context:
 
+- `GET /consumer/watch`
+- `GET /consumer/watch/items/{watch_item_id}`
+- `GET /consumer/watch/places/{place_id}`
 - `GET /forecast/public`
 - `GET /sampling-gaps`
 - `GET /regions/nearby`
@@ -145,6 +151,11 @@ Use the canonical schemas in `docs/openapi.json`. The most important shared sche
 - `IntelligenceCard`
 - `GeoJSONFeature`
 - `GeoJSONFeatureCollection`
+- `WatchScreenResponse`
+- `WatchItem`
+- `GoodPlaceToCheck`
+- `WatchItemDetail`
+- `GoodPlaceDetail`
 - `ResearchObservationPage`
 - `VerificationQueueResponse`
 - `ExportJobRead`
@@ -173,6 +184,12 @@ Public forecast query:
 
 ```text
 GET /forecast/public?bbox=-74.03,40.69,-73.98,40.75
+```
+
+Consumer Watch query:
+
+```text
+GET /consumer/watch?lat=40.714&lon=-74.006&radius_km=5
 ```
 
 Research observation query:

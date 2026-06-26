@@ -199,3 +199,4 @@ M1.4 migration foundation:
 - M15.4 Final backend demo script is implemented and locally verified with `make check` passing 232 tests.
 - M15 is complete against the current local verification gates.
 - Backend roadmap is complete against the current product and backend plans.
+- Watch Screen Data System is implemented and locally verified with `make check` passing 241 tests. Alembic head is `0017`.

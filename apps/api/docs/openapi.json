@@ -1115,6 +1115,225 @@
         "title": "GeoJSONFeatureCollection",
         "type": "object"
       },
+      "GoodPlaceDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/WatchAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "mapOverlay": {
+            "$ref": "#/components/schemas/WatchMapOverlay"
+          },
+          "relevantWatchItems": {
+            "items": {
+              "$ref": "#/components/schemas/WatchItem"
+            },
+            "title": "Relevantwatchitems",
+            "type": "array"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "uncertaintyNotice": {
+            "title": "Uncertaintynotice",
+            "type": "string"
+          },
+          "usefulPhotoTips": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Usefulphototips",
+            "type": "array"
+          },
+          "whatToLookFor": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Whattolookfor",
+            "type": "array"
+          },
+          "whyItMatters": {
+            "title": "Whyitmatters",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "summary",
+          "whyItMatters",
+          "whatToLookFor",
+          "usefulPhotoTips",
+          "relevantWatchItems",
+          "uncertaintyNotice",
+          "mapOverlay",
+          "actions"
+        ],
+        "title": "GoodPlaceDetail",
+        "type": "object"
+      },
+      "GoodPlaceEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "nearestFeatureMeters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearestfeaturemeters"
+          },
+          "relevantSpeciesIds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relevantspeciesids"
+          },
+          "samplingLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Samplinglabel"
+          },
+          "sourceNames": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sourcenames",
+            "type": "array"
+          }
+        },
+        "title": "GoodPlaceEvidence",
+        "type": "object"
+      },
+      "GoodPlaceToCheck": {
+        "additionalProperties": false,
+        "properties": {
+          "chips": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Chips",
+            "type": "array"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/GoodPlaceEvidence"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "imageAlt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imagealt"
+          },
+          "imageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageurl"
+          },
+          "locationContext": {
+            "$ref": "#/components/schemas/WatchLocationContext"
+          },
+          "mapOverlay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WatchMapOverlay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nextAction": {
+            "$ref": "#/components/schemas/WatchAction"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "integer"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "creek_edges",
+              "trail_entrances",
+              "park_boundaries",
+              "street_trees",
+              "wetland_edges",
+              "garden_edges"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "title",
+          "summary",
+          "chips",
+          "priority",
+          "locationContext",
+          "evidence",
+          "nextAction"
+        ],
+        "title": "GoodPlaceToCheck",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -4168,6 +4387,552 @@
         ],
         "title": "VersionResponse",
         "type": "object"
+      },
+      "WatchAction": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "type"
+        ],
+        "title": "WatchAction",
+        "type": "object"
+      },
+      "WatchEmptyState": {
+        "additionalProperties": false,
+        "properties": {
+          "actionLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actionlabel"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "message"
+        ],
+        "title": "WatchEmptyState",
+        "type": "object"
+      },
+      "WatchEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "currentMonthRelevant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentmonthrelevant"
+          },
+          "habitatMatches": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Habitatmatches"
+          },
+          "nearbyKnownRecordCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearbyknownrecordcount"
+          },
+          "nearestObservationMeters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearestobservationmeters"
+          },
+          "recentObservationCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recentobservationcount"
+          },
+          "sourceNames": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sourcenames",
+            "type": "array"
+          }
+        },
+        "title": "WatchEvidence",
+        "type": "object"
+      },
+      "WatchItem": {
+        "additionalProperties": false,
+        "properties": {
+          "chips": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Chips",
+            "type": "array"
+          },
+          "confidenceLabel": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidencelabel",
+            "type": "string"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/WatchEvidence"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "imageAlt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imagealt"
+          },
+          "imageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageurl"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "nextAction": {
+            "$ref": "#/components/schemas/WatchAction"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "integer"
+          },
+          "speciesId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speciesid"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "species_watch",
+              "seasonal_watch",
+              "habitat_watch",
+              "tree_health",
+              "aquatic_watch"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "label",
+          "title",
+          "summary",
+          "chips",
+          "priority",
+          "confidenceLabel",
+          "evidence",
+          "nextAction"
+        ],
+        "title": "WatchItem",
+        "type": "object"
+      },
+      "WatchItemDetail": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/WatchAction"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "imageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageurl"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "localContext": {
+            "$ref": "#/components/schemas/WatchItemLocalContext"
+          },
+          "lookalikeNotes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Lookalikenotes",
+            "type": "array"
+          },
+          "mapOverlay": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WatchMapOverlay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "photoTips": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Phototips",
+            "type": "array"
+          },
+          "speciesId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Speciesid"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "uncertaintyNotice": {
+            "title": "Uncertaintynotice",
+            "type": "string"
+          },
+          "whatToLookFor": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Whattolookfor",
+            "type": "array"
+          },
+          "whereToLook": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Wheretolook",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "label",
+          "explanation",
+          "whatToLookFor",
+          "whereToLook",
+          "photoTips",
+          "lookalikeNotes",
+          "localContext",
+          "uncertaintyNotice",
+          "actions"
+        ],
+        "title": "WatchItemDetail",
+        "type": "object"
+      },
+      "WatchItemLocalContext": {
+        "additionalProperties": false,
+        "properties": {
+          "confidenceLabel": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidencelabel",
+            "type": "string"
+          },
+          "nearestObservationMeters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nearestobservationmeters"
+          },
+          "recentObservationCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recentobservationcount"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "summary",
+          "confidenceLabel"
+        ],
+        "title": "WatchItemLocalContext",
+        "type": "object"
+      },
+      "WatchLocationContext": {
+        "additionalProperties": false,
+        "properties": {
+          "centerLat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Centerlat"
+          },
+          "centerLon": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Centerlon"
+          },
+          "geometryGeoJson": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrygeojson"
+          },
+          "radiusMeters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Radiusmeters"
+          }
+        },
+        "title": "WatchLocationContext",
+        "type": "object"
+      },
+      "WatchMapOverlay": {
+        "additionalProperties": false,
+        "properties": {
+          "geometryGeoJson": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrygeojson"
+          },
+          "pointsGeoJson": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pointsgeojson"
+          },
+          "type": {
+            "enum": [
+              "corridor",
+              "area",
+              "point",
+              "boundary",
+              "records",
+              "habitat"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "WatchMapOverlay",
+        "type": "object"
+      },
+      "WatchRegion": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "radiusKm": {
+            "title": "Radiuskm",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "radiusKm"
+        ],
+        "title": "WatchRegion",
+        "type": "object"
+      },
+      "WatchScreenResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "emptyState": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WatchEmptyState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goodPlacesToCheck": {
+            "items": {
+              "$ref": "#/components/schemas/GoodPlaceToCheck"
+            },
+            "title": "Goodplacestocheck",
+            "type": "array"
+          },
+          "region": {
+            "$ref": "#/components/schemas/WatchRegion"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          },
+          "watchedNearYou": {
+            "items": {
+              "$ref": "#/components/schemas/WatchItem"
+            },
+            "title": "Watchednearyou",
+            "type": "array"
+          }
+        },
+        "required": [
+          "region",
+          "updatedAt",
+          "watchedNearYou",
+          "goodPlacesToCheck"
+        ],
+        "title": "WatchScreenResponse",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -4382,6 +5147,181 @@
         "summary": "Me",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/consumer/watch": {
+      "get": {
+        "operationId": "watch_screen_consumer_watch_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 90.0,
+                  "minimum": -90.0,
+                  "type": "number"
+                },
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                }
+              ],
+              "title": "Lat"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lon",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 180.0,
+                  "minimum": -180.0,
+                  "type": "number"
+                },
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                }
+              ],
+              "title": "Lon"
+            }
+          },
+          {
+            "in": "query",
+            "name": "radius_km",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0.0,
+                  "maximum": 25.0,
+                  "type": "number"
+                },
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                }
+              ],
+              "default": "5",
+              "title": "Radius Km"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchScreenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Watch Screen",
+        "tags": [
+          "consumer-watch"
+        ]
+      }
+    },
+    "/consumer/watch/items/{watch_item_id}": {
+      "get": {
+        "operationId": "watch_item_detail_consumer_watch_items__watch_item_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "watch_item_id",
+            "required": true,
+            "schema": {
+              "title": "Watch Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchItemDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Watch Item Detail",
+        "tags": [
+          "consumer-watch"
+        ]
+      }
+    },
+    "/consumer/watch/places/{place_id}": {
+      "get": {
+        "operationId": "watch_place_detail_consumer_watch_places__place_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "place_id",
+            "required": true,
+            "schema": {
+              "title": "Place Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoodPlaceDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Watch Place Detail",
+        "tags": [
+          "consumer-watch"
         ]
       }
     },
@@ -7536,6 +8476,10 @@
     {
       "description": "Deterministic product demo scenarios and seed outputs.",
       "name": "demo"
+    },
+    {
+      "description": "Dynamic consumer Watch tab cards and details.",
+      "name": "consumer-watch"
     }
   ]
 }

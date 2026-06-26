@@ -21,6 +21,7 @@ from app.api.routes.species import router as species_router
 from app.api.routes.user_sightings import router as user_sightings_router
 from app.api.routes.users import router as users_router
 from app.api.routes.verification import router as verification_router
+from app.api.routes.watch import router as watch_router
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -47,3 +48,4 @@ api_router.include_router(species_router)
 api_router.include_router(user_sightings_router)
 api_router.include_router(users_router)
 api_router.include_router(verification_router)
+api_router.include_router(watch_router)

@@ -17,11 +17,14 @@ from app.models import (
     SamplingLabel,
     SignalScore,
     SignalScoreLabel,
+    SpeciesWatchProfile,
     StaticPark,
     StaticRoadTrail,
     StaticWaterway,
     Verification,
     VerificationStatus,
+    WatchAssetImage,
+    WatchResponseCache,
 )
 from app.repositories.species import SpeciesRepository
 from app.schemas.species import SpeciesCreate, SpeciesUpdate
@@ -135,6 +138,176 @@ async def seed_species(session: AsyncSession) -> int:
             )
     await session.commit()
     return created_count
+
+
+async def seed_watch_data(session: AsyncSession) -> dict[str, int]:
+    await seed_species(session)
+    species_repository = SpeciesRepository(session)
+    species_by_name = {
+        item.scientific_name: await species_repository.get_by_scientific_name(item.scientific_name)
+        for item in MVP_SPECIES
+    }
+    missing = [name for name, species in species_by_name.items() if species is None]
+    if missing:
+        raise RuntimeError(f"MVP species were not seeded: {', '.join(missing)}")
+
+    await session.execute(delete(WatchResponseCache))
+    await session.execute(delete(WatchAssetImage))
+    await session.execute(delete(SpeciesWatchProfile))
+    now = datetime.now(UTC)
+    profile_specs = [
+        (
+            "Lycorma delicatula",
+            "Seasonal watch",
+            "Recently reported nearby in some areas. Look for adults, egg masses, or nymphs.",
+            [6, 7, 8, 9, 10],
+            ["tree", "park", "edge"],
+            ["road", "trail"],
+            ["Adults on trees or posts", "Egg masses on outdoor surfaces", "Nymph clusters"],
+            ["Photograph the whole insect or egg mass", "Include the tree or surface nearby"],
+            ["Some native planthoppers can look similar."],
+            Decimal("58.00"),
+            True,
+            True,
+            False,
+            False,
+        ),
+        (
+            "Fallopia japonica",
+            "Worth checking near water",
+            "Worth checking near water. Look for dense patches along creek edges.",
+            [5, 6, 7, 8, 9, 10],
+            ["water", "creek", "edge"],
+            ["road", "trail", "soil"],
+            ["Bamboo-like stems", "Broad leaves", "Dense creek-edge patches"],
+            ["Photograph stems, leaves, and the patch edge", "Include creek or path context"],
+            ["Some ornamental knotweeds may look similar."],
+            Decimal("56.00"),
+            True,
+            True,
+            False,
+            False,
+        ),
+        (
+            "Agrilus planipennis",
+            "Tree health watch",
+            "Watch ash trees for bark splitting, canopy thinning, or small exit holes.",
+            [5, 6, 7, 8, 9],
+            ["tree", "park", "street trees"],
+            ["road", "edge"],
+            ["D-shaped exit holes", "Bark splitting", "Canopy thinning"],
+            ["Photograph bark details and the whole tree", "Do not remove bark or branches"],
+            ["Other tree stress can cause similar canopy symptoms."],
+            Decimal("55.00"),
+            True,
+            True,
+            True,
+            False,
+        ),
+        (
+            "Trapa natans",
+            "Aquatic watch",
+            (
+                "Worth checking slow water for floating rosettes if you are already near "
+                "public access."
+            ),
+            [6, 7, 8, 9],
+            ["water", "aquatic", "wetland"],
+            ["water"],
+            ["Floating rosettes", "Triangular toothed leaves", "Dense surface mats"],
+            ["Photograph from shore or public access", "Show the floating leaf pattern"],
+            ["Other floating aquatic plants may look similar."],
+            Decimal("52.00"),
+            True,
+            True,
+            False,
+            True,
+        ),
+        (
+            "Lythrum salicaria",
+            "Wetland watch",
+            "Look for purple flower spikes near wetlands, ditches, and streambanks.",
+            [6, 7, 8, 9],
+            ["water", "wetland", "creek"],
+            ["water", "trail"],
+            ["Purple flower spikes", "Square stems", "Wetland edge patches"],
+            ["Photograph flowers, leaves, and surrounding wetland context"],
+            ["Native wetland flowers can have similar colors."],
+            Decimal("53.00"),
+            True,
+            True,
+            False,
+            False,
+        ),
+    ]
+    profiles: list[SpeciesWatchProfile] = []
+    assets: list[WatchAssetImage] = []
+    for spec in profile_specs:
+        (
+            scientific_name,
+            watch_label,
+            public_summary,
+            active_months,
+            habitat_tags,
+            pathway_tags,
+            visual_clues,
+            photo_tips,
+            lookalike_notes,
+            priority_base,
+            is_invasive_concern,
+            is_seasonal,
+            is_tree_pest,
+            is_aquatic,
+        ) = spec
+        species = species_by_name[scientific_name]
+        assert species is not None
+        profile = SpeciesWatchProfile(
+            species_id=species.id,
+            watch_label=watch_label,
+            public_summary=public_summary,
+            active_months=active_months,
+            habitat_tags=habitat_tags,
+            pathway_tags=pathway_tags,
+            visual_clues=visual_clues,
+            photo_tips=photo_tips,
+            lookalike_notes=lookalike_notes,
+            priority_base=priority_base,
+            is_invasive_concern=is_invasive_concern,
+            is_seasonal=is_seasonal,
+            is_tree_pest=is_tree_pest,
+            is_aquatic=is_aquatic,
+        )
+        profiles.append(profile)
+        assets.append(
+            WatchAssetImage(
+                entity_type="species",
+                entity_id=species.id,
+                image_url=(
+                    "https://storage.example.com/species/"
+                    f"{scientific_name.lower().replace(' ', '-')}.jpg"
+                ),
+                alt_text=f"{species.common_name or species.scientific_name} reference image",
+                created_at=now,
+            )
+        )
+    for place_type, title in [
+        ("creek_edges", "Creek edges"),
+        ("trail_entrances", "Trail entrances"),
+        ("park_boundaries", "Park boundaries"),
+        ("street_trees", "Street trees"),
+    ]:
+        assets.append(
+            WatchAssetImage(
+                entity_type="place",
+                place_type=place_type,
+                image_url=f"https://storage.example.com/places/{place_type}.jpg",
+                alt_text=f"{title} watch place image",
+                created_at=now,
+            )
+        )
+    session.add_all([*profiles, *assets])
+    await session.commit()
+    return {"species_watch_profiles": len(profiles), "watch_asset_images": len(assets)}
 
 
 async def seed_demo_region(session: AsyncSession) -> dict[str, int]:
@@ -379,9 +552,15 @@ async def _clear_demo_region(session: AsyncSession) -> None:
 async def main_async() -> None:
     async with AsyncSessionLocal() as session:
         created_count = await seed_species(session)
+        watch_counts = await seed_watch_data(session)
         await seed_demo_region(session)
     updated_count = len(MVP_SPECIES) - created_count
-    print(f"Seeded MVP species. Created {created_count}, updated {updated_count}.")
+    print(
+        "Seeded MVP species and Watch data. "
+        f"Created {created_count}, updated {updated_count}, "
+        f"watch_profiles={watch_counts['species_watch_profiles']}, "
+        f"watch_assets={watch_counts['watch_asset_images']}."
+    )
 
 
 def main() -> None:

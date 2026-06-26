@@ -66,6 +66,9 @@ Auth and users:
 
 Consumer app:
 
+- `GET /consumer/watch`
+- `GET /consumer/watch/items/{watch_item_id}`
+- `GET /consumer/watch/places/{place_id}`
 - `POST /observations`
 - `GET /observations/{observation_id}`
 - `POST /observations/{observation_id}/media`

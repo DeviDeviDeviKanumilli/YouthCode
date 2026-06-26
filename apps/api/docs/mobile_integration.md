@@ -44,6 +44,28 @@ Render these layers:
 
 Do not display private observations. Public forecast responses already apply privacy rules.
 
+## Watch Flow
+
+Use:
+
+```text
+GET /consumer/watch?lat=40.714&lon=-74.006&radius_km=5
+```
+
+Render `watchedNearYou` as species or ecological signal cards and `goodPlacesToCheck` as
+place-context cards. Do not hardcode the cards; the backend ranks them from local records,
+habitat/pathway context, seasonality, and sampling gaps.
+
+Detail sheets:
+
+```text
+GET /consumer/watch/items/{watch_item_id}
+GET /consumer/watch/places/{place_id}
+```
+
+Use `nextAction.type` to prefill report context. Suggested species and place hints are context,
+not confirmation, and all user answers remain editable.
+
 ## Nearby Region Summary
 
 Use:

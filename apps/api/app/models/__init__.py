@@ -19,6 +19,7 @@ from app.models.static_geo_layer import (
 from app.models.user import User, UserRole
 from app.models.verification import Verification, VerificationStatus
 from app.models.verification_event import VerificationEvent
+from app.models.watch import SpeciesWatchProfile, WatchAssetImage, WatchResponseCache
 
 __all__ = [
     "AIIdentification",
@@ -41,6 +42,7 @@ __all__ = [
     "SignalScore",
     "SignalScoreLabel",
     "Species",
+    "SpeciesWatchProfile",
     "StaticPark",
     "StaticRoadTrail",
     "StaticWaterway",
@@ -49,4 +51,6 @@ __all__ = [
     "Verification",
     "VerificationEvent",
     "VerificationStatus",
+    "WatchAssetImage",
+    "WatchResponseCache",
 ]

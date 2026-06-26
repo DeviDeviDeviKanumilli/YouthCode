@@ -270,3 +270,53 @@ def test_observation_assistant_context_allows_stronger_verified_claims(
     assert body["verification_status"] == "expert_verified"
     assert any("verified status" in claim for claim in body["allowed_claims"])
     assert "verification support" in body["required_uncertainty_notice"]
+
+
+def test_region_assistant_context_summarizes_nearby_facts(
+    assistant_context_client: TestClient,
+) -> None:
+    observation_id = seed_rich_observation(assistant_context_client)
+
+    response = assistant_context_client.get(
+        "/assistant/context/region",
+        params={"lat": "40.7128", "lon": "-74.0060", "radius_km": "2"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["center"] == {"latitude": "40.7128", "longitude": "-74.0060"}
+    assert body["source_summaries"]["observation_count"] == 1
+    assert body["nearby_signals"][0]["observation_id"] == observation_id
+    assert body["nearby_signals"][0]["signal_label"] == "priority_ecological_signal"
+    assert body["watched_species"][0]["scientific_name"] == "Fallopia japonica"
+    assert body["sampling_gaps"][0]["sampling_label"] == "high_risk_under_sampled"
+    assert body["recent_high_priority_observations"][0]["observation_id"] == observation_id
+    assert "signal_scores" in body["data_sources_used"]
+
+
+def test_region_assistant_context_sparse_warning_does_not_claim_absence(
+    assistant_context_client: TestClient,
+) -> None:
+    response = assistant_context_client.get(
+        "/assistant/context/region",
+        params={"lat": "41.0", "lon": "-73.0", "radius_km": "1"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["nearby_signals"] == []
+    assert body["watched_species"] == []
+    assert "not true absence" in body["data_sparsity_warning"]
+    assert "Do not claim true absence" in body["required_uncertainty_notice"]
+    assert body["data_sources_used"] == ["none_available"]
+
+
+def test_region_assistant_context_validates_radius(
+    assistant_context_client: TestClient,
+) -> None:
+    response = assistant_context_client.get(
+        "/assistant/context/region",
+        params={"lat": "40.0", "lon": "-74.0", "radius_km": "0"},
+    )
+
+    assert response.status_code == 422

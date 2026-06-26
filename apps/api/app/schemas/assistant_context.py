@@ -19,3 +19,18 @@ class ObservationAssistantContext(BaseModel):
     allowed_claims: list[str]
     required_uncertainty_notice: str
     data_sources_used: list[str]
+
+
+class RegionAssistantContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    center: dict[str, str]
+    radius_km: str
+    nearby_signals: list[dict[str, Any]] = Field(default_factory=list)
+    watched_species: list[dict[str, Any]] = Field(default_factory=list)
+    sampling_gaps: list[dict[str, Any]] = Field(default_factory=list)
+    recent_high_priority_observations: list[dict[str, Any]] = Field(default_factory=list)
+    data_sparsity_warning: str
+    source_summaries: dict[str, Any]
+    required_uncertainty_notice: str
+    data_sources_used: list[str]

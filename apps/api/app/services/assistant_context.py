@@ -16,7 +16,7 @@ from app.repositories.observations import ObservationRepository
 from app.repositories.sampling_grid import SamplingGridRepository
 from app.repositories.signal_scores import SignalScoreRepository
 from app.repositories.verification import VerificationRepository
-from app.schemas.assistant_context import ObservationAssistantContext
+from app.schemas.assistant_context import ObservationAssistantContext, RegionAssistantContext
 from app.services.nearby_records import NearbyRecordsService
 
 UNKNOWN = "unknown"
@@ -121,6 +121,123 @@ class AssistantContextService:
                 has_verification=verification is not None,
                 has_nearby_records=nearby_summary is not None,
                 has_sampling_cell=sampling_cell is not None,
+            ),
+        )
+
+    async def region_context(
+        self,
+        *,
+        latitude: Decimal,
+        longitude: Decimal,
+        radius_km: Decimal,
+    ) -> RegionAssistantContext:
+        bbox = self._bbox_for_radius(
+            latitude=latitude,
+            longitude=longitude,
+            radius_km=radius_km,
+        )
+        observations = await self.observations.list(bbox=bbox, limit=100)
+        sampling_cells = await self.sampling_grid.list_cells(bbox=bbox, limit=100)
+        nearby_signals: list[dict[str, Any]] = []
+        watched_species: dict[str, dict[str, Any]] = {}
+        high_priority: list[dict[str, Any]] = []
+        source_counts: dict[str, int] = {}
+        for observation in observations:
+            source_counts[observation.source.value] = (
+                source_counts.get(observation.source.value, 0) + 1
+            )
+            identification = await self._latest_identification(observation.id)
+            score = await self.signal_scores.get(observation.id)
+            if identification is not None:
+                species_key = (
+                    str(identification.candidate_species_id)
+                    if identification.candidate_species_id
+                    else identification.candidate_scientific_name
+                )
+                watched_species[species_key] = {
+                    "candidate_species_id": (
+                        str(identification.candidate_species_id)
+                        if identification.candidate_species_id
+                        else UNKNOWN
+                    ),
+                    "scientific_name": identification.candidate_scientific_name,
+                    "common_name": identification.candidate_common_name or UNKNOWN,
+                    "evidence": "candidate_from_nearby_observation",
+                }
+            if score is None:
+                continue
+            signal_payload = {
+                "observation_id": str(observation.id),
+                "region_code": observation.region_code or UNKNOWN,
+                "candidate_species": (
+                    identification.candidate_common_name
+                    or identification.candidate_scientific_name
+                    if identification
+                    else UNKNOWN
+                ),
+                "signal_label": score.label.value,
+                "final_signal_priority": str(score.final_signal_priority),
+                "observed_at": observation.timestamp.isoformat(),
+            }
+            nearby_signals.append(signal_payload)
+            if score.label.value in {
+                "priority_ecological_signal",
+                "high_value_verification_candidate",
+            }:
+                high_priority.append(signal_payload)
+        nearby_signals = sorted(
+            nearby_signals,
+            key=lambda item: Decimal(item["final_signal_priority"]),
+            reverse=True,
+        )[:10]
+        high_priority = sorted(
+            high_priority,
+            key=lambda item: Decimal(item["final_signal_priority"]),
+            reverse=True,
+        )[:10]
+        sampling_gaps = [
+            {
+                "cell_id": str(cell.id),
+                "region_code": cell.region_code,
+                "sampling_label": cell.sampling_label.value,
+                "observation_count": cell.observation_count,
+            }
+            for cell in sampling_cells
+            if cell.sampling_label.value
+            in {
+                "under_sampled",
+                "high_risk_under_sampled",
+                "needs_structured_survey",
+                "likely_false_absence",
+            }
+        ][:10]
+        return RegionAssistantContext(
+            center={"latitude": str(latitude), "longitude": str(longitude)},
+            radius_km=str(radius_km),
+            nearby_signals=nearby_signals,
+            watched_species=sorted(
+                watched_species.values(),
+                key=lambda item: item["scientific_name"],
+            ),
+            sampling_gaps=sampling_gaps,
+            recent_high_priority_observations=high_priority,
+            data_sparsity_warning=self._region_sparsity_warning(
+                observation_count=len(observations),
+                sampling_cell_count=len(sampling_cells),
+            ),
+            source_summaries={
+                "observation_count": len(observations),
+                "sampling_grid_cell_count": len(sampling_cells),
+                "observation_sources": source_counts,
+            },
+            required_uncertainty_notice=(
+                "This regional context summarizes available records only. Do not claim true "
+                "absence, population trend, or treatment guidance from these data."
+            ),
+            data_sources_used=self._region_data_sources(
+                has_observations=bool(observations),
+                has_scores=bool(nearby_signals),
+                has_sampling_cells=bool(sampling_cells),
             ),
         )
 
@@ -274,3 +391,50 @@ class AssistantContextService:
         if has_sampling_cell:
             sources.append("sampling_grid")
         return sources
+
+    def _bbox_for_radius(
+        self,
+        *,
+        latitude: Decimal,
+        longitude: Decimal,
+        radius_km: Decimal,
+    ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+        degree_delta = radius_km / Decimal("111")
+        return (
+            longitude - degree_delta,
+            latitude - degree_delta,
+            longitude + degree_delta,
+            latitude + degree_delta,
+        )
+
+    def _region_sparsity_warning(
+        self,
+        *,
+        observation_count: int,
+        sampling_cell_count: int,
+    ) -> str:
+        if observation_count < 3 or sampling_cell_count == 0:
+            return (
+                "Sparse data in this area means no-sighting areas must be treated as "
+                "unknown, not true absence."
+            )
+        return (
+            "Regional records are available, but they still reflect reported observations "
+            "rather than a complete census."
+        )
+
+    def _region_data_sources(
+        self,
+        *,
+        has_observations: bool,
+        has_scores: bool,
+        has_sampling_cells: bool,
+    ) -> list[str]:
+        sources: list[str] = []
+        if has_observations:
+            sources.extend(["observations", "identifications"])
+        if has_scores:
+            sources.append("signal_scores")
+        if has_sampling_cells:
+            sources.append("sampling_grid")
+        return sources or ["none_available"]

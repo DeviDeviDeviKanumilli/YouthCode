@@ -27,14 +27,14 @@ from app.schemas.assistant_context import (
     ResearchAssistantContext,
     ResearchAssistantContextRequest,
 )
+from app.services.assistant_safety import (
+    allowed_claims_for_observation,
+    required_uncertainty_notice,
+)
 from app.services.nearby_records import NearbyRecordsService
 from app.services.research_observations import ResearchObservationSearchService
 
 UNKNOWN = "unknown"
-VERIFIED_STATUSES = {
-    VerificationStatus.expert_verified,
-    VerificationStatus.field_confirmed,
-}
 
 
 class AssistantContextService:
@@ -119,13 +119,13 @@ class AssistantContextService:
                 if sampling_cell
                 else UNKNOWN
             ),
-            allowed_claims=self.allowed_claims(
+            allowed_claims=allowed_claims_for_observation(
                 verification_status=verification_status,
-                identification=identification,
-                has_context=context is not None,
+                has_identification=identification is not None,
+                has_environmental_context=context is not None,
                 has_signal_score=score is not None,
             ),
-            required_uncertainty_notice=self.required_uncertainty_notice(verification_status),
+            required_uncertainty_notice=required_uncertainty_notice(verification_status),
             data_sources_used=self._data_sources(
                 identification=identification,
                 has_media=bool(media_items),
@@ -335,41 +335,6 @@ class AssistantContextService:
                 "signal_scores",
                 "sampling_grid",
             ],
-        )
-
-    def allowed_claims(
-        self,
-        *,
-        verification_status: VerificationStatus,
-        identification: AIIdentification | None,
-        has_context: bool,
-        has_signal_score: bool,
-    ) -> list[str]:
-        claims = ["State that uncertainty remains and cite the internal data sources used."]
-        if verification_status in VERIFIED_STATUSES:
-            claims.append("This observation may be described using its verified status.")
-        elif identification is not None:
-            claims.append("This observation may be described as an AI-assisted species candidate.")
-            claims.append("Do not describe the candidate as confirmed or expert verified.")
-        else:
-            claims.append("Say there is insufficient evidence for a species-level claim.")
-        if has_context:
-            claims.append(
-                "Environmental context may be summarized as supporting context, not proof."
-            )
-        if has_signal_score:
-            claims.append("Signal score may be used for prioritization, not as a population trend.")
-        return claims
-
-    def required_uncertainty_notice(self, verification_status: VerificationStatus) -> str:
-        if verification_status in VERIFIED_STATUSES:
-            return (
-                "This observation has verification support, but assistant responses must still "
-                "state uncertainty for model-derived context and avoid treatment advice."
-            )
-        return (
-            "This is not a confirmed identification. Assistant responses must present it as "
-            "AI-assisted evidence, state uncertainty, and avoid treatment or handling advice."
         )
 
     async def _latest_identification(

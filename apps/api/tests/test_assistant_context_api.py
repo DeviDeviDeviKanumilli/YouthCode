@@ -235,7 +235,8 @@ def test_observation_assistant_context_includes_only_database_facts(
     assert "nearby_records" in body["data_sources_used"]
     assert "sampling_grid" in body["data_sources_used"]
     flattened = " ".join(str(value) for value in body.values()).lower()
-    assert "chemical" not in flattened
+    assert "do not recommend chemical treatment" in flattened
+    assert "should use chemical" not in flattened
     assert "is a confirmed identification" not in flattened
     assert "confirmed invasion" not in flattened
 

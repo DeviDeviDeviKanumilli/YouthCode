@@ -1,5 +1,5 @@
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,4 +33,34 @@ class RegionAssistantContext(BaseModel):
     data_sparsity_warning: str
     source_summaries: dict[str, Any]
     required_uncertainty_notice: str
+    data_sources_used: list[str]
+
+
+ResearchQuestionType = Literal[
+    "verification_priority",
+    "range_edge",
+    "under_sampled_areas",
+    "export_summary",
+    "watershed_summary",
+    "species_summary",
+]
+
+
+class ResearchAssistantContextRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    requester_id: uuid.UUID
+    question_type: ResearchQuestionType
+    filters: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResearchAssistantContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    question_type: ResearchQuestionType
+    filtered_observation_summary: dict[str, Any]
+    top_records: list[dict[str, Any]] = Field(default_factory=list)
+    sampling_concerns: list[dict[str, Any]] = Field(default_factory=list)
+    exportable_query_filters: dict[str, Any]
+    uncertainty_notes: list[str]
     data_sources_used: list[str]

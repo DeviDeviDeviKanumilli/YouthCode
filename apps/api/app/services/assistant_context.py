@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
@@ -8,6 +9,9 @@ from starlette import status
 from app.core.errors import AppError
 from app.models.identification import AIIdentification
 from app.models.observation import Observation
+from app.models.sampling_grid import SamplingLabel
+from app.models.signal_score import SignalScoreLabel
+from app.models.user import UserRole
 from app.models.verification import VerificationStatus
 from app.repositories.environmental_context import EnvironmentalContextRepository
 from app.repositories.identifications import IdentificationRepository
@@ -15,9 +19,16 @@ from app.repositories.media import MediaRepository
 from app.repositories.observations import ObservationRepository
 from app.repositories.sampling_grid import SamplingGridRepository
 from app.repositories.signal_scores import SignalScoreRepository
+from app.repositories.users import UserRepository
 from app.repositories.verification import VerificationRepository
-from app.schemas.assistant_context import ObservationAssistantContext, RegionAssistantContext
+from app.schemas.assistant_context import (
+    ObservationAssistantContext,
+    RegionAssistantContext,
+    ResearchAssistantContext,
+    ResearchAssistantContextRequest,
+)
 from app.services.nearby_records import NearbyRecordsService
+from app.services.research_observations import ResearchObservationSearchService
 
 UNKNOWN = "unknown"
 VERIFIED_STATUSES = {
@@ -35,7 +46,9 @@ class AssistantContextService:
         self.observations = ObservationRepository(session)
         self.sampling_grid = SamplingGridRepository(session)
         self.signal_scores = SignalScoreRepository(session)
+        self.users = UserRepository(session)
         self.verification = VerificationRepository(session)
+        self.session = session
 
     async def observation_context(
         self,
@@ -241,6 +254,89 @@ class AssistantContextService:
             ),
         )
 
+    async def research_context(
+        self,
+        request: ResearchAssistantContextRequest,
+    ) -> ResearchAssistantContext:
+        await self._require_research_access(request.requester_id)
+        filters = request.filters
+        search = await ResearchObservationSearchService(self.session).search(
+            requester_id=request.requester_id,
+            species_id=self._uuid_filter(filters, "species_id"),
+            candidate_name=self._str_filter(filters, "candidate_name"),
+            verification_status=self._verification_status_filter(filters),
+            signal_label=self._signal_label_filter(filters),
+            min_signal_score=self._decimal_filter(filters, "min_signal_score"),
+            max_signal_score=self._decimal_filter(filters, "max_signal_score"),
+            bbox=self._str_filter(filters, "bbox"),
+            region_code=self._str_filter(filters, "region_code"),
+            from_date=self._datetime_filter(filters, "from_date"),
+            to_date=self._datetime_filter(filters, "to_date"),
+            has_media=self._bool_filter(filters, "has_media"),
+            needs_review=self._bool_filter(filters, "needs_review"),
+            sampling_label=self._sampling_label_filter(filters),
+            limit=25,
+            offset=0,
+            sort="signal_score_desc",
+        )
+        sampling_cells = await self.sampling_grid.list_cells(
+            bbox=self._parse_bbox(self._str_filter(filters, "bbox")),
+            region_code=self._str_filter(filters, "region_code"),
+            limit=50,
+        )
+        sampling_concerns = [
+            {
+                "cell_id": str(cell.id),
+                "region_code": cell.region_code,
+                "sampling_label": cell.sampling_label.value,
+                "observation_count": cell.observation_count,
+                "note": "Sampling concern is inferred from grid metadata, not true absence.",
+            }
+            for cell in sampling_cells
+            if cell.sampling_label
+            in {
+                SamplingLabel.under_sampled,
+                SamplingLabel.high_risk_under_sampled,
+                SamplingLabel.needs_structured_survey,
+                SamplingLabel.likely_false_absence,
+            }
+        ][:10]
+        top_records = [
+            {
+                "observation_id": str(item.observation_id),
+                "candidate_species": item.candidate_species or UNKNOWN,
+                "verification_status": item.verification_status.value,
+                "signal_score": item.signal_score or UNKNOWN,
+                "signal_label": item.signal_label.value if item.signal_label else UNKNOWN,
+                "sampling_label": item.sampling_label.value if item.sampling_label else UNKNOWN,
+                "submitted_at": item.submitted_at.isoformat(),
+            }
+            for item in search.items[:10]
+        ]
+        return ResearchAssistantContext(
+            question_type=request.question_type,
+            filtered_observation_summary={
+                "matched_observation_count": search.total,
+                "returned_record_count": len(top_records),
+                "verification_status_counts": self._verification_counts(search.items),
+                "question_type": request.question_type,
+            },
+            top_records=top_records,
+            sampling_concerns=sampling_concerns,
+            exportable_query_filters=filters,
+            uncertainty_notes=self._research_uncertainty_notes(
+                observation_count=search.total,
+                sampling_concern_count=len(sampling_concerns),
+            ),
+            data_sources_used=[
+                "research_observations",
+                "identifications",
+                "verification",
+                "signal_scores",
+                "sampling_grid",
+            ],
+        )
+
     def allowed_claims(
         self,
         *,
@@ -438,3 +534,90 @@ class AssistantContextService:
         if has_sampling_cells:
             sources.append("sampling_grid")
         return sources or ["none_available"]
+
+    async def _require_research_access(self, requester_id: uuid.UUID) -> None:
+        requester = await self.users.get(requester_id)
+        if requester is None:
+            raise AppError(
+                code="requester_not_found",
+                message="Requester was not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        if requester.role not in {UserRole.researcher, UserRole.reviewer, UserRole.admin}:
+            raise AppError(
+                code="research_assistant_context_forbidden",
+                message="Only research, reviewer, or admin users can request research context.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+    def _verification_counts(self, items: list[Any]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for item in items:
+            status_value = item.verification_status.value
+            counts[status_value] = counts.get(status_value, 0) + 1
+        return counts
+
+    def _research_uncertainty_notes(
+        self,
+        *,
+        observation_count: int,
+        sampling_concern_count: int,
+    ) -> list[str]:
+        notes = [
+            "Use only the returned database fields as evidence.",
+            "Do not infer population trends from casual sightings.",
+            "Do not recommend chemical treatment or unsafe species handling.",
+        ]
+        if observation_count == 0:
+            notes.append("No matched records means insufficient evidence, not confirmed absence.")
+        if sampling_concern_count:
+            notes.append("Sampling concerns identify survey gaps and do not prove species absence.")
+        return notes
+
+    def _uuid_filter(self, filters: dict[str, Any], key: str) -> uuid.UUID | None:
+        value = filters.get(key)
+        return uuid.UUID(str(value)) if value else None
+
+    def _str_filter(self, filters: dict[str, Any], key: str) -> str | None:
+        value = filters.get(key)
+        return str(value) if value is not None else None
+
+    def _decimal_filter(self, filters: dict[str, Any], key: str) -> Decimal | None:
+        value = filters.get(key)
+        return Decimal(str(value)) if value is not None else None
+
+    def _bool_filter(self, filters: dict[str, Any], key: str) -> bool | None:
+        value = filters.get(key)
+        return bool(value) if value is not None else None
+
+    def _datetime_filter(self, filters: dict[str, Any], key: str) -> datetime | None:
+        value = filters.get(key)
+        if value is None:
+            return None
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+    def _verification_status_filter(
+        self,
+        filters: dict[str, Any],
+    ) -> VerificationStatus | None:
+        value = filters.get("verification_status")
+        return VerificationStatus(str(value)) if value else None
+
+    def _signal_label_filter(self, filters: dict[str, Any]) -> SignalScoreLabel | None:
+        value = filters.get("signal_label")
+        return SignalScoreLabel(str(value)) if value else None
+
+    def _sampling_label_filter(self, filters: dict[str, Any]) -> SamplingLabel | None:
+        value = filters.get("sampling_label")
+        return SamplingLabel(str(value)) if value else None
+
+    def _parse_bbox(self, bbox: str | None) -> tuple[Decimal, Decimal, Decimal, Decimal] | None:
+        if bbox is None:
+            return None
+        parts = [Decimal(part.strip()) for part in bbox.split(",")]
+        if len(parts) != 4:
+            return None
+        min_lon, min_lat, max_lon, max_lat = parts
+        if min_lon >= max_lon or min_lat >= max_lat:
+            return None
+        return min_lon, min_lat, max_lon, max_lat

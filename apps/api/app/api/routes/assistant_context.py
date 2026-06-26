@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
-from app.schemas.assistant_context import ObservationAssistantContext, RegionAssistantContext
+from app.schemas.assistant_context import (
+    ObservationAssistantContext,
+    RegionAssistantContext,
+    ResearchAssistantContext,
+    ResearchAssistantContextRequest,
+)
 from app.services.assistant_context import AssistantContextService
 
 router = APIRouter(prefix="/assistant/context", tags=["assistant-context"])
@@ -33,3 +38,11 @@ async def region_context(
         longitude=lon,
         radius_km=radius_km,
     )
+
+
+@router.post("/research", response_model=ResearchAssistantContext)
+async def research_context(
+    payload: ResearchAssistantContextRequest,
+    session: SessionDep,
+) -> ResearchAssistantContext:
+    return await AssistantContextService(session).research_context(payload)

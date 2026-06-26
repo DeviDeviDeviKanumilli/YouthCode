@@ -26,6 +26,8 @@ from app.models import (
     SignalScore,
     SignalScoreLabel,
     Species,
+    User,
+    UserRole,
     Verification,
     VerificationStatus,
 )
@@ -44,6 +46,7 @@ def assistant_context_client() -> Generator[TestClient, None, None]:
         expire_on_commit=False,
     )
     tables = [
+        cast(Table, User.__table__),
         cast(Table, Species.__table__),
         cast(Table, Observation.__table__),
         cast(Table, AIIdentification.__table__),
@@ -93,6 +96,18 @@ def seed_sparse_observation(client: TestClient) -> str:
             session.add(observation)
             await session.commit()
             return str(observation.id)
+
+    return anyio.run(seed)
+
+
+def seed_user(client: TestClient, *, role: UserRole) -> str:
+    async def seed() -> str:
+        session_factory = cast(Any, client.app).state.session_factory
+        async with session_factory() as session:
+            user = User(email=f"{role.value}@example.com", role=role)
+            session.add(user)
+            await session.commit()
+            return str(user.id)
 
     return anyio.run(seed)
 
@@ -320,3 +335,69 @@ def test_region_assistant_context_validates_radius(
     )
 
     assert response.status_code == 422
+
+
+def test_research_assistant_context_applies_filters_and_returns_grounded_summary(
+    assistant_context_client: TestClient,
+) -> None:
+    requester_id = seed_user(assistant_context_client, role=UserRole.researcher)
+    observation_id = seed_rich_observation(assistant_context_client)
+
+    response = assistant_context_client.post(
+        "/assistant/context/research",
+        json={
+            "requester_id": requester_id,
+            "question_type": "verification_priority",
+            "filters": {"region_code": "NY", "signal_label": "priority_ecological_signal"},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["question_type"] == "verification_priority"
+    assert body["filtered_observation_summary"]["matched_observation_count"] == 1
+    assert body["top_records"][0]["observation_id"] == observation_id
+    assert body["top_records"][0]["candidate_species"] == "Japanese knotweed"
+    assert body["sampling_concerns"][0]["sampling_label"] == "high_risk_under_sampled"
+    assert body["exportable_query_filters"]["region_code"] == "NY"
+    assert "signal_scores" in body["data_sources_used"]
+    assert any("database fields" in note for note in body["uncertainty_notes"])
+
+
+def test_research_assistant_context_rejects_consumer(
+    assistant_context_client: TestClient,
+) -> None:
+    requester_id = seed_user(assistant_context_client, role=UserRole.consumer)
+
+    response = assistant_context_client.post(
+        "/assistant/context/research",
+        json={
+            "requester_id": requester_id,
+            "question_type": "species_summary",
+            "filters": {},
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "research_assistant_context_forbidden"
+
+
+def test_research_assistant_context_empty_result_says_insufficient_evidence(
+    assistant_context_client: TestClient,
+) -> None:
+    requester_id = seed_user(assistant_context_client, role=UserRole.admin)
+
+    response = assistant_context_client.post(
+        "/assistant/context/research",
+        json={
+            "requester_id": requester_id,
+            "question_type": "range_edge",
+            "filters": {"region_code": "EMPTY"},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["filtered_observation_summary"]["matched_observation_count"] == 0
+    assert body["top_records"] == []
+    assert any("insufficient evidence" in note for note in body["uncertainty_notes"])

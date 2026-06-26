@@ -6,11 +6,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
 from app.models.export import Export
-from app.schemas.exports import ExportCreate, ExportRead, ExportUpdate
+from app.schemas.exports import ExportCreate, ExportRead, ExportUpdate, ResearchExportCreate
 from app.services.exports import ExportService
 
 router = APIRouter(prefix="/research/exports", tags=["exports"])
 SessionDep = Annotated[AsyncSession, Depends(get_async_session)]
+
+single_export_router = APIRouter(prefix="/research/export", tags=["exports"])
+
+
+@single_export_router.post("", response_model=ExportRead, status_code=status.HTTP_201_CREATED)
+async def create_research_export(
+    payload: ResearchExportCreate,
+    session: SessionDep,
+) -> Export:
+    return await ExportService(session).create_research_export(payload)
 
 
 @router.post("", response_model=ExportRead, status_code=status.HTTP_201_CREATED)

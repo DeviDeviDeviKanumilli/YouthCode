@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import GUID, Base, JSONVariant, UUIDPrimaryKeyMixin
@@ -47,7 +47,7 @@ class Export(UUIDPrimaryKeyMixin, Base):
         index=True,
         nullable=False,
     )
-    download_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    download_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     license_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

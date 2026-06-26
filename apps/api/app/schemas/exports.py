@@ -16,11 +16,23 @@ class ExportCreate(BaseModel):
     license_summary: str | None = None
 
 
+class ResearchExportCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    requester_id: uuid.UUID
+    format: ExportFormat
+    filters: dict[str, Any] = Field(default_factory=dict)
+    include_media_urls: bool = False
+    include_environmental_context: bool = True
+    include_signal_scores: bool = True
+    include_verification: bool = True
+
+
 class ExportUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: ExportStatus | None = None
-    download_url: str | None = Field(default=None, max_length=1000)
+    download_url: str | None = None
     license_summary: str | None = None
     completed_at: datetime | None = None
 

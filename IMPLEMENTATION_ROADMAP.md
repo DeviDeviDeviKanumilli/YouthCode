@@ -141,4 +141,5 @@ M1.4 migration foundation:
 - M3.3 Sighting Intelligence Card API is implemented, locally verified, committed, and pushed.
 - M3.4 My Sightings API is implemented, locally verified, committed, and pushed.
 - M3.5 Local Ecosystem Region API is implemented and locally verified with `make check` passing 81 tests.
-- Next step: begin M4.1 Identification Provider Interface.
+- M4.1 Identification Provider Interface is implemented and locally verified with `make check` passing 86 tests.
+- Next step: begin M4.2 Identify From Media endpoint.

@@ -156,4 +156,5 @@ M1.4 migration foundation:
 - M6.3 Recompute score endpoint integration is implemented and locally verified with `make check` passing 131 tests.
 - M6.4 Score explanation generator is implemented and locally verified with `make check` passing 134 tests.
 - M6 is complete against the current local verification gates.
-- Next step: begin M7.1 Public map layer API.
+- M7.1 Public map layer API is implemented and locally verified with `make check` passing 139 tests.
+- Next step: begin M7.2 Research map layer API.

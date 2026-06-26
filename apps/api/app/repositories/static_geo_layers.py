@@ -87,6 +87,82 @@ class StaticGeoLayerRepository:
                 )
         return sorted(records, key=lambda item: item.distance_m)[:limit]
 
+    async def list_known_records(
+        self,
+        *,
+        bbox: tuple[Decimal, Decimal, Decimal, Decimal],
+        species_id: uuid.UUID | None = None,
+        limit: int = 100,
+    ) -> list[KnownRecord]:
+        min_lon, min_lat, max_lon, max_lat = bbox
+        statement = select(KnownRecord).where(
+            KnownRecord.longitude >= min_lon,
+            KnownRecord.longitude <= max_lon,
+            KnownRecord.latitude >= min_lat,
+            KnownRecord.latitude <= max_lat,
+        )
+        if species_id is not None:
+            statement = statement.where(KnownRecord.species_id == species_id)
+        result = await self.session.execute(statement.limit(limit))
+        return list(result.scalars().all())
+
+    async def list_waterways(
+        self,
+        *,
+        bbox: tuple[Decimal, Decimal, Decimal, Decimal],
+        limit: int = 100,
+    ) -> list[StaticWaterway]:
+        min_lon, min_lat, max_lon, max_lat = bbox
+        result = await self.session.execute(
+            select(StaticWaterway)
+            .where(
+                StaticWaterway.representative_longitude >= min_lon,
+                StaticWaterway.representative_longitude <= max_lon,
+                StaticWaterway.representative_latitude >= min_lat,
+                StaticWaterway.representative_latitude <= max_lat,
+            )
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_roads_trails(
+        self,
+        *,
+        bbox: tuple[Decimal, Decimal, Decimal, Decimal],
+        limit: int = 100,
+    ) -> list[StaticRoadTrail]:
+        min_lon, min_lat, max_lon, max_lat = bbox
+        result = await self.session.execute(
+            select(StaticRoadTrail)
+            .where(
+                StaticRoadTrail.representative_longitude >= min_lon,
+                StaticRoadTrail.representative_longitude <= max_lon,
+                StaticRoadTrail.representative_latitude >= min_lat,
+                StaticRoadTrail.representative_latitude <= max_lat,
+            )
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_parks(
+        self,
+        *,
+        bbox: tuple[Decimal, Decimal, Decimal, Decimal],
+        limit: int = 100,
+    ) -> list[StaticPark]:
+        min_lon, min_lat, max_lon, max_lat = bbox
+        result = await self.session.execute(
+            select(StaticPark)
+            .where(
+                StaticPark.representative_longitude >= min_lon,
+                StaticPark.representative_longitude <= max_lon,
+                StaticPark.representative_latitude >= min_lat,
+                StaticPark.representative_latitude <= max_lat,
+            )
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
     def _nearest_layer(
         self,
         latitude: Decimal,

@@ -25,6 +25,7 @@ from app.models import (
     StaticRoadTrail,
     StaticWaterway,
     User,
+    Verification,
     VerificationStatus,
 )
 
@@ -51,6 +52,7 @@ def forecast_client() -> Generator[TestClient, None, None]:
         cast(Table, StaticRoadTrail.__table__),
         cast(Table, StaticPark.__table__),
         cast(Table, KnownRecord.__table__),
+        cast(Table, Verification.__table__),
     ]
 
     async def override_session() -> AsyncGenerator[AsyncSession, None]:
@@ -84,6 +86,15 @@ def create_species(client: TestClient) -> str:
     response = client.post(
         "/species",
         json={"scientific_name": "Fallopia japonica", "common_name": "Japanese knotweed"},
+    )
+    assert response.status_code == 201
+    return str(response.json()["id"])
+
+
+def create_user(client: TestClient, role: str) -> str:
+    response = client.post(
+        "/users",
+        json={"email": f"{role}-{datetime.now(UTC).timestamp()}@example.com", "role": role},
     )
     assert response.status_code == 201
     return str(response.json()["id"])
@@ -312,3 +323,62 @@ def test_public_forecast_enforces_large_result_limit(forecast_client: TestClient
     body = response.json()
     assert body["metadata"]["feature_count"] == 250
     assert body["metadata"]["truncated"] is True
+
+
+def test_research_forecast_rejects_consumer(forecast_client: TestClient) -> None:
+    requester_id = create_user(forecast_client, "consumer")
+
+    response = forecast_client.get(
+        "/forecast/research",
+        params={"requester_id": requester_id, "bbox": "-74.02,40.70,-73.99,40.73"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "research_forecast_forbidden"
+
+
+def test_research_forecast_layer_filter_and_metadata(forecast_client: TestClient) -> None:
+    requester_id = create_user(forecast_client, "researcher")
+    species_id = create_species(forecast_client)
+    private_id = create_observation(forecast_client, privacy_level="private", lat="40.7188")
+    add_identification(forecast_client, private_id, species_id)
+    seed_static_layers(forecast_client, species_id)
+
+    response = forecast_client.get(
+        "/forecast/research",
+        params=[
+            ("requester_id", requester_id),
+            ("bbox", "-74.02,40.70,-73.99,40.73"),
+            ("layer", "observations"),
+            ("layer", "verified_records"),
+        ],
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["type"] == "FeatureCollection"
+    assert "smaller bbox tiles" in body["metadata"]["pagination_strategy"]
+    assert body["metadata"]["layers"] == ["observations", "verified_records"]
+    layers = {feature["properties"]["layer"] for feature in body["features"]}
+    assert layers == {"observations", "verified_records"}
+    observation_feature = next(
+        feature for feature in body["features"] if feature["properties"]["layer"] == "observations"
+    )
+    assert observation_feature["properties"]["observation_id"] == private_id
+    assert observation_feature["geometry"]["coordinates"] == [-74.006, 40.7188]
+
+
+def test_research_forecast_invalid_layer_rejected(forecast_client: TestClient) -> None:
+    requester_id = create_user(forecast_client, "admin")
+
+    response = forecast_client.get(
+        "/forecast/research",
+        params={
+            "requester_id": requester_id,
+            "bbox": "-74.02,40.70,-73.99,40.73",
+            "layer": "unknown",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_forecast_layer"

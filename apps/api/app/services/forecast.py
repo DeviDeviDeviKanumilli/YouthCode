@@ -11,13 +11,29 @@ from app.models.identification import AIIdentification
 from app.models.observation import Observation, PrivacyLevel
 from app.models.signal_score import SignalScoreLabel
 from app.models.static_geo_layer import KnownRecord, StaticPark, StaticRoadTrail, StaticWaterway
+from app.models.user import UserRole
+from app.models.verification import VerificationStatus
 from app.repositories.identifications import IdentificationRepository
 from app.repositories.observations import ObservationRepository
 from app.repositories.signal_scores import SignalScoreRepository
 from app.repositories.static_geo_layers import StaticGeoLayerRepository
+from app.repositories.users import UserRepository
+from app.repositories.verification import VerificationRepository
 from app.schemas.forecast import GeoJSONFeature, GeoJSONFeatureCollection
 
 PUBLIC_FORECAST_LIMIT = 250
+RESEARCH_FORECAST_LIMIT = 500
+RESEARCH_LAYERS = {
+    "observations",
+    "verified_records",
+    "unverified_records",
+    "waterways",
+    "roads_trails",
+    "parks",
+    "possible_corridors",
+    "sampling_gap_grid",
+    "signal_clusters",
+}
 
 
 class ForecastService:
@@ -26,6 +42,8 @@ class ForecastService:
         self.identifications = IdentificationRepository(session)
         self.signal_scores = SignalScoreRepository(session)
         self.static_layers = StaticGeoLayerRepository(session)
+        self.users = UserRepository(session)
+        self.verification = VerificationRepository(session)
 
     async def public_forecast(
         self,
@@ -107,6 +125,126 @@ class ForecastService:
             },
         )
 
+    async def research_forecast(
+        self,
+        *,
+        requester_id: uuid.UUID,
+        bbox: str | None,
+        latitude: Decimal | None,
+        longitude: Decimal | None,
+        radius_km: Decimal | None,
+        species_id: uuid.UUID | None,
+        verification_status: VerificationStatus | None,
+        layers: list[str] | None,
+        from_date: datetime | None,
+        to_date: datetime | None,
+    ) -> GeoJSONFeatureCollection:
+        await self._require_research_access(requester_id)
+        requested_layers = self._resolve_research_layers(layers)
+        resolved_bbox = self._resolve_bbox(
+            bbox=bbox,
+            latitude=latitude,
+            longitude=longitude,
+            radius_km=radius_km,
+        )
+        features: list[GeoJSONFeature] = []
+        observations = await self.observations.list(
+            bbox=resolved_bbox,
+            from_date=from_date,
+            to_date=to_date,
+            limit=RESEARCH_FORECAST_LIMIT,
+        )
+        if "observations" in requested_layers:
+            features.extend(
+                await self._research_observation_features(
+                    observations,
+                    species_id=species_id,
+                    verification_status=verification_status,
+                )
+            )
+        known_records = await self.static_layers.list_known_records(
+            bbox=resolved_bbox,
+            species_id=species_id,
+            limit=RESEARCH_FORECAST_LIMIT,
+        )
+        verified_records = [
+            record
+            for record in known_records
+            if record.verification_status
+            in {VerificationStatus.expert_verified, VerificationStatus.field_confirmed}
+        ]
+        unverified_records = [record for record in known_records if record not in verified_records]
+        if verification_status is not None:
+            verified_records = [
+                record
+                for record in verified_records
+                if record.verification_status == verification_status
+            ]
+            unverified_records = [
+                record
+                for record in unverified_records
+                if record.verification_status == verification_status
+            ]
+        if "verified_records" in requested_layers:
+            features.extend(self._known_record_features(verified_records, layer="verified_records"))
+        if "unverified_records" in requested_layers:
+            features.extend(
+                self._known_record_features(unverified_records, layer="unverified_records")
+            )
+        if "possible_corridors" in requested_layers:
+            observation_features = await self._research_observation_features(
+                observations,
+                species_id=species_id,
+                verification_status=verification_status,
+            )
+            features.extend(self._corridor_features(observation_features, known_records))
+        if "waterways" in requested_layers:
+            features.extend(
+                self._waterway_features(
+                    await self.static_layers.list_waterways(
+                        bbox=resolved_bbox,
+                        limit=RESEARCH_FORECAST_LIMIT,
+                    )
+                )
+            )
+        if "roads_trails" in requested_layers:
+            features.extend(
+                self._road_trail_features(
+                    await self.static_layers.list_roads_trails(
+                        bbox=resolved_bbox,
+                        limit=RESEARCH_FORECAST_LIMIT,
+                    )
+                )
+            )
+        if "parks" in requested_layers:
+            features.extend(
+                self._park_features(
+                    await self.static_layers.list_parks(
+                        bbox=resolved_bbox,
+                        limit=RESEARCH_FORECAST_LIMIT,
+                    )
+                )
+            )
+        if "sampling_gap_grid" in requested_layers:
+            features.append(self._sampling_gap_feature(resolved_bbox, len(observations)))
+        if "signal_clusters" in requested_layers:
+            features.extend(await self._signal_cluster_features(observations))
+        limited_features = features[:RESEARCH_FORECAST_LIMIT]
+        return GeoJSONFeatureCollection(
+            features=limited_features,
+            metadata={
+                "bbox": [str(value) for value in resolved_bbox],
+                "feature_count": len(limited_features),
+                "limit": RESEARCH_FORECAST_LIMIT,
+                "truncated": len(features) > RESEARCH_FORECAST_LIMIT,
+                "layers": sorted(requested_layers),
+                "pagination_strategy": (
+                    "MVP returns a capped FeatureCollection. Research dashboard should request "
+                    "smaller bbox tiles or repeat with narrower layer filters."
+                ),
+            },
+        )
+
     async def _observation_features(
         self,
         observations: list[Observation],
@@ -157,7 +295,60 @@ class ForecastService:
         identifications = await self.identifications.list_for_observation(observation_id)
         return identifications[0] if identifications else None
 
-    def _known_record_features(self, records: list[KnownRecord]) -> list[GeoJSONFeature]:
+    async def _research_observation_features(
+        self,
+        observations: list[Observation],
+        *,
+        species_id: uuid.UUID | None,
+        verification_status: VerificationStatus | None,
+    ) -> list[GeoJSONFeature]:
+        features: list[GeoJSONFeature] = []
+        for observation in observations:
+            identification = await self._latest_identification(observation.id)
+            if species_id is not None and (
+                identification is None or identification.candidate_species_id != species_id
+            ):
+                continue
+            verification = await self.verification.get(observation.id)
+            if verification_status is not None and (
+                verification is None or verification.status != verification_status
+            ):
+                continue
+            score = await self.signal_scores.get(observation.id)
+            features.append(
+                GeoJSONFeature(
+                    geometry={
+                        "type": "Point",
+                        "coordinates": [float(observation.longitude), float(observation.latitude)],
+                    },
+                    properties={
+                        "layer": "observations",
+                        "observation_id": str(observation.id),
+                        "observed_at": observation.timestamp.isoformat(),
+                        "privacy_level": observation.privacy_level.value,
+                        "possible_species": (
+                            identification.candidate_common_name
+                            or identification.candidate_scientific_name
+                            if identification
+                            else None
+                        ),
+                        "candidate_species_id": (
+                            str(identification.candidate_species_id)
+                            if identification and identification.candidate_species_id
+                            else None
+                        ),
+                        "verification_status": verification.status.value if verification else "raw",
+                        "signal_label": score.label.value if score else None,
+                    },
+                )
+            )
+        return features
+
+    def _known_record_features(
+        self,
+        records: list[KnownRecord],
+        layer: str = "known_records",
+    ) -> list[GeoJSONFeature]:
         return [
             GeoJSONFeature(
                 geometry={
@@ -165,7 +356,7 @@ class ForecastService:
                     "coordinates": [float(record.longitude), float(record.latitude)],
                 },
                 properties={
-                    "layer": "known_records",
+                    "layer": layer,
                     "record_id": str(record.id),
                     "species_id": str(record.species_id),
                     "observed_at": record.observed_at.isoformat(),
@@ -175,6 +366,34 @@ class ForecastService:
             )
             for record in records
         ]
+
+    async def _signal_cluster_features(
+        self,
+        observations: list[Observation],
+    ) -> list[GeoJSONFeature]:
+        features: list[GeoJSONFeature] = []
+        for observation in observations:
+            score = await self.signal_scores.get(observation.id)
+            if score is None or score.label not in {
+                SignalScoreLabel.high_value_verification_candidate,
+                SignalScoreLabel.priority_ecological_signal,
+            }:
+                continue
+            features.append(
+                GeoJSONFeature(
+                    geometry={
+                        "type": "Point",
+                        "coordinates": [float(observation.longitude), float(observation.latitude)],
+                    },
+                    properties={
+                        "layer": "signal_clusters",
+                        "observation_id": str(observation.id),
+                        "signal_label": score.label.value,
+                        "final_signal_priority": str(score.final_signal_priority),
+                    },
+                )
+            )
+        return features
 
     def _corridor_features(
         self,
@@ -356,3 +575,31 @@ class ForecastService:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
         return min_lon, min_lat, max_lon, max_lat
+
+    async def _require_research_access(self, requester_id: uuid.UUID) -> None:
+        requester = await self.users.get(requester_id)
+        if requester is None:
+            raise AppError(
+                code="requester_not_found",
+                message="Requester was not found.",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        if requester.role not in {UserRole.researcher, UserRole.reviewer, UserRole.admin}:
+            raise AppError(
+                code="research_forecast_forbidden",
+                message="Research forecast layers require researcher, reviewer, or admin access.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+
+    def _resolve_research_layers(self, layers: list[str] | None) -> set[str]:
+        if not layers:
+            return set(RESEARCH_LAYERS)
+        requested_layers = set(layers)
+        invalid_layers = requested_layers - RESEARCH_LAYERS
+        if invalid_layers:
+            raise AppError(
+                code="invalid_forecast_layer",
+                message=f"Unsupported forecast layer: {', '.join(sorted(invalid_layers))}.",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            )
+        return requested_layers

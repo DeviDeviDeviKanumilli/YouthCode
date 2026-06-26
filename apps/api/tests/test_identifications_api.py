@@ -80,6 +80,8 @@ def create_species(client: TestClient) -> str:
         json={
             "scientific_name": "Fallopia japonica",
             "common_name": "Japanese knotweed",
+            "common_names": ["Japanese knotweed", "Asian knotweed"],
+            "synonyms": ["Reynoutria japonica"],
         },
     )
     assert response.status_code == 201
@@ -196,6 +198,95 @@ def test_missing_candidate_species_rejected(identifications_client: TestClient) 
 
     assert response.status_code == 404
     assert response.json()["code"] == "species_not_found"
+
+
+def test_identification_normalizes_exact_scientific_name(
+    identifications_client: TestClient,
+) -> None:
+    observation_id = create_observation(identifications_client)
+    species_id = create_species(identifications_client)
+
+    response = identifications_client.post(
+        f"/observations/{observation_id}/identifications",
+        json={
+            "candidate_scientific_name": "Fallopia japonica",
+            "candidate_common_name": "Japanese knotweed",
+            "confidence": "0.77",
+            "model_name": "mock-vision",
+            "model_version": "0.1.0",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["candidate_species_id"] == species_id
+    assert body["raw_model_output"]["taxonomy_normalization"]["matched_by"] == "scientific_name"
+
+
+def test_identification_normalizes_common_name(identifications_client: TestClient) -> None:
+    observation_id = create_observation(identifications_client)
+    species_id = create_species(identifications_client)
+
+    response = identifications_client.post(
+        f"/observations/{observation_id}/identifications",
+        json={
+            "candidate_scientific_name": "Unknown Polygonaceae",
+            "candidate_common_name": "Asian knotweed",
+            "confidence": "0.68",
+            "model_name": "mock-vision",
+            "model_version": "0.1.0",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["candidate_species_id"] == species_id
+    assert body["raw_model_output"]["taxonomy_normalization"]["matched_by"] == "common_name"
+
+
+def test_identification_normalizes_synonym(identifications_client: TestClient) -> None:
+    observation_id = create_observation(identifications_client)
+    species_id = create_species(identifications_client)
+
+    response = identifications_client.post(
+        f"/observations/{observation_id}/identifications",
+        json={
+            "candidate_scientific_name": "Reynoutria japonica",
+            "candidate_common_name": "Unknown knotweed",
+            "confidence": "0.68",
+            "model_name": "mock-vision",
+            "model_version": "0.1.0",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["candidate_species_id"] == species_id
+    assert body["raw_model_output"]["taxonomy_normalization"]["matched_by"] == "synonym"
+
+
+def test_identification_keeps_unknown_species_unresolved(
+    identifications_client: TestClient,
+) -> None:
+    observation_id = create_observation(identifications_client)
+
+    response = identifications_client.post(
+        f"/observations/{observation_id}/identifications",
+        json={
+            "candidate_scientific_name": "Imaginaris examplea",
+            "candidate_common_name": "Example mystery plant",
+            "confidence": "0.42",
+            "model_name": "mock-vision",
+            "model_version": "0.1.0",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["candidate_species_id"] is None
+    normalization = body["raw_model_output"]["taxonomy_normalization"]
+    assert normalization["matched_by"] is None
+    assert normalization["unresolved_candidate_scientific_name"] == "Imaginaris examplea"
 
 
 def test_identify_observation_media_with_mock_provider(

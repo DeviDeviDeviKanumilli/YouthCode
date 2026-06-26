@@ -11,7 +11,14 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_async_session
 from app.main import create_app
-from app.models import AIIdentification, EnvironmentalContext, Observation, SignalScore, User
+from app.models import (
+    AIIdentification,
+    EnvironmentalContext,
+    Observation,
+    SignalScore,
+    Species,
+    User,
+)
 from app.models.signal_score import SignalScoreLabel
 from app.services.signal_scores import label_for_score
 
@@ -30,6 +37,7 @@ def signal_scores_client() -> Generator[TestClient, None, None]:
     )
     tables = [
         cast(Table, User.__table__),
+        cast(Table, Species.__table__),
         cast(Table, Observation.__table__),
         cast(Table, AIIdentification.__table__),
         cast(Table, EnvironmentalContext.__table__),

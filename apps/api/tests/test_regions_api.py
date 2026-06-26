@@ -15,6 +15,7 @@ from app.models import (
     EnvironmentalContext,
     Observation,
     SignalScore,
+    Species,
     User,
     Verification,
 )
@@ -34,6 +35,7 @@ def regions_client() -> Generator[TestClient, None, None]:
     )
     tables = [
         cast(Table, User.__table__),
+        cast(Table, Species.__table__),
         cast(Table, Observation.__table__),
         cast(Table, AIIdentification.__table__),
         cast(Table, EnvironmentalContext.__table__),

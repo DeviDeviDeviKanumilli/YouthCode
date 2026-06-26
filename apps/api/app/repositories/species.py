@@ -42,6 +42,12 @@ class SpeciesRepository:
         )
         return list(result.scalars().all())
 
+    async def list_all(self, limit: int = 500) -> list[Species]:
+        result = await self.session.execute(
+            select(Species).order_by(Species.scientific_name).limit(limit)
+        )
+        return list(result.scalars().all())
+
     async def update(self, species: Species, data: SpeciesUpdate) -> Species:
         update_data = data.model_dump(exclude_unset=True)
         for field, value in update_data.items():

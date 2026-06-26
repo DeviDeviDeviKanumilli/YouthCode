@@ -16,6 +16,7 @@ from app.services.identification_providers import (
     IdentificationProviderUnavailableError,
     get_identification_provider,
 )
+from app.services.taxonomy import TaxonomyNormalizationService
 
 
 def confidence_label_for(confidence: Decimal) -> ConfidenceLabel:
@@ -34,6 +35,7 @@ class IdentificationService:
         self.media = MediaRepository(session)
         self.observations = ObservationRepository(session)
         self.species = SpeciesRepository(session)
+        self.taxonomy = TaxonomyNormalizationService(session)
         self.verification = VerificationRepository(session)
         self.session = session
 
@@ -61,6 +63,7 @@ class IdentificationService:
             data = data.model_copy(
                 update={"confidence_label": confidence_label_for(data.confidence)}
             )
+        data = await self._normalize_species_candidate(data)
 
         identification = await self.repository.create(observation_id, data)
         await self.session.commit()
@@ -130,3 +133,27 @@ class IdentificationService:
                 status_code=status.HTTP_404_NOT_FOUND,
             )
         return identification
+
+    async def _normalize_species_candidate(
+        self,
+        data: AIIdentificationCreate,
+    ) -> AIIdentificationCreate:
+        if data.candidate_species_id is not None:
+            return data
+
+        result = await self.taxonomy.normalize_candidate(
+            candidate_scientific_name=data.candidate_scientific_name,
+            candidate_common_name=data.candidate_common_name,
+        )
+        raw_model_output = {
+            **data.raw_model_output,
+            "taxonomy_normalization": result.model_dump(mode="json"),
+        }
+        if result.species_id is None:
+            return data.model_copy(update={"raw_model_output": raw_model_output})
+        return data.model_copy(
+            update={
+                "candidate_species_id": result.species_id,
+                "raw_model_output": raw_model_output,
+            }
+        )

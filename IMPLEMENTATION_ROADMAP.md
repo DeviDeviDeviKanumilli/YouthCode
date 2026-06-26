@@ -143,4 +143,5 @@ M1.4 migration foundation:
 - M3.5 Local Ecosystem Region API is implemented and locally verified with `make check` passing 81 tests.
 - M4.1 Identification Provider Interface is implemented and locally verified with `make check` passing 86 tests.
 - M4.2 Identify From Media endpoint is implemented with AI-suggested verification status updates and locally verified with `make check` passing 90 tests.
-- Next step: begin M4.3 Taxonomy normalization service.
+- M4.3 Taxonomy normalization service is implemented and locally verified with `make check` passing 94 tests.
+- Next step: begin M4.4 MVP species seed data.

@@ -16,6 +16,7 @@ from app.models import (
     Media,
     Observation,
     SignalScore,
+    Species,
     User,
     Verification,
 )
@@ -35,6 +36,7 @@ def user_sightings_client() -> Generator[TestClient, None, None]:
     )
     tables = [
         cast(Table, User.__table__),
+        cast(Table, Species.__table__),
         cast(Table, Observation.__table__),
         cast(Table, Media.__table__),
         cast(Table, AIIdentification.__table__),

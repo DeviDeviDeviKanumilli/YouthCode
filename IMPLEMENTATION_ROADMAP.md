@@ -139,5 +139,6 @@ M1.4 migration foundation:
 - M3.1 consumer observation/media flow is covered by the observation and media APIs from M2.3 and M2.4.
 - M3.2 adaptive habitat answer validation is implemented, locally verified, committed, and pushed.
 - M3.3 Sighting Intelligence Card API is implemented, locally verified, committed, and pushed.
-- M3.4 My Sightings API is implemented, locally verified, and ready to push.
-- Next step: begin M3.5 Local Ecosystem Region API.
+- M3.4 My Sightings API is implemented, locally verified, committed, and pushed.
+- M3.5 Local Ecosystem Region API is implemented and locally verified with `make check` passing 81 tests.
+- Next step: begin M4.1 Identification Provider Interface.

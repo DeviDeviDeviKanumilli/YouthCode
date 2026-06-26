@@ -7,6 +7,7 @@ from app.api.routes.identifications import router as identifications_router
 from app.api.routes.intelligence_cards import router as intelligence_cards_router
 from app.api.routes.media import router as media_router
 from app.api.routes.observations import router as observations_router
+from app.api.routes.regions import router as regions_router
 from app.api.routes.signal_scores import router as signal_scores_router
 from app.api.routes.species import router as species_router
 from app.api.routes.user_sightings import router as user_sightings_router
@@ -24,6 +25,7 @@ api_router.include_router(identifications_router)
 api_router.include_router(intelligence_cards_router)
 api_router.include_router(media_router)
 api_router.include_router(observations_router)
+api_router.include_router(regions_router)
 api_router.include_router(signal_scores_router)
 api_router.include_router(species_router)
 api_router.include_router(user_sightings_router)

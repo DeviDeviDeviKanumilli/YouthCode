@@ -40,6 +40,8 @@ python -m mypy app tests
 ## Current M1.1 Surface
 
 - `GET /health`
+- `GET /health/db`
+- `GET /health/redis`
 - `GET /version`
 
 Alembic migrations are added in M1.4.

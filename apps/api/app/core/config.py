@@ -21,6 +21,8 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://ecosentinel:ecosentinel@localhost:5432/ecosentinel"
     redis_url: str = "redis://localhost:6379/0"
+    database_health_enabled: bool = True
+    redis_health_enabled: bool = True
 
     storage_backend: Literal["local", "s3"] = "local"
     local_storage_dir: str = ".local/storage"

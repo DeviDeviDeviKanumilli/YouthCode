@@ -16,7 +16,11 @@ def clear_settings_cache() -> Generator[None, None, None]:
 
 @pytest.fixture
 def test_settings() -> Settings:
-    return Settings(app_env="test")
+    return Settings(
+        app_env="test",
+        database_health_enabled=False,
+        redis_health_enabled=False,
+    )
 
 
 @pytest.fixture

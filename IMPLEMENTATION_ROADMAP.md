@@ -124,4 +124,5 @@ M1.4 migration foundation:
 - Planning docs exist and are pushed to GitHub.
 - M1.1 project foundation is implemented, verified, committed, and pushed.
 - M1.2 Docker Compose local environment is implemented; Docker runtime verification is pending because Docker is not installed in this environment.
-- Next step: complete M1.3 health and system endpoints.
+- M1.3 health and system endpoints are implemented, verified, committed, and ready to push.
+- Next step: complete M1.4 migration foundation.

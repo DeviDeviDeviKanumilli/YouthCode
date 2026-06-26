@@ -129,5 +129,6 @@ M1.4 migration foundation:
 - M2.1 users and roles is implemented, locally verified, committed, and pushed.
 - M2.2 species table is implemented, locally verified, and ready to push.
 - M2.3 observations table with PostGIS geometry is implemented, locally verified, committed, and pushed.
-- M2.4 media table and storage adapter are implemented, locally verified, and ready to push.
-- Next step: begin M2.5 AI identifications table.
+- M2.4 media table and storage adapter are implemented, locally verified, committed, and pushed.
+- M2.5 AI identifications table is implemented, locally verified, and ready to push.
+- Next step: begin M2.6 environmental context table.

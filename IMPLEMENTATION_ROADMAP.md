@@ -161,4 +161,5 @@ M1.4 migration foundation:
 - M7.3 Possible corridor generator is implemented and locally verified with `make check` passing 144 tests.
 - M7.4 Time-filtered observations are implemented and locally verified with `make check` passing 148 tests.
 - M7 is complete against the current local verification gates.
-- Next step: begin M8.1 Sampling grid generation.
+- M8.1 Sampling grid generation is implemented and locally verified with `make check` passing 151 tests. Alembic head is `0013`.
+- Next step: begin M8.2 Sampling label logic.

@@ -5,6 +5,7 @@ from app.models.export import Export, ExportFormat, ExportStatus
 from app.models.identification import AIIdentification, ConfidenceLabel
 from app.models.media import Media, MediaFileType
 from app.models.observation import Observation, ObservationSource, PrivacyLevel
+from app.models.sampling_grid import SamplingGridCell, SamplingLabel
 from app.models.signal_score import SignalScore, SignalScoreLabel
 from app.models.species import Species
 from app.models.static_geo_layer import (
@@ -31,6 +32,8 @@ __all__ = [
     "ObservationSource",
     "PrivacyLevel",
     "RoadTrailType",
+    "SamplingGridCell",
+    "SamplingLabel",
     "SignalScore",
     "SignalScoreLabel",
     "Species",

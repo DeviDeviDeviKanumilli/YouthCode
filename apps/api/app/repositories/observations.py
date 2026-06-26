@@ -29,6 +29,7 @@ class ObservationRepository:
         *,
         bbox: tuple[Decimal, Decimal, Decimal, Decimal] | None = None,
         user_id: uuid.UUID | None = None,
+        region_code: str | None = None,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
         limit: int = 100,
@@ -45,6 +46,8 @@ class ObservationRepository:
             )
         if user_id is not None:
             statement = statement.where(Observation.user_id == user_id)
+        if region_code is not None:
+            statement = statement.where(Observation.region_code == region_code)
         if from_date is not None:
             statement = statement.where(Observation.timestamp >= from_date)
         if to_date is not None:

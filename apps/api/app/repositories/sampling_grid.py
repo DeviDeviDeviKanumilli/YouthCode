@@ -58,3 +58,27 @@ class SamplingGridRepository:
             ).limit(limit)
         )
         return list(result.scalars().all())
+
+    async def find_cell_for_point(
+        self,
+        *,
+        latitude: Decimal,
+        longitude: Decimal,
+        region_code: str | None,
+    ) -> SamplingGridCell | None:
+        statement = select(SamplingGridCell).where(
+            SamplingGridCell.min_longitude <= longitude,
+            SamplingGridCell.max_longitude >= longitude,
+            SamplingGridCell.min_latitude <= latitude,
+            SamplingGridCell.max_latitude >= latitude,
+        )
+        if region_code is not None:
+            statement = statement.where(SamplingGridCell.region_code == region_code)
+        result = await self.session.execute(
+            statement.order_by(
+                SamplingGridCell.region_code,
+                SamplingGridCell.min_latitude,
+                SamplingGridCell.min_longitude,
+            ).limit(1)
+        )
+        return result.scalar_one_or_none()

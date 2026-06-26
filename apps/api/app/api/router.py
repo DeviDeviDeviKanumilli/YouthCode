@@ -10,6 +10,7 @@ from app.api.routes.media import router as media_router
 from app.api.routes.nearby_records import router as nearby_records_router
 from app.api.routes.observations import router as observations_router
 from app.api.routes.regions import router as regions_router
+from app.api.routes.research_observations import router as research_observations_router
 from app.api.routes.sampling_gaps import router as sampling_gaps_router
 from app.api.routes.signal_scores import router as signal_scores_router
 from app.api.routes.species import router as species_router
@@ -31,6 +32,7 @@ api_router.include_router(media_router)
 api_router.include_router(nearby_records_router)
 api_router.include_router(observations_router)
 api_router.include_router(regions_router)
+api_router.include_router(research_observations_router)
 api_router.include_router(sampling_gaps_router)
 api_router.include_router(signal_scores_router)
 api_router.include_router(species_router)

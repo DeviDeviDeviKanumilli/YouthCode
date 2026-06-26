@@ -165,4 +165,5 @@ M1.4 migration foundation:
 - M8.2 Sampling label logic is implemented and locally verified with `make check` passing 160 tests.
 - M8.3 Sampling API is implemented and locally verified with `make check` passing 165 tests.
 - M8 is complete against the current local verification gates.
-- Next step: begin M9.1 Research observation search.
+- M9.1 Research observation search is implemented and locally verified with `make check` passing 171 tests.
+- Next step: begin M9.2 Verification queue.

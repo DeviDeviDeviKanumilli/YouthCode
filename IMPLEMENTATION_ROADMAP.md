@@ -147,4 +147,5 @@ M1.4 migration foundation:
 - M4.4 MVP species seed data is implemented and locally verified with `make check` passing 97 tests. Alembic head is `0011`.
 - M4 is complete against the current local verification gates.
 - M5.1 Environmental enrichment provider interface is implemented and locally verified with `make check` passing 102 tests.
-- Next step: begin M5.2 Static geospatial layers.
+- M5.2 Static geospatial layers are implemented and locally verified with `make check` passing 105 tests. Alembic head is `0012`.
+- Next step: begin M5.3 Enrichment endpoint.

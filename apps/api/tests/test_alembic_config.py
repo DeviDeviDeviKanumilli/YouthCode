@@ -25,4 +25,4 @@ def test_alembic_can_discover_head_revision() -> None:
         text=True,
     )
 
-    assert "0011" in result.stdout
+    assert "0012" in result.stdout

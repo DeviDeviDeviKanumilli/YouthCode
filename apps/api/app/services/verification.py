@@ -237,19 +237,29 @@ class VerificationService:
             )
 
     def _enforce_role(self, role: UserRole, requested_status: VerificationStatus) -> None:
-        if requested_status in {
-            VerificationStatus.expert_verified,
-            VerificationStatus.field_confirmed,
-        } and role not in {UserRole.reviewer, UserRole.admin}:
-            raise AppError(
-                code="verification_forbidden",
-                message="Only reviewers or admins can apply expert verification statuses.",
-                status_code=status.HTTP_403_FORBIDDEN,
-            )
         if role == UserRole.consumer:
             raise AppError(
                 code="verification_forbidden",
                 message="Consumers cannot review observations.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+        if requested_status == VerificationStatus.expert_verified and role not in {
+            UserRole.researcher,
+            UserRole.reviewer,
+            UserRole.admin,
+        }:
+            raise AppError(
+                code="verification_forbidden",
+                message="Only researchers, reviewers, or admins can apply expert verification.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
+        if requested_status == VerificationStatus.field_confirmed and role not in {
+            UserRole.reviewer,
+            UserRole.admin,
+        }:
+            raise AppError(
+                code="verification_forbidden",
+                message="Only reviewers or admins can field-confirm observations.",
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 

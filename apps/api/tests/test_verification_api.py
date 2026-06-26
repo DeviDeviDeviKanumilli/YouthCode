@@ -147,6 +147,46 @@ def test_reviewer_can_expert_verify(verification_client: TestClient) -> None:
     assert body["status"] == "expert_verified"
     assert body["reviewer_type"] == "reviewer"
     assert body["verified_species_id"] == species_id
+    assert body["reviewed_at"] is not None
+
+
+def test_researcher_can_expert_verify(verification_client: TestClient) -> None:
+    observation_id = create_observation(verification_client)
+    researcher_id = create_user(verification_client, "researcher")
+    species_id = create_species(verification_client)
+
+    response = verification_client.post(
+        f"/verification/{observation_id}",
+        json={
+            "status": "expert_verified",
+            "reviewer_id": researcher_id,
+            "verified_species_id": species_id,
+            "review_notes": "Research review supports this identification.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "expert_verified"
+    assert response.json()["reviewer_type"] == "researcher"
+
+
+def test_researcher_cannot_field_confirm(verification_client: TestClient) -> None:
+    observation_id = create_observation(verification_client)
+    researcher_id = create_user(verification_client, "researcher")
+    species_id = create_species(verification_client)
+
+    response = verification_client.post(
+        f"/verification/{observation_id}",
+        json={
+            "status": "field_confirmed",
+            "reviewer_id": researcher_id,
+            "verified_species_id": species_id,
+            "review_notes": "Saw it in the field.",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "verification_forbidden"
 
 
 def test_consumer_cannot_expert_verify(verification_client: TestClient) -> None:

@@ -167,4 +167,5 @@ M1.4 migration foundation:
 - M8 is complete against the current local verification gates.
 - M9.1 Research observation search is implemented and locally verified with `make check` passing 171 tests.
 - M9.2 Verification queue is implemented and locally verified with `make check` passing 174 tests.
-- Next step: begin M9.3 Verification action endpoint.
+- M9.3 Verification action endpoint is implemented and locally verified with `make check` passing 176 tests.
+- Next step: begin M9.4 Audit trail.

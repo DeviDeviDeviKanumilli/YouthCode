@@ -1,3 +1,4 @@
+import json
 import uuid
 from base64 import b64encode
 from csv import DictWriter
@@ -102,14 +103,13 @@ class ExportService:
                 message="Only research, reviewer, or admin users can create research exports.",
                 status_code=status.HTTP_403_FORBIDDEN,
             )
-        if data.format != ExportFormat.csv:
-            raise AppError(
-                code="unsupported_export_format",
-                message="M10.1 supports synchronous CSV exports.",
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            )
-        csv_text = await self._build_csv(data)
-        download_url = "data:text/csv;base64," + b64encode(csv_text.encode()).decode()
+        export_text = (
+            await self._build_csv(data)
+            if data.format == ExportFormat.csv
+            else await self._build_geojson(data)
+        )
+        media_type = "text/csv" if data.format == ExportFormat.csv else "application/geo+json"
+        download_url = f"data:{media_type};base64," + b64encode(export_text.encode()).decode()
         export = await self.repository.create(
             ExportCreate(
                 requester_id=data.requester_id,
@@ -179,6 +179,115 @@ class ExportService:
                 )
             )
         return output.getvalue()
+
+    async def _build_geojson(self, data: ResearchExportCreate) -> str:
+        rows = await ResearchObservationSearchService(self.session).search(
+            requester_id=data.requester_id,
+            species_id=self._uuid_filter(data.filters, "species_id"),
+            candidate_name=self._str_filter(data.filters, "candidate_name"),
+            verification_status=self._verification_status_filter(data.filters),
+            signal_label=self._signal_label_filter(data.filters),
+            min_signal_score=self._decimal_filter(data.filters, "min_signal_score"),
+            max_signal_score=self._decimal_filter(data.filters, "max_signal_score"),
+            bbox=self._str_filter(data.filters, "bbox"),
+            region_code=self._str_filter(data.filters, "region_code"),
+            from_date=self._datetime_filter(data.filters, "from_date"),
+            to_date=self._datetime_filter(data.filters, "to_date"),
+            has_media=self._bool_filter(data.filters, "has_media"),
+            needs_review=self._bool_filter(data.filters, "needs_review"),
+            sampling_label=None,
+            limit=100,
+            offset=0,
+            sort="submitted_at_desc",
+        )
+        include_private = self._bool_filter(data.filters, "include_private") is True
+        features: list[dict[str, Any]] = []
+        for item in rows.items:
+            observation = await self.observations.get(item.observation_id)
+            if observation is None:
+                continue
+            if observation.privacy_level == PrivacyLevel.private and not include_private:
+                continue
+            latitude, longitude = self._export_coordinates(observation)
+            if not latitude or not longitude:
+                continue
+            identification = await self._latest_identification(item.observation_id)
+            score = await self.signal_scores.get(item.observation_id)
+            verification = await self.verification.get(item.observation_id)
+            context = await self.environmental_context.get(item.observation_id)
+            properties: dict[str, Any] = {
+                "observation_id": str(observation.id),
+                "timestamp": observation.timestamp.isoformat(),
+                "source": observation.source.value,
+                "region_code": observation.region_code,
+                "privacy_level": observation.privacy_level.value,
+                "candidate_scientific_name": (
+                    identification.candidate_scientific_name if identification else None
+                ),
+                "candidate_common_name": (
+                    identification.candidate_common_name if identification else None
+                ),
+                "confidence": str(identification.confidence) if identification else None,
+                "verification_status": verification.status.value if verification else "raw",
+            }
+            if data.include_signal_scores:
+                properties["signal_score"] = (
+                    {
+                        "final_signal_priority": str(score.final_signal_priority),
+                        "signal_label": score.label.value,
+                        "model_version": score.model_version,
+                    }
+                    if score
+                    else None
+                )
+            if data.include_environmental_context:
+                properties["environmental_context"] = (
+                    {
+                        "land_cover_class": context.land_cover_class,
+                        "tree_canopy_pct": (
+                            str(context.tree_canopy_pct)
+                            if context.tree_canopy_pct is not None
+                            else None
+                        ),
+                        "impervious_surface_pct": (
+                            str(context.impervious_surface_pct)
+                            if context.impervious_surface_pct is not None
+                            else None
+                        ),
+                        "ndvi_value": (
+                            str(context.ndvi_value) if context.ndvi_value is not None else None
+                        ),
+                        "distance_to_water_m": (
+                            str(context.distance_to_water_m)
+                            if context.distance_to_water_m is not None
+                            else None
+                        ),
+                    }
+                    if context
+                    else None
+                )
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [float(longitude), float(latitude)],
+                    },
+                    "properties": properties,
+                }
+            )
+        return json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": features,
+                "metadata": {
+                    "feature_count": len(features),
+                    "filters": data.filters,
+                    "private_records": "excluded_by_default",
+                },
+            },
+            separators=(",", ":"),
+        )
 
     async def _csv_row(
         self,

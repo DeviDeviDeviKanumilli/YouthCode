@@ -1,3 +1,4 @@
+import json
 from base64 import b64decode
 from collections.abc import AsyncGenerator, Generator
 from csv import DictReader
@@ -105,6 +106,11 @@ def decoded_csv_rows(download_url: str) -> list[dict[str, str]]:
     encoded = download_url.removeprefix("data:text/csv;base64,")
     csv_text = b64decode(encoded.encode()).decode()
     return list(DictReader(StringIO(csv_text)))
+
+
+def decoded_geojson(download_url: str) -> dict[str, Any]:
+    encoded = download_url.removeprefix("data:application/geo+json;base64,")
+    return cast(dict[str, Any], json.loads(b64decode(encoded.encode()).decode()))
 
 
 def seed_export_observation(
@@ -369,3 +375,56 @@ def test_research_csv_export_rejects_consumer(exports_client: TestClient) -> Non
 
     assert response.status_code == 403
     assert response.json()["code"] == "research_export_forbidden"
+
+
+def test_research_geojson_export_generates_valid_features(exports_client: TestClient) -> None:
+    requester_id = create_researcher(exports_client)
+    observation_id = seed_export_observation(exports_client, region_code="NY")
+
+    response = exports_client.post(
+        "/research/export",
+        json={
+            "requester_id": requester_id,
+            "format": "geojson",
+            "filters": {"region_code": "NY"},
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "complete"
+    collection = decoded_geojson(body["download_url"])
+    assert collection["type"] == "FeatureCollection"
+    assert collection["metadata"]["feature_count"] == 1
+    feature = collection["features"][0]
+    assert feature["type"] == "Feature"
+    assert feature["geometry"]["type"] == "Point"
+    assert feature["properties"]["observation_id"] == observation_id
+    assert feature["properties"]["candidate_scientific_name"].startswith("Fallopia japonica")
+    assert feature["properties"]["verification_status"] == "ai_suggested"
+    assert feature["properties"]["signal_score"]["signal_label"] == "priority_ecological_signal"
+    assert feature["properties"]["environmental_context"]["land_cover_class"] == "urban"
+
+
+def test_research_geojson_export_filters_and_excludes_private_records(
+    exports_client: TestClient,
+) -> None:
+    requester_id = create_researcher(exports_client)
+    ny_id = seed_export_observation(exports_client, region_code="NY")
+    seed_export_observation(exports_client, region_code="PA")
+    seed_export_observation(exports_client, region_code="NY", privacy_level=PrivacyLevel.private)
+
+    response = exports_client.post(
+        "/research/export",
+        json={
+            "requester_id": requester_id,
+            "format": "geojson",
+            "filters": {"region_code": "NY"},
+        },
+    )
+
+    assert response.status_code == 201
+    collection = decoded_geojson(response.json()["download_url"])
+    assert [feature["properties"]["observation_id"] for feature in collection["features"]] == [
+        ny_id
+    ]

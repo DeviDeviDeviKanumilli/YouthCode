@@ -171,4 +171,5 @@ M1.4 migration foundation:
 - M9.4 Audit trail is implemented and locally verified with `make check` passing 177 tests. Alembic head is `0014`.
 - M9 is complete against the current local verification gates.
 - M10.1 CSV export endpoint is implemented and locally verified with `make check` passing 180 tests. Alembic head is `0015`.
-- Next step: begin M10.2 GeoJSON export.
+- M10.2 GeoJSON export is implemented and locally verified with `make check` passing 182 tests.
+- Next step: begin M10.3 Export permissions and privacy.

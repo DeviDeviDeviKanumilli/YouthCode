@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -45,6 +46,12 @@ class VerificationQueueItem(BaseModel):
 
     observation_id: uuid.UUID
     verification_status: VerificationStatus
+    observation: dict[str, Any]
+    media: list[dict[str, Any]] = Field(default_factory=list)
+    latest_identification: dict[str, Any] | None = None
+    environmental_context: dict[str, Any] | None = None
+    signal_score: dict[str, Any] | None = None
+    nearby_records: dict[str, Any] | None = None
     signal_label: str | None = None
     final_signal_priority: str | None = None
     submitted_at: datetime

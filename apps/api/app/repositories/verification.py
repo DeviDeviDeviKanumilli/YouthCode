@@ -55,9 +55,10 @@ class VerificationRepository:
         await self.session.refresh(verification)
         return verification
 
-    async def list_queue(self) -> list[Verification]:
-        result = await self.session.execute(
-            select(Verification).where(
+    async def list_queue(self, *, include_resolved: bool = False) -> list[Verification]:
+        statement = select(Verification)
+        if not include_resolved:
+            statement = statement.where(
                 Verification.status.in_(
                     [
                         VerificationStatus.raw,
@@ -67,5 +68,5 @@ class VerificationRepository:
                     ]
                 )
             )
-        )
+        result = await self.session.execute(statement)
         return list(result.scalars().all())

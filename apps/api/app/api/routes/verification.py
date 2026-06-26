@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
@@ -31,5 +31,12 @@ async def apply_verification_action(
 
 
 @router.get("/research/verification-queue", response_model=list[VerificationQueueItem])
-async def verification_queue(session: SessionDep) -> list[VerificationQueueItem]:
-    return await VerificationService(session).verification_queue()
+async def verification_queue(
+    session: SessionDep,
+    requester_id: uuid.UUID,
+    include_resolved: bool = Query(default=False),
+) -> list[VerificationQueueItem]:
+    return await VerificationService(session).verification_queue(
+        requester_id=requester_id,
+        include_resolved=include_resolved,
+    )

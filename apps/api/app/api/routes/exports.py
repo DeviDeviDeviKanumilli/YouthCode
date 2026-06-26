@@ -35,16 +35,18 @@ async def create_export(
 async def list_exports(
     session: SessionDep,
     requester_id: Annotated[uuid.UUID | None, Query()] = None,
+    owner_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> list[Export]:
-    return await ExportService(session).list_exports(requester_id)
+    return await ExportService(session).list_exports(requester_id, owner_id)
 
 
 @router.get("/{export_id}", response_model=ExportRead)
 async def get_export(
     export_id: uuid.UUID,
     session: SessionDep,
+    requester_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> Export:
-    return await ExportService(session).get_export(export_id)
+    return await ExportService(session).get_export(export_id, requester_id)
 
 
 @router.patch("/{export_id}", response_model=ExportRead)

@@ -173,4 +173,6 @@ M1.4 migration foundation:
 - M10.1 CSV export endpoint is implemented and locally verified with `make check` passing 180 tests. Alembic head is `0015`.
 - M10.2 GeoJSON export is implemented and locally verified with `make check` passing 182 tests.
 - M10.3 Export permissions and privacy are implemented and locally verified with `make check` passing 185 tests.
-- Next step: begin M10.4 Export history.
+- M10.4 Export history is implemented and locally verified with `make check` passing 188 tests.
+- M10 is complete against the current local verification gates.
+- Next step: begin M11.1 Observation assistant context.

@@ -102,6 +102,15 @@ def create_researcher(client: TestClient) -> str:
     return str(response.json()["id"])
 
 
+def create_named_user(client: TestClient, role: str, email: str) -> str:
+    response = client.post(
+        "/users",
+        json={"email": email, "role": role, "display_name": role},
+    )
+    assert response.status_code == 201
+    return str(response.json()["id"])
+
+
 def decoded_csv_rows(download_url: str) -> list[dict[str, str]]:
     encoded = download_url.removeprefix("data:text/csv;base64,")
     csv_text = b64decode(encoded.encode()).decode()
@@ -235,6 +244,61 @@ def test_get_and_list_exports(exports_client: TestClient) -> None:
     assert get_response.json()["id"] == created["id"]
     assert list_response.status_code == 200
     assert [item["id"] for item in list_response.json()] == [created["id"]]
+
+
+def test_export_history_returns_requesters_exports(exports_client: TestClient) -> None:
+    requester_id = create_named_user(exports_client, "researcher", "owner@example.com")
+    other_id = create_named_user(exports_client, "researcher", "other@example.com")
+    own = exports_client.post(
+        "/research/exports",
+        json={"requester_id": requester_id, "format": "csv", "filters": {"region_code": "NY"}},
+    ).json()
+    exports_client.post(
+        "/research/exports",
+        json={"requester_id": other_id, "format": "csv", "filters": {"region_code": "PA"}},
+    )
+
+    response = exports_client.get("/research/exports", params={"requester_id": requester_id})
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [own["id"]]
+    assert response.json()[0]["status"] == "pending"
+
+
+def test_admin_can_see_all_export_history(exports_client: TestClient) -> None:
+    first_id = create_named_user(exports_client, "researcher", "first@example.com")
+    second_id = create_named_user(exports_client, "researcher", "second@example.com")
+    admin_id = create_named_user(exports_client, "admin", "history-admin@example.com")
+    first = exports_client.post(
+        "/research/exports",
+        json={"requester_id": first_id, "format": "csv", "filters": {"region_code": "NY"}},
+    ).json()
+    second = exports_client.post(
+        "/research/exports",
+        json={"requester_id": second_id, "format": "geojson", "filters": {"region_code": "PA"}},
+    ).json()
+
+    response = exports_client.get("/research/exports", params={"requester_id": admin_id})
+
+    assert response.status_code == 200
+    assert {item["id"] for item in response.json()} == {first["id"], second["id"]}
+
+
+def test_export_history_blocks_cross_user_get(exports_client: TestClient) -> None:
+    requester_id = create_named_user(exports_client, "researcher", "history-owner@example.com")
+    other_id = create_named_user(exports_client, "researcher", "history-other@example.com")
+    created = exports_client.post(
+        "/research/exports",
+        json={"requester_id": requester_id, "format": "csv", "filters": {}},
+    ).json()
+
+    response = exports_client.get(
+        f"/research/exports/{created['id']}",
+        params={"requester_id": other_id},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "export_history_forbidden"
 
 
 def test_update_export_status(exports_client: TestClient) -> None:

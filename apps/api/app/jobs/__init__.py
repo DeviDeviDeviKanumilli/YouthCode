@@ -1,1 +1,1 @@
-"""Background job package placeholder for M13."""
+"""Background job package."""

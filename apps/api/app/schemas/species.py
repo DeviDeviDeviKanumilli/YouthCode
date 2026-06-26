@@ -18,6 +18,8 @@ class SpeciesCreate(BaseModel):
     taxon_rank: str | None = Field(default=None, max_length=80)
     native_status_by_state: dict[str, Any] = Field(default_factory=dict)
     invasive_status_by_state: dict[str, Any] = Field(default_factory=dict)
+    habitat_profile: dict[str, Any] = Field(default_factory=dict)
+    pathway_profile: dict[str, Any] = Field(default_factory=dict)
     synonyms: list[str] = Field(default_factory=list)
 
 
@@ -34,6 +36,8 @@ class SpeciesUpdate(BaseModel):
     taxon_rank: str | None = Field(default=None, max_length=80)
     native_status_by_state: dict[str, Any] | None = None
     invasive_status_by_state: dict[str, Any] | None = None
+    habitat_profile: dict[str, Any] | None = None
+    pathway_profile: dict[str, Any] | None = None
     synonyms: list[str] | None = None
 
 
@@ -51,6 +55,8 @@ class SpeciesRead(BaseModel):
     taxon_rank: str | None
     native_status_by_state: dict[str, Any]
     invasive_status_by_state: dict[str, Any]
+    habitat_profile: dict[str, Any]
+    pathway_profile: dict[str, Any]
     synonyms: list[str]
     created_at: datetime
     updated_at: datetime

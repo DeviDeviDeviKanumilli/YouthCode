@@ -34,6 +34,18 @@ class Species(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         server_default="{}",
         nullable=False,
     )
+    habitat_profile: Mapped[dict[str, Any]] = mapped_column(
+        JSONVariant,
+        default=dict,
+        server_default="{}",
+        nullable=False,
+    )
+    pathway_profile: Mapped[dict[str, Any]] = mapped_column(
+        JSONVariant,
+        default=dict,
+        server_default="{}",
+        nullable=False,
+    )
     synonyms: Mapped[list[str]] = mapped_column(
         JSONVariant,
         default=list,

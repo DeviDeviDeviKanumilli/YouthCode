@@ -144,4 +144,6 @@ M1.4 migration foundation:
 - M4.1 Identification Provider Interface is implemented and locally verified with `make check` passing 86 tests.
 - M4.2 Identify From Media endpoint is implemented with AI-suggested verification status updates and locally verified with `make check` passing 90 tests.
 - M4.3 Taxonomy normalization service is implemented and locally verified with `make check` passing 94 tests.
-- Next step: begin M4.4 MVP species seed data.
+- M4.4 MVP species seed data is implemented and locally verified with `make check` passing 97 tests. Alembic head is `0011`.
+- M4 is complete against the current local verification gates.
+- Next step: begin M5.1 Environmental enrichment provider interface.

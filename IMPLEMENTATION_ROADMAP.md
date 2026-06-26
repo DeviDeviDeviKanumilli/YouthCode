@@ -186,4 +186,5 @@ M1.4 migration foundation:
 - M12.4 Privacy and geolocation protection are implemented and locally verified with `make check` passing 213 tests.
 - M12 is complete against the current local verification gates.
 - M13.1 Job queue setup is implemented and locally verified with `make check` passing 216 tests.
-- Next step: begin M13.2 Observation pipeline orchestrator.
+- M13.2 Observation pipeline orchestrator is implemented and locally verified with `make check` passing 219 tests. Alembic head is `0016`.
+- Next step: begin M13.3 Pipeline status endpoint.

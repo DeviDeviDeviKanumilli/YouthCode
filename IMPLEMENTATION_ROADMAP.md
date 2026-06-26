@@ -181,4 +181,5 @@ M1.4 migration foundation:
 - M11.4 Assistant safety contract is implemented and locally verified with `make check` passing 200 tests.
 - M11 is complete against the current local verification gates.
 - M12.1 Auth integration is implemented with internal JWT support and locally verified with `make check` passing 205 tests.
-- Next step: begin M12.2 RBAC enforcement.
+- M12.2 RBAC enforcement is implemented and locally verified with `make check` passing 206 tests.
+- Next step: begin M12.3 Input validation and rate limits.

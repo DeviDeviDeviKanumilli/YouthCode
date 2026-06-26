@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator, Generator
-from typing import cast
+from typing import Any, cast
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +8,8 @@ from sqlalchemy import Table
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core.auth import create_access_token
+from app.core.config import Settings
 from app.db.base import Base
 from app.db.session import get_async_session
 from app.main import create_app
@@ -85,16 +88,47 @@ def test_read_user(users_client: TestClient) -> None:
 
 def test_update_user_role(users_client: TestClient) -> None:
     created = users_client.post("/users", json={"display_name": "Reviewer"}).json()
+    admin = users_client.post("/users", json={"email": "admin@example.com", "role": "admin"}).json()
+    settings = cast(Settings, cast(Any, users_client.app).state.settings)
+    token = create_access_token(
+        user_id=UUID(str(admin["id"])),
+        role="admin",
+        settings=settings,
+    )
 
     response = users_client.patch(
         f"/users/{created['id']}",
         json={"role": "reviewer", "trusted_reviewer_status": True},
+        headers={"Authorization": f"Bearer {token}"},
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["role"] == "reviewer"
     assert body["trusted_reviewer_status"] is True
+
+
+def test_non_admin_cannot_update_user_role(users_client: TestClient) -> None:
+    created = users_client.post("/users", json={"display_name": "Reviewer"}).json()
+    consumer = users_client.post(
+        "/users",
+        json={"email": "consumer@example.com", "role": "consumer"},
+    ).json()
+    settings = cast(Settings, cast(Any, users_client.app).state.settings)
+    token = create_access_token(
+        user_id=UUID(str(consumer["id"])),
+        role="consumer",
+        settings=settings,
+    )
+
+    response = users_client.patch(
+        f"/users/{created['id']}",
+        json={"role": "reviewer"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "user_management_forbidden"
 
 
 def test_invalid_role_rejected(users_client: TestClient) -> None:

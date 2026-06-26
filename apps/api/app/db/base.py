@@ -2,8 +2,8 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import CHAR, DateTime, MetaData, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import CHAR, JSON, DateTime, MetaData, func
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
@@ -19,6 +19,9 @@ NAMING_CONVENTION = {
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+JSONVariant = JSON().with_variant(JSONB, "postgresql")
 
 
 class GUID(TypeDecorator[uuid.UUID]):

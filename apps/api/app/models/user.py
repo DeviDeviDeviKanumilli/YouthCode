@@ -1,14 +1,10 @@
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Enum, String
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy import Boolean, Enum, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-
-JSONVariant = JSON().with_variant(JSONB, "postgresql")
+from app.db.base import Base, JSONVariant, TimestampMixin, UUIDPrimaryKeyMixin
 
 
 class UserRole(StrEnum):
@@ -38,7 +34,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
     )
     privacy_settings: Mapped[dict[str, Any]] = mapped_column(
-        MutableDict.as_mutable(JSONVariant),
+        JSONVariant,
         default=dict,
         server_default="{}",
         nullable=False,

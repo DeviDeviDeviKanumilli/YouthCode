@@ -193,4 +193,5 @@ M1.4 migration foundation:
 - M14.2 Demo scenarios are implemented and locally verified with `make check` passing 230 tests.
 - M14.3 API documentation is implemented and locally verified with `make check` passing 230 tests.
 - M14 is complete against the current local verification gates.
-- Next step: begin M15.1 Full test suite.
+- M15.1 Full test suite is locally verified with `make check` passing 230 tests and no skipped tests found.
+- Next step: begin M15.2 Code quality.

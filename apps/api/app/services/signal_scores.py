@@ -14,6 +14,7 @@ from app.repositories.environmental_context import EnvironmentalContextRepositor
 from app.repositories.identifications import IdentificationRepository
 from app.repositories.observations import ObservationRepository
 from app.repositories.signal_scores import SignalScoreRepository
+from app.schemas.score_explanations import SignalScoreExplanation
 from app.schemas.signal_scores import SignalScoreCreate
 from app.schemas.static_geo_layers import NearbyKnownRecord
 from app.services.component_scoring import (
@@ -28,6 +29,7 @@ from app.services.component_scoring import (
     score_uncertainty_penalty,
 )
 from app.services.nearby_records import VERIFIED_RECORD_STATUSES
+from app.services.score_explanations import ScoreExplanationService
 from app.services.scoring_model import (
     MODEL_VERSION,
     calculate_signal_priority,
@@ -49,6 +51,7 @@ class SignalScoreService:
         self.identifications = IdentificationRepository(session)
         self.environmental_context = EnvironmentalContextRepository(session)
         self.static_layers = StaticGeoLayerService(session)
+        self.explanations = ScoreExplanationService()
         self.session = session
 
     async def get_score(self, observation_id: uuid.UUID) -> SignalScore:
@@ -60,6 +63,10 @@ class SignalScoreService:
                 status_code=status.HTTP_404_NOT_FOUND,
             )
         return score
+
+    async def explain_score(self, observation_id: uuid.UUID) -> SignalScoreExplanation:
+        score = await self.get_score(observation_id)
+        return self.explanations.explain(score)
 
     async def recompute_score(self, observation_id: uuid.UUID) -> SignalScore:
         observation = await self._require_observation(observation_id)

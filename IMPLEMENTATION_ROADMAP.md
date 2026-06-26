@@ -154,4 +154,6 @@ M1.4 migration foundation:
 - M6.1 Scoring model definition is implemented and locally verified with `make check` passing 119 tests.
 - M6.2 Component scoring is implemented and locally verified with `make check` passing 129 tests.
 - M6.3 Recompute score endpoint integration is implemented and locally verified with `make check` passing 131 tests.
-- Next step: begin M6.4 Score explanation generator.
+- M6.4 Score explanation generator is implemented and locally verified with `make check` passing 134 tests.
+- M6 is complete against the current local verification gates.
+- Next step: begin M7.1 Public map layer API.

@@ -260,6 +260,24 @@ def test_get_signal_score(signal_scores_client: TestClient) -> None:
     assert response.json()["observation_id"] == observation_id
 
 
+def test_get_signal_score_explanation(signal_scores_client: TestClient) -> None:
+    observation_id = create_observation(signal_scores_client)
+    add_identification(signal_scores_client, observation_id)
+    add_context(signal_scores_client, observation_id)
+    signal_scores_client.post(f"/observations/{observation_id}/signal-score/recompute")
+
+    response = signal_scores_client.get(
+        f"/observations/{observation_id}/signal-score/explanation"
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["observation_id"] == observation_id
+    assert "reason_codes" in body
+    assert "possible ecological signal" in body["public_explanation"]
+    assert "Components:" in body["researcher_explanation"]
+
+
 def test_insufficient_evidence_without_identification(signal_scores_client: TestClient) -> None:
     observation_id = create_observation(signal_scores_client)
 

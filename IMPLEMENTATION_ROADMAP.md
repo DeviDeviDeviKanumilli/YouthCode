@@ -163,4 +163,6 @@ M1.4 migration foundation:
 - M7 is complete against the current local verification gates.
 - M8.1 Sampling grid generation is implemented and locally verified with `make check` passing 151 tests. Alembic head is `0013`.
 - M8.2 Sampling label logic is implemented and locally verified with `make check` passing 160 tests.
-- Next step: begin M8.3 Sampling API.
+- M8.3 Sampling API is implemented and locally verified with `make check` passing 165 tests.
+- M8 is complete against the current local verification gates.
+- Next step: begin M9.1 Research observation search.

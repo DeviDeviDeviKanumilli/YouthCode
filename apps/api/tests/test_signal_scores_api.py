@@ -1,6 +1,8 @@
 from collections.abc import AsyncGenerator, Generator
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, cast
+from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,10 +16,12 @@ from app.main import create_app
 from app.models import (
     AIIdentification,
     EnvironmentalContext,
+    KnownRecord,
     Observation,
     SignalScore,
     Species,
     User,
+    VerificationStatus,
 )
 from app.models.signal_score import SignalScoreLabel
 from app.services.signal_scores import label_for_score
@@ -41,6 +45,7 @@ def signal_scores_client() -> Generator[TestClient, None, None]:
         cast(Table, Observation.__table__),
         cast(Table, AIIdentification.__table__),
         cast(Table, EnvironmentalContext.__table__),
+        cast(Table, KnownRecord.__table__),
         cast(Table, SignalScore.__table__),
     ]
 
@@ -61,6 +66,7 @@ def signal_scores_client() -> Generator[TestClient, None, None]:
 
     anyio.run(create_tables)
     app = create_app()
+    app.state.session_factory = session_factory
     app.dependency_overrides[get_async_session] = override_session
 
     with TestClient(app) as client:
@@ -85,16 +91,36 @@ def create_observation(client: TestClient) -> str:
     return str(body["observation_id"])
 
 
-def add_identification(client: TestClient, observation_id: str, confidence: str = "0.90") -> None:
+def create_species(client: TestClient) -> str:
+    response = client.post(
+        "/species",
+        json={
+            "scientific_name": "Fallopia japonica",
+            "common_name": "Japanese knotweed",
+        },
+    )
+    assert response.status_code == 201
+    return str(response.json()["id"])
+
+
+def add_identification(
+    client: TestClient,
+    observation_id: str,
+    confidence: str = "0.90",
+    species_id: str | None = None,
+) -> None:
+    payload = {
+        "candidate_scientific_name": "Fallopia japonica",
+        "candidate_common_name": "Japanese knotweed",
+        "confidence": confidence,
+        "model_name": "mock-vision",
+        "model_version": "0.1.0",
+    }
+    if species_id is not None:
+        payload["candidate_species_id"] = species_id
     response = client.post(
         f"/observations/{observation_id}/identifications",
-        json={
-            "candidate_scientific_name": "Fallopia japonica",
-            "candidate_common_name": "Japanese knotweed",
-            "confidence": confidence,
-            "model_name": "mock-vision",
-            "model_version": "0.1.0",
-        },
+        json=payload,
     )
     assert response.status_code == 201
 
@@ -110,6 +136,39 @@ def add_context(client: TestClient, observation_id: str) -> None:
         },
     )
     assert response.status_code == 201
+
+
+def seed_known_records(client: TestClient, species_id: str) -> None:
+    async def seed() -> None:
+        session_factory = cast(Any, client.app).state.session_factory
+        async with session_factory() as session:
+            session.add_all(
+                [
+                    KnownRecord(
+                        species_id=UUID(species_id),
+                        observed_at=datetime(2026, 6, 20, tzinfo=UTC),
+                        verification_status=VerificationStatus.expert_verified,
+                        source="state_agency",
+                        geom="POINT(-74.006 40.713)",
+                        latitude=Decimal("40.713000"),
+                        longitude=Decimal("-74.006000"),
+                    ),
+                    KnownRecord(
+                        species_id=UUID(species_id),
+                        observed_at=datetime(2026, 6, 21, tzinfo=UTC),
+                        verification_status=VerificationStatus.ai_suggested,
+                        source="community_import",
+                        geom="POINT(-74.006 40.713)",
+                        latitude=Decimal("40.713000"),
+                        longitude=Decimal("-74.006000"),
+                    ),
+                ]
+            )
+            await session.commit()
+
+    import anyio
+
+    anyio.run(seed)
 
 
 def test_recompute_signal_score(signal_scores_client: TestClient) -> None:
@@ -149,6 +208,45 @@ def test_recompute_is_deterministic(signal_scores_client: TestClient) -> None:
     assert second["final_signal_priority"] == first["final_signal_priority"]
     assert second["label"] == first["label"]
     assert second["reasons"] == first["reasons"]
+
+
+def test_recompute_uses_nearby_records(signal_scores_client: TestClient) -> None:
+    observation_id = create_observation(signal_scores_client)
+    species_id = create_species(signal_scores_client)
+    add_identification(
+        signal_scores_client,
+        observation_id,
+        confidence="0.90",
+        species_id=species_id,
+    )
+    add_context(signal_scores_client, observation_id)
+    seed_known_records(signal_scores_client, species_id)
+
+    response = signal_scores_client.post(f"/observations/{observation_id}/signal-score/recompute")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert Decimal(body["nearby_verified_record_context"]) == Decimal("75.00")
+    assert Decimal(body["local_novelty"]) == Decimal("60.00")
+    reason_codes = {reason["code"] for reason in body["reasons"]}
+    assert "nearby_verified_records" in reason_codes
+    assert "limited_nearby_records" in reason_codes
+
+
+def test_recompute_without_environmental_context_still_scores(
+    signal_scores_client: TestClient,
+) -> None:
+    observation_id = create_observation(signal_scores_client)
+    add_identification(signal_scores_client, observation_id, confidence="0.70")
+
+    response = signal_scores_client.post(f"/observations/{observation_id}/signal-score/recompute")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["label"] != "insufficient_evidence"
+    assert Decimal(body["habitat_match"]) == Decimal("25.00")
+    reason_codes = {reason["code"] for reason in body["reasons"]}
+    assert "missing_environmental_context" in reason_codes
 
 
 def test_get_signal_score(signal_scores_client: TestClient) -> None:

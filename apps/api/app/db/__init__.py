@@ -1,1 +1,1 @@
-"""Database package placeholder for M1.4."""
+"""Database base and session helpers."""

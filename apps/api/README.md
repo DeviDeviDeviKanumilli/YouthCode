@@ -35,6 +35,7 @@ From `apps/api` directly:
 python -m pytest
 python -m ruff check .
 python -m mypy app tests
+python -m alembic upgrade head
 ```
 
 ## Current M1.1 Surface
@@ -44,7 +45,7 @@ python -m mypy app tests
 - `GET /health/redis`
 - `GET /version`
 
-Alembic migrations are added in M1.4.
+Alembic migrations live in `apps/api/alembic`.
 
 ## Docker Compose
 

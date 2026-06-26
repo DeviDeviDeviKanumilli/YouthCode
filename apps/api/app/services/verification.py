@@ -18,7 +18,12 @@ from app.repositories.signal_scores import SignalScoreRepository
 from app.repositories.species import SpeciesRepository
 from app.repositories.users import UserRepository
 from app.repositories.verification import VerificationRepository
-from app.schemas.verification import VerificationAction, VerificationQueueItem
+from app.repositories.verification_events import VerificationEventRepository
+from app.schemas.verification import (
+    VerificationAction,
+    VerificationEventRead,
+    VerificationQueueItem,
+)
 from app.services.nearby_records import NearbyRecordsService
 
 
@@ -33,6 +38,7 @@ class VerificationService:
         self.users = UserRepository(session)
         self.species = SpeciesRepository(session)
         self.signal_scores = SignalScoreRepository(session)
+        self.events = VerificationEventRepository(session)
         self.session = session
 
     async def get_verification(self, observation_id: uuid.UUID) -> Verification:
@@ -63,6 +69,8 @@ class VerificationService:
                     status_code=status.HTTP_404_NOT_FOUND,
                 )
         self._enforce_role(reviewer.role, action.status)
+        existing = await self.repository.ensure_raw(observation_id)
+        previous_status = existing.status
         verification = await self.repository.set_status(
             observation_id,
             status=action.status,
@@ -71,8 +79,25 @@ class VerificationService:
             verified_species_id=action.verified_species_id,
             review_notes=action.review_notes,
         )
+        await self.events.create(
+            observation_id=observation_id,
+            previous_status=previous_status,
+            new_status=verification.status,
+            reviewer_id=action.reviewer_id,
+            notes=action.review_notes,
+        )
         await self.session.commit()
         return verification
+
+    async def verification_history(
+        self,
+        observation_id: uuid.UUID,
+        requester_id: uuid.UUID,
+    ) -> list[VerificationEventRead]:
+        await self._require_research_access(requester_id)
+        await self._require_observation(observation_id)
+        events = await self.events.list_for_observation(observation_id)
+        return [VerificationEventRead.model_validate(event) for event in events]
 
     async def verification_queue(
         self,

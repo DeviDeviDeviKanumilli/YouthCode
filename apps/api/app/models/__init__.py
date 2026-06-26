@@ -17,6 +17,7 @@ from app.models.static_geo_layer import (
 )
 from app.models.user import User, UserRole
 from app.models.verification import Verification, VerificationStatus
+from app.models.verification_event import VerificationEvent
 
 __all__ = [
     "AIIdentification",
@@ -43,5 +44,6 @@ __all__ = [
     "User",
     "UserRole",
     "Verification",
+    "VerificationEvent",
     "VerificationStatus",
 ]

@@ -18,6 +18,7 @@ from app.models import (
     Species,
     User,
     Verification,
+    VerificationEvent,
 )
 
 
@@ -41,6 +42,7 @@ def intelligence_client() -> Generator[TestClient, None, None]:
         cast(Table, EnvironmentalContext.__table__),
         cast(Table, SignalScore.__table__),
         cast(Table, Verification.__table__),
+        cast(Table, VerificationEvent.__table__),
     ]
 
     async def override_session() -> AsyncGenerator[AsyncSession, None]:

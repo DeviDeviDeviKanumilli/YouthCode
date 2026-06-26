@@ -26,6 +26,7 @@ from app.models import (
     Species,
     User,
     Verification,
+    VerificationEvent,
     VerificationStatus,
 )
 
@@ -51,6 +52,7 @@ def verification_client() -> Generator[TestClient, None, None]:
         cast(Table, EnvironmentalContext.__table__),
         cast(Table, SignalScore.__table__),
         cast(Table, Verification.__table__),
+        cast(Table, VerificationEvent.__table__),
         cast(Table, KnownRecord.__table__),
     ]
 
@@ -149,6 +151,16 @@ def test_reviewer_can_expert_verify(verification_client: TestClient) -> None:
     assert body["verified_species_id"] == species_id
     assert body["reviewed_at"] is not None
 
+    history = verification_client.get(
+        f"/verification/{observation_id}/history",
+        params={"requester_id": reviewer_id},
+    )
+    assert history.status_code == 200
+    assert history.json()[0]["previous_status"] == "raw"
+    assert history.json()[0]["new_status"] == "expert_verified"
+    assert history.json()[0]["reviewer_id"] == reviewer_id
+    assert history.json()[0]["notes"] == "Photo evidence is sufficient for expert verification."
+
 
 def test_researcher_can_expert_verify(verification_client: TestClient) -> None:
     observation_id = create_observation(verification_client)
@@ -187,6 +199,19 @@ def test_researcher_cannot_field_confirm(verification_client: TestClient) -> Non
 
     assert response.status_code == 403
     assert response.json()["code"] == "verification_forbidden"
+
+
+def test_verification_history_rejects_consumer(verification_client: TestClient) -> None:
+    observation_id = create_observation(verification_client)
+    consumer_id = create_user(verification_client, "consumer")
+
+    response = verification_client.get(
+        f"/verification/{observation_id}/history",
+        params={"requester_id": consumer_id},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "verification_queue_forbidden"
 
 
 def test_consumer_cannot_expert_verify(verification_client: TestClient) -> None:

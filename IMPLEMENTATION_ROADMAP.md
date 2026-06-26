@@ -168,4 +168,6 @@ M1.4 migration foundation:
 - M9.1 Research observation search is implemented and locally verified with `make check` passing 171 tests.
 - M9.2 Verification queue is implemented and locally verified with `make check` passing 174 tests.
 - M9.3 Verification action endpoint is implemented and locally verified with `make check` passing 176 tests.
-- Next step: begin M9.4 Audit trail.
+- M9.4 Audit trail is implemented and locally verified with `make check` passing 177 tests. Alembic head is `0014`.
+- M9 is complete against the current local verification gates.
+- Next step: begin M10.1 CSV export endpoint.

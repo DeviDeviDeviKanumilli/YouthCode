@@ -41,6 +41,18 @@ class VerificationRead(BaseModel):
     updated_at: datetime
 
 
+class VerificationEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True, extra="forbid")
+
+    id: uuid.UUID
+    observation_id: uuid.UUID
+    previous_status: VerificationStatus
+    new_status: VerificationStatus
+    reviewer_id: uuid.UUID
+    notes: str | None
+    created_at: datetime
+
+
 class VerificationQueueItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

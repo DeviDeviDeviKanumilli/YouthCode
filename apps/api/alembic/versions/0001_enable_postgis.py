@@ -17,7 +17,19 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
+    op.execute(
+        """
+        CREATE OR REPLACE FUNCTION update_geometry_from_latlon()
+        RETURNS trigger AS $$
+        BEGIN
+            NEW.geom = ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326);
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql
+        """
+    )
 
 
 def downgrade() -> None:
+    op.execute("DROP FUNCTION IF EXISTS update_geometry_from_latlon()")
     op.execute("DROP EXTENSION IF EXISTS postgis")

@@ -218,6 +218,27 @@ def seed_static_layers(client: TestClient, species_id: str, known_count: int = 1
     anyio.run(seed)
 
 
+def seed_road_only(client: TestClient) -> None:
+    async def seed() -> None:
+        session_factory = cast(Any, client.app).state.session_factory
+        async with session_factory() as session:
+            session.add(
+                StaticRoadTrail(
+                    name="Demo Road",
+                    type=RoadTrailType.road,
+                    geom="MULTILINESTRING((-74.006 40.713,-74.010 40.713))",
+                    representative_latitude=Decimal("40.713000"),
+                    representative_longitude=Decimal("-74.007000"),
+                    source="demo_road",
+                )
+            )
+            await session.commit()
+
+    import anyio
+
+    anyio.run(seed)
+
+
 def test_public_forecast_requires_extent(forecast_client: TestClient) -> None:
     response = forecast_client.get("/forecast/public")
 
@@ -249,6 +270,57 @@ def test_public_forecast_returns_valid_geojson(forecast_client: TestClient) -> N
     assert "roads_trails" in layers
     assert "parks" in layers
     assert "sampling_gap_grid" in layers
+    corridor = next(
+        feature
+        for feature in body["features"]
+        if feature["properties"]["layer"] == "possible_corridors"
+    )
+    assert corridor["geometry"]["type"] == "LineString"
+    assert corridor["properties"]["corridor_type"] == "waterway"
+    assert "not a prediction" in corridor["properties"]["uncertainty"]
+
+
+def test_public_forecast_corridor_uses_road_when_no_waterway(
+    forecast_client: TestClient,
+) -> None:
+    species_id = create_species(forecast_client)
+    observation_id = create_observation(forecast_client)
+    add_identification(forecast_client, observation_id, species_id)
+    seed_road_only(forecast_client)
+
+    response = forecast_client.get(
+        "/forecast/public",
+        params={"bbox": "-74.02,40.70,-73.99,40.73"},
+    )
+
+    assert response.status_code == 200
+    corridors = [
+        feature
+        for feature in response.json()["features"]
+        if feature["properties"]["layer"] == "possible_corridors"
+    ]
+    assert len(corridors) == 1
+    assert corridors[0]["properties"]["corridor_type"] == "road"
+    assert corridors[0]["properties"]["label"] == "possible corridor"
+
+
+def test_public_forecast_no_corridor_without_nearby_pathway(
+    forecast_client: TestClient,
+) -> None:
+    species_id = create_species(forecast_client)
+    observation_id = create_observation(forecast_client)
+    add_identification(forecast_client, observation_id, species_id)
+
+    response = forecast_client.get(
+        "/forecast/public",
+        params={"bbox": "-74.02,40.70,-73.99,40.73"},
+    )
+
+    assert response.status_code == 200
+    assert all(
+        feature["properties"]["layer"] != "possible_corridors"
+        for feature in response.json()["features"]
+    )
 
 
 def test_public_forecast_applies_privacy_rules(forecast_client: TestClient) -> None:

@@ -158,4 +158,5 @@ M1.4 migration foundation:
 - M6 is complete against the current local verification gates.
 - M7.1 Public map layer API is implemented and locally verified with `make check` passing 139 tests.
 - M7.2 Research map layer API is implemented and locally verified with `make check` passing 142 tests.
-- Next step: begin M7.3 Possible corridor generator.
+- M7.3 Possible corridor generator is implemented and locally verified with `make check` passing 144 tests.
+- Next step: begin M7.4 Time-filtered observations.

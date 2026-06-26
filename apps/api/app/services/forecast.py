@@ -10,7 +10,13 @@ from app.core.errors import AppError
 from app.models.identification import AIIdentification
 from app.models.observation import Observation, PrivacyLevel
 from app.models.signal_score import SignalScoreLabel
-from app.models.static_geo_layer import KnownRecord, StaticPark, StaticRoadTrail, StaticWaterway
+from app.models.static_geo_layer import (
+    KnownRecord,
+    RoadTrailType,
+    StaticPark,
+    StaticRoadTrail,
+    StaticWaterway,
+)
 from app.models.user import UserRole
 from app.models.verification import VerificationStatus
 from app.repositories.identifications import IdentificationRepository
@@ -87,7 +93,7 @@ class ForecastService:
         )
         features.extend(observation_features)
         features.extend(self._known_record_features(known_records))
-        features.extend(self._corridor_features(observation_features, known_records))
+        features.extend(await self._possible_corridor_features(observation_features))
         features.extend(
             self._waterway_features(
                 await self.static_layers.list_waterways(
@@ -197,7 +203,7 @@ class ForecastService:
                 species_id=species_id,
                 verification_status=verification_status,
             )
-            features.extend(self._corridor_features(observation_features, known_records))
+            features.extend(await self._possible_corridor_features(observation_features))
         if "waterways" in requested_layers:
             features.extend(
                 self._waterway_features(
@@ -395,30 +401,98 @@ class ForecastService:
             )
         return features
 
-    def _corridor_features(
+    async def _possible_corridor_features(
         self,
         observation_features: list[GeoJSONFeature],
-        known_records: list[KnownRecord],
     ) -> list[GeoJSONFeature]:
-        if not observation_features or not known_records:
-            return []
-        observation = observation_features[0]
-        record = known_records[0]
-        return [
-            GeoJSONFeature(
-                geometry={
-                    "type": "LineString",
-                    "coordinates": [
-                        observation.geometry["coordinates"],
-                        [float(record.longitude), float(record.latitude)],
-                    ],
-                },
-                properties={
-                    "layer": "possible_corridors",
-                    "basis": "simple observation-to-known-record line",
-                    "uncertainty": "illustrative only; not a confirmed movement path",
+        features: list[GeoJSONFeature] = []
+        for observation in observation_features[:25]:
+            coordinates = observation.geometry["coordinates"]
+            longitude = Decimal(str(coordinates[0]))
+            latitude = Decimal(str(coordinates[1]))
+            corridor = await self._nearest_corridor_context(latitude, longitude)
+            if corridor is None:
+                continue
+            endpoint, properties = corridor
+            features.append(
+                GeoJSONFeature(
+                    geometry={
+                        "type": "LineString",
+                        "coordinates": [coordinates, endpoint],
+                    },
+                    properties={
+                        "layer": "possible_corridors",
+                        "observation_id": observation.properties.get("observation_id"),
+                        **properties,
+                        "label": "possible corridor",
+                        "uncertainty": (
+                            "Illustrative possible corridor only; not a prediction or "
+                            "confirmed movement path."
+                        ),
+                    },
+                )
+            )
+        return features
+
+    async def _nearest_corridor_context(
+        self,
+        latitude: Decimal,
+        longitude: Decimal,
+    ) -> tuple[list[float], dict[str, str]] | None:
+        waterway = await self.static_layers.nearest_waterway(latitude, longitude)
+        if waterway is not None and waterway.distance_m <= Decimal("250"):
+            return (
+                await self._layer_endpoint(waterway.layer_id, "waterways"),
+                {
+                    "corridor_type": "waterway",
+                    "basis": "Sighting is near a mapped waterway context layer.",
+                    "distance_m": str(waterway.distance_m),
+                    "source": waterway.source,
                 },
             )
+        road = await self.static_layers.nearest_road_trail(latitude, longitude, RoadTrailType.road)
+        trail = await self.static_layers.nearest_road_trail(
+            latitude,
+            longitude,
+            RoadTrailType.trail,
+        )
+        candidates = [candidate for candidate in [road, trail] if candidate is not None]
+        if not candidates:
+            return None
+        nearest = min(candidates, key=lambda candidate: candidate.distance_m)
+        if nearest.distance_m > Decimal("250"):
+            return None
+        return (
+            await self._layer_endpoint(nearest.layer_id, "roads_trails"),
+            {
+                "corridor_type": nearest.type.value,
+                "basis": "Sighting is near a mapped road or trail context layer.",
+                "distance_m": str(nearest.distance_m),
+                "source": nearest.source,
+            },
+        )
+
+    async def _layer_endpoint(self, layer_id: uuid.UUID, layer: str) -> list[float]:
+        if layer == "waterways":
+            waterways = await self.static_layers.list_waterways(
+                bbox=(Decimal("-180"), Decimal("-90"), Decimal("180"), Decimal("90")),
+                limit=PUBLIC_FORECAST_LIMIT,
+            )
+            selected = next(waterway for waterway in waterways if waterway.id == layer_id)
+            return [
+                float(selected.representative_longitude),
+                float(selected.representative_latitude),
+            ]
+        roads_trails = await self.static_layers.list_roads_trails(
+            bbox=(Decimal("-180"), Decimal("-90"), Decimal("180"), Decimal("90")),
+            limit=PUBLIC_FORECAST_LIMIT,
+        )
+        selected_road_trail = next(
+            road_trail for road_trail in roads_trails if road_trail.id == layer_id
+        )
+        return [
+            float(selected_road_trail.representative_longitude),
+            float(selected_road_trail.representative_latitude),
         ]
 
     def _waterway_features(self, waterways: list[StaticWaterway]) -> list[GeoJSONFeature]:

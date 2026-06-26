@@ -13,20 +13,17 @@ from app.repositories.identifications import IdentificationRepository
 from app.repositories.observations import ObservationRepository
 from app.repositories.signal_scores import SignalScoreRepository
 from app.schemas.signal_scores import SignalScoreCreate
-
-MODEL_VERSION = "m2.7-rules-0.1.0"
+from app.services.scoring_model import (
+    MODEL_VERSION,
+    calculate_signal_priority,
+)
+from app.services.scoring_model import (
+    label_for_score as scoring_model_label_for_score,
+)
 
 
 def label_for_score(score: Decimal, insufficient_evidence: bool = False) -> SignalScoreLabel:
-    if insufficient_evidence:
-        return SignalScoreLabel.insufficient_evidence
-    if score <= Decimal("25"):
-        return SignalScoreLabel.low_signal
-    if score <= Decimal("50"):
-        return SignalScoreLabel.moderate_signal
-    if score <= Decimal("75"):
-        return SignalScoreLabel.high_value_verification_candidate
-    return SignalScoreLabel.priority_ecological_signal
+    return scoring_model_label_for_score(score, insufficient_evidence)
 
 
 class SignalScoreService:
@@ -122,19 +119,19 @@ class SignalScoreService:
         sampling_gap_value = Decimal("35")
         temporal_cluster_score = Decimal("0")
 
-        weighted_score = (
-            identity_confidence * Decimal("0.20")
-            + local_novelty * Decimal("0.15")
-            + habitat_match * Decimal("0.15")
-            + pathway_risk * Decimal("0.15")
-            + nearby_verified_record_context * Decimal("0.10")
-            + ecological_sensitivity * Decimal("0.10")
-            + sampling_gap_value * Decimal("0.10")
-            + temporal_cluster_score * Decimal("0.05")
-            - uncertainty_penalty
-        )
-        final_score = min(Decimal("100"), max(Decimal("0"), weighted_score)).quantize(
-            Decimal("0.01")
+        scoring_result = calculate_signal_priority(
+            {
+                "identity_confidence": identity_confidence,
+                "local_novelty": local_novelty,
+                "habitat_match": habitat_match,
+                "pathway_risk": pathway_risk,
+                "nearby_verified_record_context": nearby_verified_record_context,
+                "ecological_sensitivity": ecological_sensitivity,
+                "sampling_gap_value": sampling_gap_value,
+                "temporal_cluster_score": temporal_cluster_score,
+            },
+            uncertainty_penalty=uncertainty_penalty,
+            insufficient_evidence=insufficient_evidence,
         )
 
         return SignalScoreCreate(
@@ -147,8 +144,8 @@ class SignalScoreService:
             sampling_gap_value=sampling_gap_value,
             temporal_cluster_score=temporal_cluster_score,
             uncertainty_penalty=uncertainty_penalty.quantize(Decimal("0.01")),
-            final_signal_priority=final_score,
-            label=label_for_score(final_score, insufficient_evidence),
+            final_signal_priority=scoring_result.final_signal_priority,
+            label=scoring_result.label,
             reasons=reasons,
             model_version=MODEL_VERSION,
         )

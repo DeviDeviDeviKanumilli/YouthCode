@@ -131,7 +131,7 @@ def test_recompute_signal_score(signal_scores_client: TestClient) -> None:
         "high_value_verification_candidate",
         "priority_ecological_signal",
     }
-    assert body["model_version"] == "m2.7-rules-0.1.0"
+    assert body["model_version"] == "m6.1-rules-0.1.0"
 
 
 def test_recompute_is_deterministic(signal_scores_client: TestClient) -> None:

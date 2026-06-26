@@ -151,4 +151,5 @@ M1.4 migration foundation:
 - M5.3 Enrichment endpoint is implemented and locally verified with `make check` passing 108 tests.
 - M5.4 Nearby records summary is implemented and locally verified with `make check` passing 112 tests.
 - M5 is complete against the current local verification gates.
-- Next step: begin M6.1 Scoring model definition.
+- M6.1 Scoring model definition is implemented and locally verified with `make check` passing 119 tests.
+- Next step: begin M6.2 Component scoring.

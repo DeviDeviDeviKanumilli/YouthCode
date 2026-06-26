@@ -175,4 +175,5 @@ M1.4 migration foundation:
 - M10.3 Export permissions and privacy are implemented and locally verified with `make check` passing 185 tests.
 - M10.4 Export history is implemented and locally verified with `make check` passing 188 tests.
 - M10 is complete against the current local verification gates.
-- Next step: begin M11.1 Observation assistant context.
+- M11.1 Observation assistant context is implemented and locally verified with `make check` passing 191 tests.
+- Next step: begin M11.2 Region assistant context.

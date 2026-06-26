@@ -25,8 +25,10 @@ async def public_forecast(
     radius_km: Annotated[Decimal | None, Query(gt=Decimal("0"), le=Decimal("100"))] = None,
     species_id: uuid.UUID | None = None,
     signal_type: SignalScoreLabel | None = None,
+    verification_status: VerificationStatus | None = None,
     from_date: datetime | None = None,
     to_date: datetime | None = None,
+    recent_days: Annotated[int | None, Query(ge=1, le=365)] = None,
 ) -> GeoJSONFeatureCollection:
     return await ForecastService(session).public_forecast(
         bbox=bbox,
@@ -35,8 +37,10 @@ async def public_forecast(
         radius_km=radius_km,
         species_id=species_id,
         signal_type=signal_type,
+        verification_status=verification_status,
         from_date=from_date,
         to_date=to_date,
+        recent_days=recent_days,
     )
 
 
@@ -53,6 +57,7 @@ async def research_forecast(
     layer: Annotated[list[str] | None, Query()] = None,
     from_date: datetime | None = None,
     to_date: datetime | None = None,
+    recent_days: Annotated[int | None, Query(ge=1, le=365)] = None,
 ) -> GeoJSONFeatureCollection:
     return await ForecastService(session).research_forecast(
         requester_id=requester_id,
@@ -65,4 +70,5 @@ async def research_forecast(
         layers=layer,
         from_date=from_date,
         to_date=to_date,
+        recent_days=recent_days,
     )

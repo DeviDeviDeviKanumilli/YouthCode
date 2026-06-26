@@ -91,6 +91,15 @@ def create_species(client: TestClient) -> str:
     return str(response.json()["id"])
 
 
+def create_named_species(client: TestClient, scientific_name: str, common_name: str) -> str:
+    response = client.post(
+        "/species",
+        json={"scientific_name": scientific_name, "common_name": common_name},
+    )
+    assert response.status_code == 201
+    return str(response.json()["id"])
+
+
 def create_user(client: TestClient, role: str) -> str:
     response = client.post(
         "/users",
@@ -106,11 +115,12 @@ def create_observation(
     privacy_level: str = "public",
     lat: str = "40.7128",
     lon: str = "-74.0060",
+    timestamp: str = "2026-06-26T12:00:00Z",
 ) -> str:
     response = client.post(
         "/observations",
         json={
-            "timestamp": "2026-06-26T12:00:00Z",
+            "timestamp": timestamp,
             "latitude": lat,
             "longitude": lon,
             "privacy_level": privacy_level,
@@ -157,6 +167,27 @@ def seed_score(client: TestClient, observation_id: str, label: SignalScoreLabel)
                 model_version="test",
             )
             session.add(score)
+            await session.commit()
+
+    import anyio
+
+    anyio.run(seed)
+
+
+def seed_verification(
+    client: TestClient,
+    observation_id: str,
+    verification_status: VerificationStatus,
+) -> None:
+    async def seed() -> None:
+        session_factory = cast(Any, client.app).state.session_factory
+        async with session_factory() as session:
+            session.add(
+                Verification(
+                    observation_id=UUID(observation_id),
+                    status=verification_status,
+                )
+            )
             await session.commit()
 
     import anyio
@@ -454,3 +485,108 @@ def test_research_forecast_invalid_layer_rejected(forecast_client: TestClient) -
 
     assert response.status_code == 422
     assert response.json()["code"] == "invalid_forecast_layer"
+
+
+def test_public_forecast_date_filters(forecast_client: TestClient) -> None:
+    species_id = create_species(forecast_client)
+    old_id = create_observation(forecast_client, timestamp="2026-05-01T12:00:00Z")
+    recent_id = create_observation(forecast_client, timestamp="2026-06-26T12:00:00Z")
+    for observation_id in [old_id, recent_id]:
+        add_identification(forecast_client, observation_id, species_id)
+
+    response = forecast_client.get(
+        "/forecast/public",
+        params={
+            "bbox": "-74.02,40.70,-73.99,40.73",
+            "from_date": "2026-06-01T00:00:00Z",
+            "to_date": "2026-06-30T00:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    ids = {
+        feature["properties"]["observation_id"]
+        for feature in response.json()["features"]
+        if feature["properties"]["layer"] == "observations"
+    }
+    assert ids == {recent_id}
+
+
+def test_public_forecast_recent_days_filter(forecast_client: TestClient) -> None:
+    species_id = create_species(forecast_client)
+    old_id = create_observation(forecast_client, timestamp="2026-06-01T12:00:00Z")
+    recent_id = create_observation(forecast_client, timestamp="2026-06-26T12:00:00Z")
+    for observation_id in [old_id, recent_id]:
+        add_identification(forecast_client, observation_id, species_id)
+
+    response = forecast_client.get(
+        "/forecast/public",
+        params={
+            "bbox": "-74.02,40.70,-73.99,40.73",
+            "recent_days": "7",
+            "to_date": "2026-06-26T23:59:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    ids = {
+        feature["properties"]["observation_id"]
+        for feature in response.json()["features"]
+        if feature["properties"]["layer"] == "observations"
+    }
+    assert ids == {recent_id}
+
+
+def test_public_forecast_invalid_date_range_rejected(forecast_client: TestClient) -> None:
+    response = forecast_client.get(
+        "/forecast/public",
+        params={
+            "bbox": "-74.02,40.70,-73.99,40.73",
+            "from_date": "2026-07-01T00:00:00Z",
+            "to_date": "2026-06-01T00:00:00Z",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "invalid_date_range"
+
+
+def test_public_forecast_combined_filters(forecast_client: TestClient) -> None:
+    target_species_id = create_species(forecast_client)
+    other_species_id = create_named_species(
+        forecast_client,
+        "Lythrum salicaria",
+        "Purple loosestrife",
+    )
+    target_id = create_observation(forecast_client, timestamp="2026-06-26T12:00:00Z")
+    other_id = create_observation(forecast_client, lat="40.7140", timestamp="2026-06-26T12:00:00Z")
+    old_id = create_observation(forecast_client, lat="40.7150", timestamp="2026-05-01T12:00:00Z")
+    add_identification(forecast_client, target_id, target_species_id)
+    add_identification(forecast_client, other_id, other_species_id)
+    add_identification(forecast_client, old_id, target_species_id)
+    seed_score(forecast_client, target_id, SignalScoreLabel.moderate_signal)
+    seed_score(forecast_client, other_id, SignalScoreLabel.moderate_signal)
+    seed_score(forecast_client, old_id, SignalScoreLabel.moderate_signal)
+    seed_verification(forecast_client, target_id, VerificationStatus.expert_verified)
+    seed_verification(forecast_client, other_id, VerificationStatus.expert_verified)
+    seed_verification(forecast_client, old_id, VerificationStatus.expert_verified)
+
+    response = forecast_client.get(
+        "/forecast/public",
+        params={
+            "bbox": "-74.02,40.70,-73.99,40.73",
+            "species_id": target_species_id,
+            "signal_type": "moderate_signal",
+            "verification_status": "expert_verified",
+            "from_date": "2026-06-01T00:00:00Z",
+            "to_date": "2026-06-30T00:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    ids = [
+        feature["properties"]["observation_id"]
+        for feature in response.json()["features"]
+        if feature["properties"]["layer"] == "observations"
+    ]
+    assert ids == [target_id]

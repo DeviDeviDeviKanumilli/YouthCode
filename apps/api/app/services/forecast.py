@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -60,9 +60,12 @@ class ForecastService:
         radius_km: Decimal | None,
         species_id: uuid.UUID | None,
         signal_type: SignalScoreLabel | None,
+        verification_status: VerificationStatus | None,
         from_date: datetime | None,
         to_date: datetime | None,
+        recent_days: int | None,
     ) -> GeoJSONFeatureCollection:
+        from_date, to_date = self._resolve_date_range(from_date, to_date, recent_days)
         resolved_bbox = self._resolve_bbox(
             bbox=bbox,
             latitude=latitude,
@@ -85,6 +88,7 @@ class ForecastService:
             public_observations,
             species_id=species_id,
             signal_type=signal_type,
+            verification_status=verification_status,
         )
         known_records = await self.static_layers.list_known_records(
             bbox=resolved_bbox,
@@ -144,9 +148,11 @@ class ForecastService:
         layers: list[str] | None,
         from_date: datetime | None,
         to_date: datetime | None,
+        recent_days: int | None,
     ) -> GeoJSONFeatureCollection:
         await self._require_research_access(requester_id)
         requested_layers = self._resolve_research_layers(layers)
+        from_date, to_date = self._resolve_date_range(from_date, to_date, recent_days)
         resolved_bbox = self._resolve_bbox(
             bbox=bbox,
             latitude=latitude,
@@ -257,6 +263,7 @@ class ForecastService:
         *,
         species_id: uuid.UUID | None,
         signal_type: SignalScoreLabel | None,
+        verification_status: VerificationStatus | None,
     ) -> list[GeoJSONFeature]:
         features: list[GeoJSONFeature] = []
         for observation in observations:
@@ -267,6 +274,11 @@ class ForecastService:
                 continue
             score = await self.signal_scores.get(observation.id)
             if signal_type is not None and (score is None or score.label != signal_type):
+                continue
+            verification = await self.verification.get(observation.id)
+            if verification_status is not None and (
+                verification is None or verification.status != verification_status
+            ):
                 continue
             latitude, longitude = self._public_coordinates(observation)
             features.append(
@@ -292,6 +304,7 @@ class ForecastService:
                             else None
                         ),
                         "signal_label": score.label.value if score else None,
+                        "verification_status": verification.status.value if verification else "raw",
                     },
                 )
             )
@@ -649,6 +662,31 @@ class ForecastService:
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             )
         return min_lon, min_lat, max_lon, max_lat
+
+    def _resolve_date_range(
+        self,
+        from_date: datetime | None,
+        to_date: datetime | None,
+        recent_days: int | None,
+    ) -> tuple[datetime | None, datetime | None]:
+        if recent_days is not None:
+            if recent_days <= 0 or recent_days > 365:
+                raise AppError(
+                    code="invalid_recent_days",
+                    message="recent_days must be between 1 and 365.",
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                )
+            effective_to_date = to_date or datetime.now(tz=from_date.tzinfo if from_date else None)
+            effective_from_date = effective_to_date - timedelta(days=recent_days)
+            from_date = max(from_date, effective_from_date) if from_date else effective_from_date
+            to_date = effective_to_date
+        if from_date is not None and to_date is not None and from_date > to_date:
+            raise AppError(
+                code="invalid_date_range",
+                message="from_date must be before or equal to to_date.",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            )
+        return from_date, to_date
 
     async def _require_research_access(self, requester_id: uuid.UUID) -> None:
         requester = await self.users.get(requester_id)

@@ -1,0 +1,5 @@
+services:
+  postgres:
+    # postgis/postgis only publishes amd64; OrbStack runs it cleanly via Rosetta on Apple Silicon
+    image: postgis/postgis:16-3.5
+    platform: linux/amd64

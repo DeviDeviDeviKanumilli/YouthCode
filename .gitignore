@@ -1,27 +1,69 @@
-# Python
+# --- Logs (never commit) ---
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+metro.log
+expo-cli.log
+*.log.*
+
+# --- Node / Expo ---
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+.metro-cache/
+.cache/
+
+# --- Generated native projects ---
+# expo prebuild output is per-machine; regenerate locally via `npx expo prebuild --platform ios`
+apps/mobile/ios/
+apps/mobile/android/
+
+# --- iOS / Xcode ---
+**/build/
+**/DerivedData/
+**/*.xcuserstate
+**/xcuserdata/
+**/Pods/
+**/Podfile.lock
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# --- Python / API ---
+.venv/
+venv/
+env/
 __pycache__/
 *.py[cod]
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .coverage
 htmlcov/
 
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Local environment
+# --- Env / secrets ---
 .env
+.env.*
+!.env.example
 .local/
 
-# Build artifacts
-dist/
-build/
-*.egg-info/
-
-# OS/editor
+# --- OS / editor ---
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
+*.swp
+*.swo
+
+# --- Claude per-user settings (do not commit) ---
+.claude/settings.local.json
+
+# --- Misc ---
+coverage/
+tmp/

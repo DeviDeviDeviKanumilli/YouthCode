@@ -19,6 +19,26 @@ This file is the running handoff log for mobile UI work on the `mobile-ui` branc
 
 ## Handoff Log
 
+### 2026-06-27 - Functional observation detail flow and richer mobile navigation
+
+Changed:
+
+- Added a new observation detail screen at `/observations/[id]` that loads the saved observation, attached media, intelligence card, and pipeline status from the backend.
+- Reworked the report result state so it no longer ends at a dead-end screen; users can now open the saved observation, return to Sightings, review a source sighting, or capture another report.
+- Wired Sightings list items to the new observation detail screen and added quick actions for capture and Watch so the tab can branch into real product flows.
+- Converted the Guide/Profile tab into a navigation hub with working actions into Watch, Report, and Sightings instead of static placeholder cards.
+- Registered the new observation route in the root stack and added typed backend helpers for observation detail, media, and pipeline status.
+
+Verified:
+
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
+
+Still to do:
+
+- Open the new observation detail flow on the Android emulator or physical device and confirm the navigation stack feels natural.
+- Consider regenerating Expo Router route typings during the next dev-client/start pass so the observation route appears in the generated type union.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

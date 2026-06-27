@@ -31,15 +31,13 @@ export default function ReportScreen() {
     habitatHint?: string | string[];
   }>();
   const followUpObservationId = readParam(params.observationId);
+  const initialAnswers = buildInitialAnswers(params);
 
   const [stage, setStage] = useState<Stage>('camera');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, Answer>>({
-    near_water: readParam(params.habitatHint) === 'near_water' ? 'yes' : 'not_sure',
-    near_road_or_trail: 'not_sure',
-    growth_pattern: 'not_sure',
-  });
+  const [answers, setAnswers] = useState<Record<string, Answer>>(initialAnswers);
   const [result, setResult] = useState<SightingIntelligenceCard | null>(null);
+  const [submittedObservationId, setSubmittedObservationId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function capture() {
@@ -74,6 +72,7 @@ export default function ReportScreen() {
         },
       });
 
+      setSubmittedObservationId(observation.observation_id);
       const media = await createObservationMedia(observation.observation_id, {
         file_type: 'image',
         mime_type: 'image/jpeg',
@@ -95,6 +94,15 @@ export default function ReportScreen() {
       setSubmitError(err instanceof Error ? err.message : 'Unable to submit this sighting.');
       setStage('clues');
     }
+  }
+
+  function restartFlow() {
+    setStage('camera');
+    setPhotoUri(null);
+    setResult(null);
+    setSubmitError(null);
+    setSubmittedObservationId(null);
+    setAnswers(initialAnswers);
   }
 
   if (!permission) {
@@ -233,12 +241,38 @@ export default function ReportScreen() {
             <Text style={styles.resultMetaText}>{result.confidence_label ?? 'Review needed'}</Text>
             <Text style={styles.resultMetaText}>{result.verification_status}</Text>
           </View>
+          {submittedObservationId ? <Text style={styles.sheetMeta}>Saved record {submittedObservationId.slice(0, 8)}</Text> : null}
           <Text style={styles.resultBody}>{result.plain_language_explanation}</Text>
           <ResultBlock title="Local context" text={result.known_nearby_records_summary} />
           <ResultBlock title="Habitat clues" text={result.habitat_match_summary} />
           <ResultBlock title="What happens next" text={result.uncertainty_notice} />
-          <Pressable accessibilityRole="button" onPress={() => router.replace('/sightings')} style={styles.primaryButton}>
-            <Text style={styles.primaryText}>Done</Text>
+          {followUpObservationId ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push(`/observations/${followUpObservationId}` as never)}
+              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+              <Text style={styles.secondaryButtonText}>Review original sighting</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              router.push(`/observations/${submittedObservationId ?? result.observation_id}` as never)
+            }
+            style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+            <Text style={styles.primaryText}>Open observation</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.replace('/sightings')}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryButtonText}>Back to Sightings</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={restartFlow}
+            style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+            <Text style={styles.secondaryButtonText}>Capture another</Text>
           </Pressable>
         </ScrollView>
       </PhotoShell>
@@ -336,6 +370,14 @@ function IconButton({ icon, onPress }: { icon: keyof typeof MaterialIcons.glyphM
 
 function readParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function buildInitialAnswers(params: ReturnType<typeof useLocalSearchParams>) {
+  return {
+    near_water: readParam(params.habitatHint) === 'near_water' ? 'yes' : 'not_sure',
+    near_road_or_trail: 'not_sure',
+    growth_pattern: 'not_sure',
+  } satisfies Record<string, Answer>;
 }
 
 function buildRawNote(params: ReturnType<typeof useLocalSearchParams>) {
@@ -568,6 +610,20 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontFamily: fonts.bodySemibold,
     fontSize: 16,
+  },
+  secondaryButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+  },
+  secondaryButtonText: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 15,
   },
   textButton: {
     alignItems: 'center',

@@ -66,6 +66,7 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: colors.background },
           }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="observations/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="watch/item/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="watch/place/[id]" options={{ headerShown: false }} />
         </Stack>

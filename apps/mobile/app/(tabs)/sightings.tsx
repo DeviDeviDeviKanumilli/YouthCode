@@ -47,7 +47,7 @@ export default function SightingsScreen() {
       title="Sightings"
       regionLabel="Your observations"
       subtitle={user.userId ? 'Submitted sightings and draft field notes.' : 'Preparing your local user session.'}
-      topContent={<PlaceholderHero />}
+      topContent={<SightingsHero />}
     >
       <ScrollView
         contentContainerStyle={styles.content}
@@ -57,6 +57,23 @@ export default function SightingsScreen() {
           <MiniStat icon="eco" value={String(items.length)} label="submitted" />
           <MiniStat icon="schedule" value={String(items.filter((item) => item.verification_status !== 'reviewed').length)} label="awaiting review" />
           <MiniStat icon="location-on" value={String(items.length > 0 ? 1 : 0)} label="filled gaps" />
+        </View>
+
+        <View style={styles.actionRow}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/report')}
+            style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
+            <MaterialIcons name="photo-camera" size={18} color={colors.white} />
+            <Text style={styles.actionButtonText}>Capture sighting</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/watch')}
+            style={({ pressed }) => [styles.actionButtonSecondary, pressed && styles.pressed]}>
+            <MaterialIcons name="search" size={18} color={colors.ink} />
+            <Text style={styles.actionButtonSecondaryText}>Open Watch</Text>
+          </Pressable>
         </View>
 
         <SectionHeading title="Recent notes" subtitle="Your uploaded sightings from this device." />
@@ -83,12 +100,7 @@ export default function SightingsScreen() {
             <Pressable
               key={item.observation_id}
               accessibilityRole="button"
-              onPress={() =>
-                router.push({
-                  pathname: '/report',
-                  params: { source: 'sighting_history', observationId: item.observation_id },
-                })
-              }
+              onPress={() => router.push(`/observations/${item.observation_id}` as never)}
               style={({ pressed }) => [styles.noteCard, pressed && styles.pressed]}>
               <Image
                 source={{ uri: item.thumbnail_url ?? watchItemImage({ title: item.possible_species ?? 'Observation', type: 'species_watch', imageUrl: null }) }}
@@ -137,10 +149,12 @@ function MiniStat({
   );
 }
 
-function PlaceholderHero() {
+function SightingsHero() {
   return (
     <View style={styles.heroWrap}>
       <MaterialIcons name="feed" size={48} color="rgba(255,255,255,0.9)" />
+      <Text style={styles.heroTitle}>Your field log</Text>
+      <Text style={styles.heroBody}>Every submitted record can reopen, reveal analysis, or branch into a new follow-up report.</Text>
     </View>
   );
 }
@@ -165,6 +179,42 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.blue,
+    borderRadius: 999,
+    paddingVertical: 12,
+  },
+  actionButtonText: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 13,
+  },
+  actionButtonSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    paddingVertical: 12,
+  },
+  actionButtonSecondaryText: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 13,
   },
   statCard: {
     flex: 1,
@@ -253,6 +303,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  heroTitle: {
+    color: colors.white,
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+  },
+  heroBody: {
+    color: 'rgba(255,255,255,0.82)',
+    fontFamily: fonts.body,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   pressed: {
     opacity: 0.84,

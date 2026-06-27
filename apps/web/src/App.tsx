@@ -11,7 +11,6 @@ import {
   Bell,
   CheckCircle2,
   ChevronDown,
-  CircleHelp,
   ClipboardList,
   Database,
   Download,
@@ -100,10 +99,27 @@ const screens: Array<{
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
+function buildOverviewSubtitle(filters: DashboardFilters) {
+  const parts: string[] = [];
+  if (filters.bbox === delawareBasinBbox || !filters.bbox.trim()) {
+    parts.push("Delaware River Basin");
+  } else {
+    parts.push("Custom area");
+  }
+  if (filters.fromDate && filters.toDate) {
+    parts.push(`${filters.fromDate} to ${filters.toDate}`);
+  } else if (filters.fromDate) {
+    parts.push(`from ${filters.fromDate}`);
+  } else if (filters.toDate) {
+    parts.push(`to ${filters.toDate}`);
+  }
+  return `Filtered operational view for ${parts.join(", ")}.`;
+}
+
 const screenCopy: Record<ScreenId, { title: string; subtitle: string }> = {
   overview: {
     title: "Research overview",
-    subtitle: "Filtered operational view for Delaware River Basin, May 2025.",
+    subtitle: "",
   },
   verification: {
     title: "Verification queue",
@@ -212,10 +228,21 @@ function getActiveFilterChips(filters: DashboardFilters) {
     chips.push(`Region: ${filters.regionCode}`);
   }
   if (filters.verificationStatus) {
-    chips.push(filters.verificationStatus.replaceAll("_", " "));
+    const label = filters.verificationStatus
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+    chips.push(label);
   }
   if (filters.signalLabel) {
-    chips.push(filters.signalLabel.replaceAll("_", " "));
+    const labelMap: Record<string, string> = {
+      low_signal: "Low signal",
+      moderate_signal: "Moderate signal",
+      high_value_verification_candidate: "High-value verification candidate",
+      priority_ecological_signal: "Priority ecological signal",
+      insufficient_evidence: "Insufficient evidence",
+    };
+    chips.push(labelMap[filters.signalLabel] ?? filters.signalLabel.replaceAll("_", " "));
   }
   if (filters.needsReview) {
     chips.push("Needs review");
@@ -514,7 +541,7 @@ function ObservationActionsBar({
       ? { label: "Open in queue", icon: ListChecks, onClick: actions.onOpenVerification }
       : { label: "View on map", icon: Map, onClick: actions.onViewOnMap };
   const secondary =
-    mode === "review"
+    mode === "review" || mode === "map"
       ? null
       : { label: "Open in queue", icon: ListChecks, onClick: actions.onOpenVerification };
   const PrimaryIcon = primary.icon;
@@ -584,13 +611,11 @@ function Sidebar({
   syncSource: DashboardPayload["source"];
   queueCount: number;
 }) {
-  const [docsOpen, setDocsOpen] = useState(false);
-
   return (
     <aside className="sidebar">
       <div className="brand" aria-label="EcoSentinel Research">
         <div className="brand-mark">
-          <Leaf size={28} />
+          <Leaf size={22} />
         </div>
         <div>
           <strong>EcoSentinel</strong>
@@ -607,7 +632,7 @@ function Sidebar({
               onClick={() => onChange(screen.id)}
               type="button"
             >
-              <Icon size={20} aria-hidden="true" />
+              <Icon size={17} aria-hidden="true" />
               <span>{screen.label}</span>
               {screen.id === "verification" && queueCount > 0 ? (
                 <span className="count-badge">{queueCount}</span>
@@ -621,15 +646,6 @@ function Sidebar({
           <span className="status-dot" />
           <span>{syncSource === "api" ? "API data synced" : "Demo data active"}</span>
         </div>
-        <button className="plain-button" onClick={() => setDocsOpen((open) => !open)} type="button">
-          <CircleHelp size={16} aria-hidden="true" />
-          Documentation
-        </button>
-        {docsOpen ? (
-          <div className="sidebar-hint">
-            Dashboard direction is tracked in <strong>Research_Dashboard_UI_Guide.md</strong>.
-          </div>
-        ) : null}
         <div className="profile-row">
           <div className="avatar" aria-hidden="true" />
           <div>
@@ -639,12 +655,11 @@ function Sidebar({
               onChange={(event) => onRoleChange(event.target.value as ResearchRole)}
               value={role}
             >
-              <option value="researcher">researcher</option>
-              <option value="reviewer">reviewer</option>
-              <option value="admin">admin</option>
+              <option value="researcher">Researcher</option>
+              <option value="reviewer">Reviewer</option>
+              <option value="admin">Admin</option>
             </select>
           </div>
-          <ChevronDown size={16} aria-hidden="true" />
         </div>
       </div>
     </aside>
@@ -726,20 +741,23 @@ function TopBar({
 function PageHeading({
   screen,
   source,
+  subtitle,
 }: {
   screen: ScreenId;
   source: DashboardPayload["source"];
+  subtitle?: string;
 }) {
+  const copy = screenCopy[screen];
+  const displaySubtitle = subtitle ?? copy.subtitle;
   return (
     <section className="page-heading">
       <div>
-        <h1>{screenCopy[screen].title}</h1>
-        <p>{screenCopy[screen].subtitle}</p>
+        <h1>{copy.title}</h1>
+        {displaySubtitle ? <p>{displaySubtitle}</p> : null}
       </div>
-      <div className="scope-pill">
-        <Database size={16} aria-hidden="true" />
+      <span className="scope-pill">
         {source === "api" ? "Research mode" : "Demo fallback"}
-      </div>
+      </span>
     </section>
   );
 }
@@ -753,7 +771,7 @@ function FilterRail({
   onChange: (next: DashboardFilters) => void;
   screen: ScreenId;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const activeChips = getActiveFilterChips(filters);
   const scope =
     screen === "forecast"
@@ -769,13 +787,23 @@ function FilterRail({
   return (
     <section className="filter-rail" aria-label={`${scope} filters`}>
       <button className="filter-button" onClick={() => setExpanded((open) => !open)} type="button">
-        <SlidersHorizontal size={17} aria-hidden="true" />
+        <SlidersHorizontal size={15} aria-hidden="true" />
         {scope} filters
-        <ChevronDown size={16} aria-hidden="true" />
+        <ChevronDown size={14} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} aria-hidden="true" />
       </button>
-      <span className="active-count">
-        {activeChips.length > 0 ? `${activeChips.length} filters active` : "No filters active"}
-      </span>
+      {activeChips.length > 0 ? (
+        <span className="active-count">{activeChips.length} filters active</span>
+      ) : null}
+      {!expanded && activeChips.length > 0 ? (
+        <div className="filter-chips" aria-label="Active filters" style={{ flex: 1 }}>
+          {activeChips.map((chip) => (
+            <span key={chip}>{chip}</span>
+          ))}
+          <button onClick={() => onChange({ ...defaultDashboardFilters, bbox: "" })} type="button">
+            Clear all
+          </button>
+        </div>
+      ) : null}
       {expanded ? (
         <div className="filter-stack">
           <div className="filter-chips" aria-label="Active filters">
@@ -911,10 +939,10 @@ function MetricsGrid({ observations }: { observations: DashboardObservation[] })
   ).length;
 
   const metrics = [
-    ["Visible observations", observations.length.toLocaleString(), "Current dashboard filters"],
-    ["Needs verification", needsVerification.toLocaleString(), "Visible pending records"],
-    ["Priority ecological signals", prioritySignals.toLocaleString(), "High-value or priority labels"],
-    ["Under-sampled records", underSampled.toLocaleString(), "Visible records with sampling gaps"],
+    ["Total observations", observations.length.toLocaleString(), "Delaware River Basin · Jun 2026"],
+    ["Needs verification", needsVerification.toLocaleString(), "Unverified + needs more evidence"],
+    ["Priority ecological signals", prioritySignals.toLocaleString(), "High-value or priority label · visible"],
+    ["Under-sampled records", underSampled.toLocaleString(), "Records with sampling gap label · visible"],
   ] as const;
 
   return (
@@ -948,8 +976,8 @@ function OverviewPage({
       <MetricsGrid observations={observations} />
       <section className="panel map-panel">
         <PanelTitle
-          title="Advanced forecast map"
-          meta="Visible layers: records, potential corridors, sampling gaps"
+          title="Forecast map"
+          meta="Records · potential corridors · sampling gaps"
         />
         {selected ? (
           <ResearchMap
@@ -1039,7 +1067,7 @@ function VerificationPage({
   return (
     <div className="queue-layout">
       <section className="panel queue-list">
-        <PanelTitle title="Assigned queue" meta="Sorted by Ecological Signal Priority" />
+        <PanelTitle title="Review queue" meta="Sorted by Ecological Signal Priority" />
         <RecordList rows={observations} selectedId={selected?.id ?? ""} onSelect={onSelect} />
       </section>
       <section className="panel review-surface">
@@ -1594,6 +1622,7 @@ function ExportHistoryTable({
 
 function ExportsPage({
   exports: exportRows,
+  filters,
   isPending,
   visibleRecordCount,
   onCreateExport,
@@ -1601,6 +1630,7 @@ function ExportsPage({
   onRetryExport,
 }: {
   exports: ExportRecord[];
+  filters: DashboardFilters;
   isPending: boolean;
   visibleRecordCount: number;
   onCreateExport: (request: ExportRequest) => Promise<void>;
@@ -1705,11 +1735,12 @@ function ExportsPage({
             void onCreateExport({
               format,
               filters: {
-                region_code: "Delaware River Basin",
-                from_date: "2025-05-01",
-                to_date: "2025-05-31",
-                needs_review: true,
-                signal_label: "high_value",
+                region_code: filters.bbox === delawareBasinBbox ? "Delaware River Basin" : filters.bbox || "Delaware River Basin",
+                from_date: filters.fromDate || undefined,
+                to_date: filters.toDate || undefined,
+                needs_review: filters.needsReview || undefined,
+                signal_label: filters.signalLabel || undefined,
+                verification_status: filters.verificationStatus || undefined,
                 visible_records: visibleRecordCount,
               },
               includeMediaUrls: fields.mediaUrls,
@@ -2285,7 +2316,11 @@ export default function App() {
           role={role}
           onQueryChange={setQuery}
         />
-        <PageHeading screen={screen} source={payload.source} />
+        <PageHeading
+          screen={screen}
+          source={payload.source}
+          subtitle={screen === "overview" ? buildOverviewSubtitle(filters) : undefined}
+        />
         {screen !== "settings" ? (
           <FilterRail
             filters={filters}
@@ -2362,6 +2397,7 @@ export default function App() {
         {screen === "exports" ? (
           <ExportsPage
             exports={payload.exports}
+            filters={filters}
             isPending={pendingAction === "export"}
             visibleRecordCount={visibleObservations.length}
             onCreateExport={handleCreateExport}

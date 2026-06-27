@@ -116,6 +116,12 @@ Branch: `main`
   - Updated Profile to show backend display name, role, privacy settings, and reviewer status.
   - Added unit coverage for user display, role, and privacy summary copy.
 
+- Saved Sighting Intelligence Card detail did not show raw submitted observation metadata.
+  - Added a mobile client for `GET /observations/{observation_id}`.
+  - Added a submitted-record card with timestamp, privacy level, coordinate uncertainty, habitat answer count, source, and region.
+  - Keeps the Intelligence Card available if the optional observation metadata request fails.
+  - Added unit coverage for observation date, privacy, coordinate precision, and habitat answer summaries.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -135,7 +141,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 16 files, 40 tests.
+- `cd apps/mobile && npm test` passed: 17 files, 42 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -145,6 +151,7 @@ Branch: `main`
 - Observation upload flow is wired through backend observation, media byte upload, identification, and intelligence card endpoints.
 - Saved observations can reopen the backend Sighting Intelligence Card from the Sightings tab.
 - Saved sighting details now load and display backend evidence media when available.
+- Saved sighting details now show raw submitted observation metadata from `GET /observations/{observation_id}`.
 - Report prefill context from Watch, Good Places, and sighting history is now visible before submission and carried into backend habitat answers.
 - My Sightings is wired to `GET /users/{user_id}/observations`.
 - Watch and Explore are wired to backend local signal endpoints.

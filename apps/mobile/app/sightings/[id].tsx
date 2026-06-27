@@ -8,12 +8,18 @@ import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
 import { messageForError } from '@/api/client';
 import { getObservationAssistantContext } from '@/api/assistant';
-import { getIntelligenceCard, getObservationMedia } from '@/api/observations';
+import { getIntelligenceCard, getObservation, getObservationMedia } from '@/api/observations';
 import { firstAllowedClaims, summarizeObservationAssistantContext } from '@/lib/assistantContext';
-import type { MediaRead, SightingIntelligenceCard } from '@/types/report';
+import type { MediaRead, ObservationRead, SightingIntelligenceCard } from '@/types/report';
 import type { ObservationAssistantContext } from '@/types/assistant';
 import { intelligenceCardTitle, signalPriorityDisplay } from '@/lib/intelligenceCard';
 import { firstEvidenceImageUrl, mediaEvidenceSummary } from '@/lib/mediaEvidence';
+import {
+  coordinateUncertaintyLabel,
+  habitatAnswerCount,
+  observationDateLabel,
+  observationPrivacyLabel,
+} from '@/lib/observationMetadata';
 import { watchItemImage } from '@/lib/images';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -22,10 +28,12 @@ export default function SightingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [card, setCard] = useState<SightingIntelligenceCard | null>(null);
+  const [observation, setObservation] = useState<ObservationRead | null>(null);
   const [media, setMedia] = useState<MediaRead[]>([]);
   const [assistantContext, setAssistantContext] = useState<ObservationAssistantContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [observationError, setObservationError] = useState<string | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [assistantError, setAssistantError] = useState<string | null>(null);
 
@@ -40,6 +48,14 @@ export default function SightingDetailScreen() {
       setError(messageForError(err, 'Unable to load this intelligence card.'));
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const metadata = await getObservation(id);
+      setObservation(metadata);
+      setObservationError(null);
+    } catch (err) {
+      setObservationError(messageForError(err, 'Unable to load submitted record metadata.'));
     }
 
     try {
@@ -111,6 +127,18 @@ export default function SightingDetailScreen() {
 
             {media.length > 0 ? <EvidenceMediaCard media={media} imageUrl={firstEvidenceImageUrl(media)} /> : null}
 
+            {observation ? <SubmittedRecordCard observation={observation} /> : null}
+
+            {observationError ? (
+              <StatusPanel
+                title="Submitted record unavailable"
+                message={observationError}
+                actionLabel="Retry"
+                onActionPress={load}
+                tone="error"
+              />
+            ) : null}
+
             {mediaError ? (
               <StatusPanel
                 title="Evidence media unavailable"
@@ -168,6 +196,40 @@ export default function SightingDetailScreen() {
         ) : null}
       </ScrollView>
     </DetailFrame>
+  );
+}
+
+function SubmittedRecordCard({ observation }: { observation: ObservationRead }) {
+  return (
+    <View style={styles.submissionCard}>
+      <View style={styles.submissionHeader}>
+        <View style={styles.submissionIcon}>
+          <MaterialIcons name="assignment" size={20} color={colors.blue} />
+        </View>
+        <View style={styles.submissionCopy}>
+          <Text style={styles.submissionEyebrow}>Submitted record</Text>
+          <Text style={styles.submissionTitle}>{observationDateLabel(observation.timestamp)}</Text>
+        </View>
+      </View>
+      <View style={styles.submissionGrid}>
+        <MiniRecordStat label="Privacy" value={observationPrivacyLabel(observation.privacy_level)} />
+        <MiniRecordStat label="Precision" value={coordinateUncertaintyLabel(observation.coordinate_uncertainty_m)} />
+        <MiniRecordStat label="Habitat clues" value={String(habitatAnswerCount(observation))} />
+      </View>
+      <Text style={styles.submissionNote}>
+        Source: {observation.source.replaceAll('_', ' ')}
+        {observation.region_code ? ` · Region: ${observation.region_code}` : ''}
+      </Text>
+    </View>
+  );
+}
+
+function MiniRecordStat({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.recordStat}>
+      <Text style={styles.recordStatLabel}>{label}</Text>
+      <Text style={styles.recordStatValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -369,6 +431,76 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 13,
     lineHeight: 19,
+  },
+  submissionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 14,
+    gap: 12,
+  },
+  submissionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  submissionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E1E9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submissionCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  submissionEyebrow: {
+    color: colors.blue,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  submissionTitle: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 15,
+  },
+  submissionGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  recordStat: {
+    flex: 1,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 9,
+    gap: 4,
+  },
+  recordStatLabel: {
+    color: colors.muted,
+    fontFamily: fonts.label,
+    fontSize: 9,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  recordStatValue: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  submissionNote: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+    textTransform: 'capitalize',
   },
   infoBlock: {
     borderTopWidth: 1,

@@ -16,6 +16,23 @@ export type ObservationCreateResponse = {
   next_steps: string[];
 };
 
+export type ObservationRead = {
+  id: string;
+  user_id?: string | null;
+  timestamp: string;
+  latitude: string;
+  longitude: string;
+  coordinate_uncertainty_m?: string | number | null;
+  region_code?: string | null;
+  source: string;
+  raw_note?: string | null;
+  habitat_answers: Record<string, unknown>;
+  survey_session_id?: string | null;
+  privacy_level: 'public' | 'obscured' | 'private';
+  created_at: string;
+  updated_at: string;
+};
+
 export type MediaCreatePayload = {
   file_type: 'image';
   mime_type: string;

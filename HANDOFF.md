@@ -19,6 +19,28 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Submitted observation metadata on saved detail
+
+Changed:
+
+- Added mobile client support for `GET /observations/{observation_id}`.
+- Added observation metadata helpers for submitted date, privacy label, coordinate precision, and habitat clue counts.
+- Updated saved Sighting Intelligence Card detail with a submitted-record card showing timestamp, privacy level, coordinate uncertainty, habitat answer count, source, and region.
+- Kept metadata loading non-blocking so the Intelligence Card remains visible if the optional observation metadata request fails.
+- Added helper coverage for observation date, privacy, coordinate precision, and habitat answer summaries.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 17 files, 42 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+
 ### 2026-06-27 - Backend user details in Profile
 
 Changed:

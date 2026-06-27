@@ -128,6 +128,12 @@ Branch: `main`
   - Keeps the list-card fallback while selected detail is loading or unavailable.
   - Added unit coverage for selecting detailed scenario data over list fallback.
 
+- App startup requested location permission immediately instead of using the demo area fallback.
+  - Removed the automatic startup location permission request from `LocationProvider`.
+  - The app now starts with `Using demo area` and only asks for location after explicit refresh/target actions.
+  - Profile now explains the demo-area fallback and permission-denied state with consistent copy.
+  - Added unit coverage for demo-area and permission fallback labels.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -147,7 +153,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 17 files, 43 tests.
+- `cd apps/mobile && npm test` passed: 18 files, 46 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -170,6 +176,7 @@ Branch: `main`
 - App startup now checks backend health/version and surfaces a degraded-backend banner across the main mobile shell.
 - Profile now surfaces backend user role/privacy settings from `GET /users/{user_id}`.
 - Explore now surfaces deterministic demo scenarios and uses selected demo detail responses to frame the Forecast Map with scenario bbox context.
+- Mobile startup no longer prompts for location permission before the user asks to use device location.
 - Report now submits backend-friendly habitat clue values and habitat type context.
 - Report now lets users choose public, obscured, or private location privacy while defaulting to obscured.
 - Report result now surfaces backend pipeline status when available.

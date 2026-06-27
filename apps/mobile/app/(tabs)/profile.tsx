@@ -4,6 +4,7 @@ import { SectionHeading } from '@/components/layout/SectionHeading';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { MaterialIcons } from '@expo/vector-icons';
+import { locationStatusDetail } from '@/lib/locationDisplay';
 import { systemStatusDetail, systemStatusTone, systemStatusValue } from '@/lib/systemStatus';
 import { userDisplayName, userPrivacySummary, userRoleLabel } from '@/lib/userProfile';
 import { useLocalArea } from '@/location/LocationProvider';
@@ -65,7 +66,11 @@ export default function ProfileScreen() {
           icon="my-location"
           title="Location"
           value={area.locationGranted ? 'Enabled' : 'Approximate'}
-          detail={area.error ?? area.label}
+          detail={locationStatusDetail({
+            granted: area.locationGranted,
+            label: area.label,
+            error: area.error,
+          })}
           tone={area.error ? 'warning' : 'ok'}
           actionLabel="Refresh"
           onActionPress={() => void area.refresh()}

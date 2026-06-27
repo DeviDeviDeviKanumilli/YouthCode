@@ -1,6 +1,7 @@
 import * as Location from 'expo-location';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { DEMO_AREA_LABEL, LOCATION_PERMISSION_DENIED_MESSAGE } from '@/lib/locationDisplay';
 
 export type LocalCoordinates = {
   lat: number;
@@ -29,9 +30,9 @@ const LocalAreaContext = createContext<LocalAreaState | null>(null);
 
 export function LocationProvider({ children }: { children: ReactNode }) {
   const [coords, setCoords] = useState<LocalCoordinates | null>(null);
-  const [label, setLabel] = useState('Finding local area');
+  const [label, setLabel] = useState(DEMO_AREA_LABEL);
   const [locationGranted, setLocationGranted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -43,8 +44,8 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       if (location.status !== 'granted') {
         setLocationGranted(false);
         setCoords(null);
-        setLabel('Location permission needed');
-        setError('Location permission was not granted.');
+        setLabel(DEMO_AREA_LABEL);
+        setError(LOCATION_PERMISSION_DENIED_MESSAGE);
         return;
       }
 
@@ -75,10 +76,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   const value = useMemo(
     () => ({

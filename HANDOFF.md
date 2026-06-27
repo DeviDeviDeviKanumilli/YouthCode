@@ -19,6 +19,27 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Non-blocking location startup
+
+Changed:
+
+- Removed the automatic startup location permission request from `LocationProvider`.
+- The app now starts with `Using demo area` and keeps backend calls on fallback coordinates until the user explicitly taps a location refresh/target action.
+- Updated Profile location status copy to explain demo-area fallback and permission-denied state consistently.
+- Added helper coverage for demo-area, permission-denied, and granted-location labels.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 18 files, 46 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+
 ### 2026-06-27 - Selected demo scenario detail in Explore
 
 Changed:

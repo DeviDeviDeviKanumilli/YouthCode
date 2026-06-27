@@ -18,6 +18,7 @@ import {
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { colors } from '@/theme/colors';
 import { LocationProvider } from '@/location/LocationProvider';
+import { UserProvider } from '@/user/UserProvider';
 
 export {
   ErrorBoundary,
@@ -56,17 +57,19 @@ export default function RootLayout() {
   }
 
   return (
-    <LocationProvider>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
-        }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="watch/item/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="watch/place/[id]" options={{ headerShown: false }} />
-      </Stack>
-    </LocationProvider>
+    <UserProvider>
+      <LocationProvider>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.background },
+          }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="watch/item/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="watch/place/[id]" options={{ headerShown: false }} />
+        </Stack>
+      </LocationProvider>
+    </UserProvider>
   );
 }

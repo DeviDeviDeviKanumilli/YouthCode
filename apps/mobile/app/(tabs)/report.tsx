@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons';
 import { createObservation, createObservationMedia, getIntelligenceCard, identifyObservation } from '@/api/observations';
 import { FALLBACK_COORDS, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
+import { useLocalUser } from '@/user/UserProvider';
 import type { SightingIntelligenceCard } from '@/types/report';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -21,12 +22,15 @@ export default function ReportScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const area = useLocalArea();
   const coords = useBackendCoordinates();
+  const user = useLocalUser();
   const params = useLocalSearchParams<{
     source?: string | string[];
+    observationId?: string | string[];
     suggestedSpeciesName?: string | string[];
     placeType?: string | string[];
     habitatHint?: string | string[];
   }>();
+  const followUpObservationId = readParam(params.observationId);
 
   const [stage, setStage] = useState<Stage>('camera');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -53,6 +57,7 @@ export default function ReportScreen() {
     try {
       const location = area.coords ?? coords ?? FALLBACK_COORDS;
       const observation = await createObservation({
+        user_id: user.userId ?? undefined,
         latitude: location.lat,
         longitude: location.lon,
         coordinate_uncertainty_m: area.locationGranted ? 35 : 5000,
@@ -135,6 +140,8 @@ export default function ReportScreen() {
   if (stage === 'confirm' && photoUri) {
     return (
       <PhotoShell title="New sighting" photoUri={photoUri} onBack={() => setStage('camera')}>
+        {user.userId ? <Text style={styles.sheetMeta}>Session ready</Text> : null}
+        {followUpObservationId ? <Text style={styles.sheetMeta}>Follow-up for {followUpObservationId.slice(0, 8)}</Text> : null}
         <Text style={styles.sheetLabel}>Photo</Text>
         <Text style={styles.sheetTitle}>Use this photo?</Text>
         <Text style={styles.sheetBody}>You can retake it if the subject is unclear.</Text>
@@ -155,9 +162,10 @@ export default function ReportScreen() {
           <View style={styles.clueHeader}>
             <Image source={{ uri: photoUri }} style={styles.clueThumb} contentFit="cover" />
             <View style={styles.clueHeaderCopy}>
-              <Text style={styles.sheetLabel}>Step 3 of 4</Text>
+              <Text style={styles.sheetLabel}>Step 3 of 5</Text>
               <Text style={styles.sheetTitle}>Add a few clues</Text>
               <Text style={styles.sheetBody}>Not sure is always okay.</Text>
+              {followUpObservationId ? <Text style={styles.sheetMeta}>Revisiting a previous sighting.</Text> : null}
             </View>
           </View>
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
@@ -527,6 +535,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.label,
     fontSize: 12,
     letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  sheetMeta: {
+    color: colors.muted,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   sheetTitle: {

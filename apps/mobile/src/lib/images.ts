@@ -3,27 +3,27 @@ import type { GoodPlaceDetail, GoodPlaceToCheck, GoodPlaceType, WatchItem, Watch
 const COMMONS = 'https://commons.wikimedia.org/wiki/Special:FilePath/';
 
 const WATCH_TYPE_IMAGES: Record<WatchItemType, string> = {
-  species_watch: `${COMMONS}Spotted%20Lanternfly%20%2845539249434%29.jpg?width=900`,
-  seasonal_watch: `${COMMONS}Spotted%20Lanternfly%20%2845539249434%29.jpg?width=900`,
-  habitat_watch: `${COMMONS}Japanese%20knotweed%20%28Fallopia%20japonica%29.jpg?width=900`,
-  tree_health: `${COMMONS}Ash%20tree%20bark.jpg?width=900`,
-  aquatic_watch: `${COMMONS}Rocky%20creek%20in%20forest.jpg?width=900`,
+  species_watch: `${COMMONS}Spotted%20lanternfly,%20wing%20detail%202017-06-08-18.04%20(35006929440).jpg?width=900`,
+  seasonal_watch: `${COMMONS}Spotted%20lanternfly,%20wing%20detail%202017-06-08-18.04%20(35006929440).jpg?width=900`,
+  habitat_watch: `${COMMONS}Japanese-knotweed-philadelphia.jpg?width=900`,
+  tree_health: `${COMMONS}Paris%20750018%20Avenue%20Junot%20street%20trees.jpg?width=900`,
+  aquatic_watch: `${COMMONS}River_Rocks_%28440298432%29.jpg?width=900`,
 };
 
 const WATCH_TITLE_IMAGES: Array<[RegExp, string]> = [
-  [/lanternfly/i, `${COMMONS}Spotted%20Lanternfly%20%2845539249434%29.jpg?width=900`],
-  [/knotweed/i, `${COMMONS}Japanese%20knotweed%20%28Fallopia%20japonica%29.jpg?width=900`],
-  [/emerald ash|ash borer/i, `${COMMONS}Emerald%20ash%20borer%20damage.jpg?width=900`],
-  [/loosestrife/i, `${COMMONS}Lythrum%20salicaria%20%28Purple%20loosestrife%29.jpg?width=900`],
+  [/lanternfly/i, `${COMMONS}Spotted%20lanternfly,%20wing%20detail%202017-06-08-18.04%20(35006929440).jpg?width=900`],
+  [/knotweed/i, `${COMMONS}Japanese-knotweed-philadelphia.jpg?width=900`],
+  [/emerald ash|ash borer/i, `${COMMONS}Paris%20750018%20Avenue%20Junot%20street%20trees.jpg?width=900`],
+  [/loosestrife/i, `${COMMONS}Meadow_and_Woodland_Edge.jpg?width=900`],
 ];
 
 const PLACE_IMAGES: Record<GoodPlaceType, string> = {
-  creek_edges: `${COMMONS}Rocky%20creek%20in%20forest.jpg?width=900`,
-  trail_entrances: `${COMMONS}Forest%20trail%20entrance.jpg?width=900`,
-  park_boundaries: `${COMMONS}Park%20boundary%20meadow.jpg?width=900`,
-  street_trees: `${COMMONS}Street%20trees%20sidewalk.jpg?width=900`,
-  wetland_edges: `${COMMONS}Wetland%20edge.jpg?width=900`,
-  garden_edges: `${COMMONS}Community%20garden%20edge.jpg?width=900`,
+  creek_edges: `${COMMONS}River_Rocks_%28440298432%29.jpg?width=900`,
+  trail_entrances: `${COMMONS}Trailhead.JPG?width=900`,
+  park_boundaries: `${COMMONS}Boundary%20Fence%20at%20Charlecote%20Park%20-%20geograph.org.uk%20-%20801956.jpg?width=900`,
+  street_trees: `${COMMONS}Paris%20750018%20Avenue%20Junot%20street%20trees.jpg?width=900`,
+  wetland_edges: `${COMMONS}Meadow_and_Woodland_Edge.jpg?width=900`,
+  garden_edges: `${COMMONS}Meadow_and_Woodland_Edge.jpg?width=900`,
 };
 
 export function watchItemImage(item: Pick<WatchItem, 'imageUrl' | 'title' | 'type'> | WatchItemDetail): string {

@@ -67,7 +67,7 @@ export default function WatchPlaceDetailScreen() {
               </View>
               <View style={[styles.badge, { backgroundColor: colors.surfaceSoft }]}>
                 <MaterialIcons name="info-outline" size={14} color={colors.muted} />
-                <Text style={[styles.badgeText, { color: colors.muted }]}>Backend-ranked</Text>
+                <Text style={[styles.badgeText, { color: colors.muted }]}>Local place context</Text>
               </View>
             </View>
 

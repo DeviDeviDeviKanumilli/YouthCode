@@ -48,7 +48,8 @@ export default function ExploreScreen() {
   return (
     <ScreenFrame
       eyebrow="Good afternoon"
-      title={regionLabel}
+      title="Explore"
+      regionLabel={regionLabel}
       showTargetButton={false}
       topHeight={420}
       topContent={<MapBackdrop locationLabel={regionLabel} onTargetPress={() => void area.refresh().then(load)} />}>

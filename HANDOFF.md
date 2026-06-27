@@ -19,6 +19,28 @@ This file is the running handoff log for mobile UI work on the `mobile-ui` branc
 
 ## Handoff Log
 
+### 2026-06-26 - Persistent user session and real Sightings feed
+
+Changed:
+
+- Added `expo-secure-store` and a `UserProvider` that creates or restores an anonymous backend user session on launch.
+- Wired Report submissions to include the persisted `user_id`, so new sightings belong to a stable backend user instead of a temporary session.
+- Replaced the Sightings placeholder with a backend-backed observation list from `GET /users/{user_id}/observations`.
+- Made each sighting card clickable and gave it an image-backed layout instead of the old text-only stub.
+- Replaced the remaining guessed image URLs with confirmed Wikimedia Commons file paths that return real images on device.
+
+Verified:
+
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
+- `curl -L -sS -o /dev/null -w '%{http_code}\n'` against the Commons fallback URLs returns `200` for the confirmed image paths used in the app.
+- Rebuilt and reinstalled the Android dev client on the connected physical Pixel after adding `expo-secure-store`.
+
+Still to do:
+
+- Verify the Sightings feed on the phone with actual stored observations once the user captures a new report.
+- Continue polishing the detail screens and any remaining copy that still feels placeholder-like.
+
 ### 2026-06-26 - Location-aware UI and report capture flow
 
 Changed:

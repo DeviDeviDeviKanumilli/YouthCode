@@ -206,6 +206,6 @@ M1.4 migration foundation:
 Both frontends are merged on `main` and integrate with the backend contract:
 
 - **`apps/mobile`** — Report upload pipeline, intelligence cards, public forecast map, Watch API, regions/nearby, assistant context panels. Typecheck + 51 unit tests pass.
-- **`apps/web`** — Research workbench (8 screens), live API mode, exports, verification workflow. Build + smoke pass; GitHub Actions CI on push.
+- **`apps/web`** — Research workbench (8 screens), reference-layout UI rework (`d58f692`), live API mode, exports, verification workflow. Build + smoke pass; GitHub Actions CI on push.
 
 Remaining cross-cutting gaps: production deployment, `POST /auth/token` HTTP route for dashboard sign-in, live external biodiversity feeds (GBIF/iNat), survey sessions, population-signal UI.

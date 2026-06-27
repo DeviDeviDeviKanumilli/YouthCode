@@ -4,7 +4,7 @@ Living design notes for the desktop research dashboard. Update this file wheneve
 
 **Implementation:** `apps/web` on `main` — see `Web_Dashboard_UI_Handoff.md` and `HANDOFF.md` for build status.
 
-Last updated: 2026-06-27
+Last updated: 2026-06-27 (reference-layout UI rework on `main`)
 
 ## Product Intent
 
@@ -725,16 +725,9 @@ The dashboard MVP is complete when a researcher or reviewer can:
 
 ## Current Recommendation
 
-Use the screenshots as a structural reference, not as the final visual density target. The final EcoSentinel dashboard should be quieter and sharper:
+The reference screenshots define the **structural layout** for each screen (column splits, layer sections, export configure/preview, analyst 3-column flow). The **visual tone** should still follow the minimal scientific workbench rules in this guide: restrained color, clear uncertainty language, and no alarmist ecological claims.
 
-- fewer panels
-- fewer badges
-- more table/map space
-- clearer filter scope
-- stricter scientific wording
-- better role-aware verification flows
-- stronger privacy/source separation
-- explicit uncertainty everywhere
+As of `d58f692` on `main`, the dashboard implements the reference layout across all 8 screens while keeping the quieter token palette (`#0B7A4C`, white sidebar, subtle borders) from the prior cleanup pass. Future polish should reduce decorative density where it does not aid verification or export workflow—not revert the structural improvements.
 
 The best version should feel like a research instrument: precise, calm, and trustworthy.
 
@@ -859,4 +852,18 @@ Export retry integrity pass:
 - Retry entries preserve the original export format, filter count, and record count, then appear at the top of the table with `Processing` status.
 - The retry action keeps the Export Center minimal: one compact action button, one status message, and one visible table update.
 - Smoke coverage now clicks a failed export retry and verifies the new processing retry row appears.
+- Latest checks passed: `npm run build` and `npm run smoke`.
+
+Reference-layout UI rework pass (`d58f692`, 2026-06-27):
+
+- Rebuilt all 8 screens to match the reference workbench structure while preserving API wiring and demo fallbacks.
+- **Overview:** 7 KPI cards (4 + 3 rows), `DonutChart` signal breakdown, recent priority signals with `SpeciesThumbnail`, workbench summary quick links.
+- **Verification:** 3-column layout (queue rail with `ScoreCircle`, evidence gallery panel, possible species + history timeline); sticky review action bar.
+- **Observations:** active filter chips, species thumbnails in table rows, drawer prev/next navigation, quick actions footer.
+- **Forecast Map:** floating sectioned layer drawer (Observations / Environment / Analysis), layer preset button, expanded record panel with model insight; `ResearchMap` uses horizontal bottom legend pill-bar and score-circle selected pin.
+- **Sampling Gaps:** map + category analysis table with % of area, absence-is-not-absence callout, grid cell summary with sparkbar detections and pagination row.
+- **Export Center:** numbered configure steps, privacy ethics callout (location / anonymization / ethical use), preview column with content summary, Expires column in history.
+- **AI Analyst:** true 3-column layout; `ConfidenceRingSvg`, `UncertaintyFactors`, cited sources table, top records sidebar, verification status donut, persistent bottom ask bar.
+- **Shared components:** white compact sidebar, score circles, species thumbnails, confidence dots, SVG donuts (no chart library).
+- Files changed: `apps/web/src/styles.css`, `App.tsx`, `ResearchMap.tsx` (chrome only; Leaflet layer logic unchanged).
 - Latest checks passed: `npm run build` and `npm run smoke`.

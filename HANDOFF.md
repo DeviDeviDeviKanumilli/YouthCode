@@ -104,6 +104,18 @@ Against the judge-facing demo path in `AGENTS.md` and `Project_spec.md`:
 
 **Screens (8):** Overview, Verification Queue, Observations, Forecast Map, Sampling Gaps, Export Center, AI Analyst, Settings.
 
+**UI (2026-06-27 rework):** Full screen-by-screen layout rebuild on `main` (`d58f692`) to match the reference workbench structure while preserving all API wiring and demo fallbacks. Key surfaces:
+
+- **Overview** — 7 KPI cards, signal donut, recent priority signals with thumbnails, workbench summary quick links
+- **Verification** — 3-column queue / evidence / species+history layout with score circles and sticky review bar
+- **Observations** — filter chips, species thumbnails in table, drawer prev/next navigation, quick actions footer
+- **Forecast Map** — sectioned layer drawer (Observations / Environment / Analysis), layer presets, horizontal legend pill-bar, expanded record panel
+- **Sampling Gaps** — category analysis table with %, absence-is-not-absence callout, full grid cell summary
+- **Export Center** — configure/preview split, privacy ethics callout, Expires column in history
+- **AI Analyst** — true 3-column layout with confidence ring, uncertainty factors, cited sources table, top records sidebar, verification donut, persistent bottom ask bar
+
+Design tokens: green `#0B7A4C`, white sidebar, 10px card radius, score circles, species thumbnails, SVG donuts (no chart library). Detail log: `Web_Dashboard_UI_Handoff.md`.
+
 **Modes:**
 
 - **Demo mode** — deterministic seeded data when API unavailable (default `npm run dev`).
@@ -167,9 +179,10 @@ npm run sync-api && npm run dev   # API mode after backend + demo seed
 
 ## Recent Platform Changes (2026-06-27)
 
+- **Research dashboard UI rework** on `main`: rebuilt all 8 screens, `styles.css` tokens/components, and Forecast Map chrome (`ResearchMap.tsx` legend bar, score-circle selected pin). Build + smoke pass; pushed `d58f692`.
 - Merged `mobile-ui` and `web-dashboard-ui` into `main`; deleted both feature branches.
 - Mobile: observation detail route (`/observations/[id]`), pipeline status helpers, type fixes after merge.
-- Web: full research dashboard with live API filters, verification history, export lifecycle, design cleanup, demo date alignment.
+- Web: live API filters, verification history, export lifecycle, demo date alignment (pre-rework foundation).
 - Backend validation confirmed on local API (Docker unavailable on some machines; venv path works).
 
 ## Mobile Judge Demo QA Checklist
@@ -191,12 +204,21 @@ Run with API seeded, Android emulator or device, `EXPO_PUBLIC_API_BASE_URL=http:
 
 1. **Demo mode:** `npm run dev` — observations visible in Overview, Queue, Observations.
 2. **API mode:** `npm run sync-api` — live queue, verify action, export download URL.
-3. **Smoke:** `npm run build && npm run preview` then `npm run smoke`.
+3. **Smoke:** `npm run build && npm run preview` then `npm run smoke` (if port 4173 is busy, set `SMOKE_BASE_URL` to the preview URL shown).
 4. **Screens:** All 8 nav items render without console errors.
+5. **Rework surfaces:** Overview 7 KPIs + donut; Verification 3-column layout; Forecast sectioned layers + bottom legend bar; Analyst 3-column + bottom ask bar.
 
 ## Handoff Log (condensed)
 
 Detailed mobile issue history lives in `Mobile_UI_Issues.md`. Web dashboard iteration history lives in `Web_Dashboard_UI_Handoff.md`.
+
+### 2026-06-27 — Research dashboard UI rework (`d58f692`)
+
+- Rebuilt all 8 screens per reference workbench layout: Overview (7 KPIs, donut, workbench summary), Verification (3-column), Observations (thumbnails, drawer nav), Forecast (sectioned layers, legend bar), Sampling (analysis %, grid summary), Exports (privacy callout, Expires), Analyst (3-column, confidence ring, top records).
+- `styles.css`: new tokens (`#0B7A4C`, white sidebar, 10px radius), score circles, thumbnails, donuts, map legend bar, analyst/export/sampling layouts.
+- `ResearchMap.tsx`: horizontal bottom legend pill-bar; selected pin shows signal score circle.
+- No API/type/data shape changes; all existing endpoints and demo fallbacks preserved.
+- Verified: `npm run build`, `npm run smoke`.
 
 ### 2026-06-27 — Platform merge to `main`
 

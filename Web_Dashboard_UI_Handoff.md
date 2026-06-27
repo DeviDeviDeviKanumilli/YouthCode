@@ -18,7 +18,7 @@ Web-dashboard-specific change log. For platform-wide status, MVP checklist, and 
 
 ## Current Status (2026-06-27)
 
-All eight screens are implemented on `main`: Overview, Verification Queue, Observations, Forecast Map, Sampling Gaps, Export Center, AI Analyst, Settings.
+All eight screens are implemented on `main` with a **full reference-layout UI rework** (`d58f692`): Overview, Verification Queue, Observations, Forecast Map, Sampling Gaps, Export Center, AI Analyst, Settings.
 
 | Capability | Status |
 |------------|--------|
@@ -32,10 +32,39 @@ All eight screens are implemented on `main`: Overview, Verification Queue, Obser
 | AI Analyst grounded context | Done |
 | Error states (401/403, API fallback, missing context) | Done |
 | CI build (`.github/workflows/web-dashboard.yml`) | Done |
+| Reference-layout UI rework (all 8 screens + map chrome) | Done (`d58f692`) |
 | Auth sign-in UI | Not built (`POST /auth/token` route missing) |
 | Save view / flag / sampling plan stubs | localStorage only |
 
 ## Handoff Log
+
+### 2026-06-27 - Full reference-layout UI rework (`d58f692`)
+
+Changed:
+
+- **`styles.css`** — design tokens (`#0B7A4C`, white sidebar, 10px radius), score circles, species thumbnails, SVG donut/confidence ring styles, workbench/verification/map/sampling/export/analyst layout classes.
+- **`App.tsx`** — rebuilt all 8 screen components and shared chrome (Sidebar, TopBar, PageHeading, FilterRail, badges, DonutChart, ConfidenceRing, ScoreCircle, SpeciesThumbnail, RecordList).
+- **`ResearchMap.tsx`** — sectioned layer drawer lives in Forecast page; map uses horizontal bottom legend pill-bar; selected pin shows signal score circle.
+
+Screen highlights:
+
+| Screen | Layout changes |
+|--------|----------------|
+| Overview | 7 KPIs, signal donut, recent signals with thumbnails, workbench summary |
+| Verification | 3-column queue / evidence / species+history; score circles in queue |
+| Observations | Filter chips, table thumbnails, drawer prev/next, quick actions footer |
+| Forecast Map | Sectioned layers (Observations / Environment / Analysis), presets, expanded record panel |
+| Sampling Gaps | Category analysis table with %, absence callout, full grid cell summary |
+| Export Center | Configure/preview split, privacy ethics block, Expires column |
+| AI Analyst | 3-column layout, uncertainty factors, cited sources table, top records, verification donut, bottom ask bar |
+
+Preserved (no changes):
+
+- All `api.ts` calls, `types.ts`, `data.ts` shapes, hash routing, filter logic, Leaflet layer internals.
+
+Verified: `npm run build`, `npm run smoke` (screenshots in `apps/web/artifacts/`).
+
+Note: if `npm run preview` binds to a port other than 4173, run `SMOKE_BASE_URL=http://127.0.0.1:<port> npm run smoke`.
 
 ### 2026-06-27 - Demo date alignment and dynamic subtitle fixes
 
@@ -109,6 +138,6 @@ cd apps/web && npm run sync-api && npm run dev
 Smoke screenshots:
 
 ```bash
-npm run build && npm run preview   # terminal 1
-npm run smoke                      # terminal 2
+npm run build && npm run preview   # terminal 1 — note the port shown
+npm run smoke                      # terminal 2; use SMOKE_BASE_URL if not 4173
 ```

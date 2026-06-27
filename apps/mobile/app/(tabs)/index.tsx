@@ -14,9 +14,12 @@ import { fonts } from '@/theme/typography';
 import { FALLBACK_RADIUS_KM, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
 import { usePublicForecast } from '@/forecast/usePublicForecast';
 import { useNearbyRegion } from '@/regions/useNearbyRegion';
+import { useSamplingGaps } from '@/sampling/useSamplingGaps';
 import { goodPlaceImage, watchItemImage } from '@/lib/images';
 import { summarizeNearbyRegion } from '@/lib/regions';
+import { samplingLabelCopy } from '@/lib/sampling';
 import type { NearbyRegionSummary } from '@/types/regions';
+import type { SamplingGapSummary } from '@/types/sampling';
 import { reportParamsForGoodPlace, reportParamsForWatchItem, watchItemActionHref, watchPlaceActionHref } from '@/lib/watch';
 
 export default function ExploreScreen() {
@@ -25,6 +28,7 @@ export default function ExploreScreen() {
   const coords = useBackendCoordinates();
   const forecast = usePublicForecast(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
   const nearbyRegion = useNearbyRegion(coords.lat, coords.lon, 10);
+  const samplingGaps = useSamplingGaps(coords.lat, coords.lon, 10);
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +70,7 @@ export default function ExploreScreen() {
           layerError={forecast.error}
           onTargetPress={() =>
             void area.refresh().then(() =>
-              Promise.all([load(), forecast.refresh(), nearbyRegion.refresh()])
+              Promise.all([load(), forecast.refresh(), nearbyRegion.refresh(), samplingGaps.refresh()])
             )
           }
         />
@@ -111,6 +115,16 @@ export default function ExploreScreen() {
           />
         ) : null}
 
+        {samplingGaps.error ? (
+          <StatusPanel
+            title="Sampling context is unavailable"
+            message={samplingGaps.error}
+            actionLabel="Retry sampling"
+            onActionPress={() => void samplingGaps.refresh()}
+            tone="error"
+          />
+        ) : null}
+
         {leadingPlace ? (
           <ExploreSignalCard
             label="Worth checking"
@@ -146,6 +160,15 @@ export default function ExploreScreen() {
           </View>
         ) : null}
 
+        {samplingGaps.summary ? <SamplingGapCard summary={samplingGaps.summary} /> : null}
+
+        {samplingGaps.loading && !samplingGaps.summary ? (
+          <View style={styles.regionCard}>
+            <View style={styles.loadingLine} />
+            <View style={[styles.loadingLine, { width: '64%' }]} />
+          </View>
+        ) : null}
+
         <SectionHeading title="Good places to check" />
         {response && response.goodPlacesToCheck.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.placeRow}>
@@ -160,6 +183,40 @@ export default function ExploreScreen() {
         ) : null}
       </ScrollView>
     </ScreenFrame>
+  );
+}
+
+function SamplingGapCard({ summary }: { summary: SamplingGapSummary }) {
+  const visibleLabels = summary.labels.slice(0, 3);
+  return (
+    <View style={styles.samplingCard}>
+      <View style={styles.regionHeader}>
+        <View style={styles.samplingIcon}>
+          <MaterialIcons name="grid-on" size={20} color="#934934" />
+        </View>
+        <View style={styles.regionCopy}>
+          <Text style={styles.samplingEyebrow}>Sampling gap layer</Text>
+          <Text style={styles.regionTitle}>
+            {summary.totalCells > 0
+              ? `${summary.totalCells} nearby grid cells: ${samplingLabelCopy(summary.topLabel)}`
+              : 'No nearby sampling grid cells returned'}
+          </Text>
+        </View>
+      </View>
+
+      {summary.topExplanation ? <Text style={styles.regionNote}>{summary.topExplanation}</Text> : null}
+      {summary.topUncertainty ? <Text style={styles.regionUncertainty}>{summary.topUncertainty}</Text> : null}
+
+      {visibleLabels.length > 0 ? (
+        <View style={styles.speciesRow}>
+          {visibleLabels.map((label) => (
+            <Text key={label.label} style={styles.samplingPill}>
+              {samplingLabelCopy(label.label)} · {label.count}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -390,6 +447,29 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
   },
+  samplingCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 16,
+    gap: 14,
+  },
+  samplingIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.amberSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  samplingEyebrow: {
+    color: '#934934',
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
   regionHeader: {
     flexDirection: 'row',
     gap: 12,
@@ -454,6 +534,17 @@ const styles = StyleSheet.create({
   speciesPill: {
     color: colors.ink,
     backgroundColor: colors.mossSoft,
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    textTransform: 'capitalize',
+  },
+  samplingPill: {
+    color: colors.ink,
+    backgroundColor: colors.amberSoft,
     borderRadius: 999,
     overflow: 'hidden',
     paddingHorizontal: 10,

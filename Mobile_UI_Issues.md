@@ -55,6 +55,11 @@ Branch: `main`
   - Shows allowed claim count, evidence availability, required uncertainty notice, data source count, and verification status.
   - Added unit coverage for assistant context summarization.
 
+- Sampling Gap Layer was only represented as a forecast count in mobile.
+  - Added a mobile client for `GET /sampling-gaps?bbox=...&mode=public`.
+  - Added an Explore Sampling Gap Layer card with nearby grid-cell count, top sampling label, explanation, uncertainty, and label breakdown.
+  - Added unit coverage for bbox generation and sampling label summarization.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -74,7 +79,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 8 files, 19 tests.
+- `cd apps/mobile && npm test` passed: 9 files, 21 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -89,6 +94,7 @@ Branch: `main`
 - Explore now uses `GET /regions/nearby` for local ecosystem and sampling context.
 - Watch detail screens now surface backend map overlay context where provided.
 - Saved sighting detail now surfaces grounded observation Assistant Context.
+- Explore now surfaces public Sampling Gap Layer context and absence cautions.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

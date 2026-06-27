@@ -158,6 +158,23 @@ Still to do:
 
 - Manually verify the assistant context panel in Android once a device or emulator is available.
 
+### 2026-06-27 - Sampling Gap Layer in Explore
+
+Changed:
+
+- Added a mobile client and hook for `GET /sampling-gaps?bbox=...&mode=public`.
+- Added an Explore Sampling Gap Layer card with grid-cell count, top sampling label, explanation, uncertainty, and label breakdown.
+- Added unit coverage for bbox generation and sampling label summarization.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 9 files, 21 tests.
+
+Still to do:
+
+- Manually verify the Sampling Gap Layer card in Android once a device or emulator is available.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

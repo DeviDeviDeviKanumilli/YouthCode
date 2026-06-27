@@ -2,6 +2,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -58,22 +59,24 @@ export default function RootLayout() {
   }
 
   return (
-    <SystemStatusProvider>
-      <UserProvider>
-        <LocationProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.background },
-            }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="watch/item/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="watch/place/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="sightings/[id]" options={{ headerShown: false }} />
-          </Stack>
-        </LocationProvider>
-      </UserProvider>
-    </SystemStatusProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SystemStatusProvider>
+        <UserProvider>
+          <LocationProvider>
+            <StatusBar style="light" />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.background },
+              }}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="watch/item/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="watch/place/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="sightings/[id]" options={{ headerShown: false }} />
+            </Stack>
+          </LocationProvider>
+        </UserProvider>
+      </SystemStatusProvider>
+    </GestureHandlerRootView>
   );
 }

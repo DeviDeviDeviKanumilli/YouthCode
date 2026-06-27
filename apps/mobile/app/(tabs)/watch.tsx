@@ -69,17 +69,20 @@ export default function WatchScreen() {
 
   return (
     <ScreenFrame
-      eyebrow={timeOfDayGreeting()}
-      title="Watch"
-      regionLabel={regionLabel}
-      subtitle={area.locationGranted ? 'Things worth noticing nearby' : 'Enable location to rank signals around you.'}
-      topHeight={300}
+      mapHeaderMode
+      draggableSheet
       topContent={
         <MapBackdrop
           centerLat={coords.lat}
           centerLon={coords.lon}
           radiusKm={FALLBACK_RADIUS_KM}
+          eyebrow={timeOfDayGreeting()}
           locationLabel={regionLabel}
+          locationHint={
+            area.locationGranted
+              ? 'Things worth noticing nearby'
+              : 'Enable location to rank signals around you'
+          }
           layerSummary={forecast.summary}
           forecastCollection={forecast.collection}
           samplingCollection={samplingGaps.collection}

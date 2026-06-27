@@ -105,7 +105,11 @@ export default function SightingsScreen() {
               <View style={styles.noteCopy}>
                 <View style={styles.noteHead}>
                   <Text style={styles.noteTitle}>{item.possible_species ?? 'Unidentified sighting'}</Text>
-                  <Text style={styles.noteTag}>{item.verification_status}</Text>
+                  <View style={verificationPillStyle(item.verification_status)}>
+                    <Text style={verificationPillTextStyle(item.verification_status)}>
+                      {formatVerificationStatus(item.verification_status)}
+                    </Text>
+                  </View>
                 </View>
                 <Text style={styles.noteBody}>
                   {item.signal_label ? `${item.signal_label} • ` : ''}
@@ -159,6 +163,38 @@ function FieldNotesHero({ count }: { count: number }) {
       <Text style={styles.heroSubtitle}>Submitted sightings stay linked to this device session.</Text>
     </View>
   );
+}
+
+function formatVerificationStatus(status: string) {
+  return status.replaceAll('_', ' ');
+}
+
+function verificationPillStyle(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('verified') || normalized.includes('confirmed')) {
+    return [styles.noteTag, styles.noteTagVerified];
+  }
+  if (normalized.includes('reject')) {
+    return [styles.noteTag, styles.noteTagRejected];
+  }
+  if (normalized.includes('evidence') || normalized.includes('review') || normalized.includes('needs')) {
+    return [styles.noteTag, styles.noteTagReview];
+  }
+  return [styles.noteTag, styles.noteTagPending];
+}
+
+function verificationPillTextStyle(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes('verified') || normalized.includes('confirmed')) {
+    return [styles.noteTagText, styles.noteTagTextVerified];
+  }
+  if (normalized.includes('reject')) {
+    return [styles.noteTagText, styles.noteTagTextRejected];
+  }
+  if (normalized.includes('evidence') || normalized.includes('review') || normalized.includes('needs')) {
+    return [styles.noteTagText, styles.noteTagTextReview];
+  }
+  return [styles.noteTagText, styles.noteTagTextPending];
 }
 
 function formatDate(value: string) {
@@ -240,11 +276,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   noteTag: {
-    color: colors.muted,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  noteTagText: {
     fontFamily: fonts.label,
     fontSize: 10,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
+  },
+  noteTagVerified: {
+    backgroundColor: colors.mossSoft,
+  },
+  noteTagTextVerified: {
+    color: colors.mossDark,
+  },
+  noteTagReview: {
+    backgroundColor: colors.amberSoft,
+  },
+  noteTagTextReview: {
+    color: '#934934',
+  },
+  noteTagRejected: {
+    backgroundColor: colors.redSoft,
+  },
+  noteTagTextRejected: {
+    color: colors.red,
+  },
+  noteTagPending: {
+    backgroundColor: colors.surfaceSoft,
+  },
+  noteTagTextPending: {
+    color: colors.muted,
   },
   noteBody: {
     color: colors.muted,

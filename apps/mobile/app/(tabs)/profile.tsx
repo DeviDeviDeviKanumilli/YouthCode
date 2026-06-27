@@ -1,4 +1,5 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { colors } from '@/theme/colors';
@@ -77,17 +78,24 @@ export default function ProfileScreen() {
         />
 
         <SectionHeading title="Start here" subtitle="Short lessons for field observations." />
-        <GuideCard icon="school" title="What is a habitat?" subtitle="The places and conditions species depend on." />
+        <GuideCard
+          icon="school"
+          title="What is a habitat?"
+          subtitle="The places and conditions species depend on."
+          accent="moss"
+        />
         <SectionHeading title="Learning paths" />
         <GuideCard
           icon="menu-book"
           title="Places shape species"
           subtitle="Why creeks, trails, parks, and street trees matter."
+          accent="blue"
         />
         <GuideCard
           icon="analytics"
           title="Why one sighting is not a trend"
           subtitle="A good record is useful, but a single upload is not a full picture."
+          accent="amber"
         />
       </ScrollView>
     </ScreenFrame>
@@ -135,15 +143,23 @@ function GuideCard({
   icon,
   title,
   subtitle,
+  accent = 'moss',
 }: {
   icon: keyof typeof MaterialIcons.glyphMap;
   title: string;
   subtitle: string;
+  accent?: 'moss' | 'blue' | 'amber';
 }) {
+  const accentStyles = {
+    moss: { iconBg: colors.mossSoft, iconColor: colors.moss, border: colors.mossSoft },
+    blue: { iconBg: colors.blueSoft, iconColor: colors.blue, border: '#D6E2F8' },
+    amber: { iconBg: colors.amberSoft, iconColor: colors.amber, border: '#F2D8CF' },
+  }[accent];
+
   return (
-    <View style={styles.card}>
-      <View style={styles.iconWrap}>
-        <MaterialIcons name={icon} size={24} color={colors.moss} />
+    <View style={[styles.card, { borderColor: accentStyles.border }]}>
+      <View style={[styles.iconWrap, { backgroundColor: accentStyles.iconBg }]}>
+        <MaterialIcons name={icon} size={24} color={accentStyles.iconColor} />
       </View>
       <View style={styles.cardCopy}>
         <Text style={styles.cardTitle}>{title}</Text>
@@ -157,7 +173,17 @@ function GuideCard({
 function GuideHero() {
   return (
     <View style={styles.heroWrap}>
-      <MaterialIcons name="menu-book" size={46} color="rgba(255,255,255,0.92)" />
+      <LinearGradient
+        colors={['rgba(79,107,82,0.42)', 'rgba(7,17,13,0.08)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.heroBadge}>
+        <MaterialIcons name="menu-book" size={28} color={colors.white} />
+      </View>
+      <Text style={styles.heroTitle}>Field guide</Text>
+      <Text style={styles.heroSubtitle}>Short lessons for careful observations.</Text>
     </View>
   );
 }
@@ -238,6 +264,33 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 24,
+  },
+  heroBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  heroTitle: {
+    color: colors.white,
+    fontFamily: fonts.displayBold,
+    fontSize: 28,
+    lineHeight: 32,
+    textAlign: 'center',
+  },
+  heroSubtitle: {
+    color: 'rgba(255,255,255,0.82)',
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    maxWidth: 280,
   },
   pressed: {
     opacity: 0.84,

@@ -78,17 +78,16 @@ export default function ExploreScreen() {
 
   return (
     <ScreenFrame
-      eyebrow={timeOfDayGreeting()}
-      title="Explore"
-      regionLabel={regionLabel}
-      showTargetButton={false}
-      topHeight={420}
+      mapHeaderMode
+      draggableSheet
       topContent={
         <MapBackdrop
           centerLat={coords.lat}
           centerLon={coords.lon}
           radiusKm={FALLBACK_RADIUS_KM}
+          eyebrow={timeOfDayGreeting()}
           locationLabel={activeDemoScenario ? activeDemoScenario.title : regionLabel}
+          locationHint="Explore local forecast signals and sampling gaps"
           demoLabel={activeDemoScenario ? 'Demo scenario map' : undefined}
           layerSummary={mapSummary}
           forecastCollection={mapCollection}

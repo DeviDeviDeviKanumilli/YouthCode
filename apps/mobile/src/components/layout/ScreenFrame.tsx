@@ -2,14 +2,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
+import { DraggableSheet } from '@/components/layout/DraggableSheet';
 import { colors } from '@/theme/colors';
 import { fonts, typeScale } from '@/theme/typography';
-import { MaterialIcons } from '@expo/vector-icons';
 import { systemStatusDetail, systemStatusValue } from '@/lib/systemStatus';
 import { useSystemStatus } from '@/system/SystemStatusProvider';
 
 type ScreenFrameProps = {
-  title: string;
+  title?: string;
   subtitle?: string;
   eyebrow?: string;
   regionLabel?: string;
@@ -19,6 +20,8 @@ type ScreenFrameProps = {
   children: ReactNode;
   sheetBackground?: string;
   topHeight?: number;
+  mapHeaderMode?: boolean;
+  draggableSheet?: boolean;
 };
 
 export function ScreenFrame({
@@ -32,11 +35,53 @@ export function ScreenFrame({
   children,
   sheetBackground = colors.background,
   topHeight = 320,
+  mapHeaderMode = false,
+  draggableSheet = false,
 }: ScreenFrameProps) {
   const insets = useSafeAreaInsets();
   const systemStatus = useSystemStatus();
   const showBackendBanner =
     !systemStatus.loading && Boolean(systemStatus.error || systemStatus.healthStatus !== 'ok');
+
+  const backendBanner = showBackendBanner ? (
+    <View style={styles.backendBanner}>
+      <View style={styles.backendIconWrap}>
+        <MaterialIcons name="cloud-off" size={18} color="#B6473D" />
+      </View>
+      <View style={styles.backendCopy}>
+        <Text style={styles.backendTitle}>Backend {systemStatusValue(systemStatus)}</Text>
+        <Text style={styles.backendDetail}>{systemStatusDetail(systemStatus)}</Text>
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Retry backend status check"
+        onPress={() => void systemStatus.refresh()}
+        style={({ pressed }) => [styles.backendRetry, pressed && styles.pressed]}>
+        <Text style={styles.backendRetryText}>Retry</Text>
+      </Pressable>
+    </View>
+  ) : null;
+
+  if (mapHeaderMode) {
+    return (
+      <SafeAreaView edges={['bottom']} style={styles.root}>
+        <View style={styles.mapBackground}>{topContent}</View>
+        {draggableSheet ? (
+          <DraggableSheet backgroundColor={sheetBackground} header={backendBanner}>
+            {children}
+          </DraggableSheet>
+        ) : (
+          <View style={[styles.mapSheet, { backgroundColor: sheetBackground }]}>
+            <View style={styles.sheetHandleWrap}>
+              <View style={styles.sheetHandle} />
+            </View>
+            {backendBanner}
+            <View style={styles.sheetContent}>{children}</View>
+          </View>
+        )}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -53,7 +98,7 @@ export function ScreenFrame({
           <View style={styles.heroHeaderRow}>
             <View style={styles.heroCopy}>
               {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-              <Text style={styles.title}>{title}</Text>
+              {title ? <Text style={styles.title}>{title}</Text> : null}
               {regionLabel ? <Text style={styles.region}>{regionLabel}</Text> : null}
               {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
             </View>
@@ -73,24 +118,7 @@ export function ScreenFrame({
         <View style={styles.sheetHandleWrap}>
           <View style={styles.sheetHandle} />
         </View>
-        {showBackendBanner ? (
-          <View style={styles.backendBanner}>
-            <View style={styles.backendIconWrap}>
-              <MaterialIcons name="cloud-off" size={18} color="#B6473D" />
-            </View>
-            <View style={styles.backendCopy}>
-              <Text style={styles.backendTitle}>Backend {systemStatusValue(systemStatus)}</Text>
-              <Text style={styles.backendDetail}>{systemStatusDetail(systemStatus)}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Retry backend status check"
-              onPress={() => void systemStatus.refresh()}
-              style={({ pressed }) => [styles.backendRetry, pressed && styles.pressed]}>
-              <Text style={styles.backendRetryText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : null}
+        {backendBanner}
         <View style={styles.sheetContent}>{children}</View>
       </View>
     </SafeAreaView>
@@ -101,6 +129,19 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.dark,
+  },
+  mapBackground: {
+    ...StyleSheet.absoluteFill,
+  },
+  mapSheet: {
+    flex: 1,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowOffset: { width: 0, height: -16 },
+    shadowRadius: 24,
+    elevation: 12,
   },
   hero: {
     overflow: 'hidden',

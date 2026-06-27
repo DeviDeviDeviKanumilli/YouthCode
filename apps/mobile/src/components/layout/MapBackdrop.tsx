@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ForecastGeoMap } from '@/components/layout/ForecastGeoMap';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -10,6 +11,8 @@ type MapBackdropProps = {
   centerLon: number;
   radiusKm: number;
   locationLabel: string;
+  eyebrow?: string;
+  locationHint?: string;
   demoLabel?: string;
   layerSummary?: ForecastLayerSummary | null;
   forecastCollection?: GeoJSONFeatureCollection | null;
@@ -25,6 +28,8 @@ export function MapBackdrop({
   centerLon,
   radiusKm,
   locationLabel,
+  eyebrow,
+  locationHint = 'Pan and zoom the forecast map',
   demoLabel,
   layerSummary,
   forecastCollection,
@@ -34,6 +39,7 @@ export function MapBackdrop({
   onTargetPress,
   onObservationPress,
 }: MapBackdropProps) {
+  const insets = useSafeAreaInsets();
   const signalCount = layerSummary
     ? layerSummary.observations + layerSummary.knownRecords + layerSummary.possibleCorridors
     : 0;
@@ -50,13 +56,14 @@ export function MapBackdrop({
         samplingCollection={samplingCollection}
         onObservationPress={onObservationPress}
       />
-      <View style={styles.header}>
+      <View style={[styles.header, { top: insets.top + 12 }]}>
         <View>
-          {demoLabel ? <Text style={styles.eyebrow}>{demoLabel}</Text> : null}
+          {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
+          {demoLabel ? <Text style={styles.demoEyebrow}>{demoLabel}</Text> : null}
           <Text style={styles.location}>{locationLabel}</Text>
           <View style={styles.locationRow}>
             <MaterialIcons name="location-on" size={14} color="#A6C0FA" />
-            <Text style={styles.locationSub}>Pan and zoom the forecast map</Text>
+            <Text style={styles.locationSub}>{locationHint}</Text>
           </View>
         </View>
         <Pressable
@@ -109,7 +116,6 @@ const styles = StyleSheet.create({
   },
   header: {
     position: 'absolute',
-    top: 18,
     left: 20,
     right: 20,
     flexDirection: 'row',
@@ -124,6 +130,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1.8,
     textTransform: 'uppercase',
     marginBottom: 6,
+  },
+  demoEyebrow: {
+    color: 'rgba(255,255,255,0.62)',
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   location: {
     color: colors.white,

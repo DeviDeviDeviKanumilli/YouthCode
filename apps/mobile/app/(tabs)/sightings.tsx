@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
+import { messageForError } from '@/api/client';
 import { getUserObservations } from '@/api/users';
 import { resolveApiUrl } from '@/api/client';
 import { useLocalUser } from '@/user/UserProvider';
@@ -30,7 +31,7 @@ export default function SightingsScreen() {
         setError(null);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Unable to load sightings.');
+        setError(messageForError(err, 'Unable to load sightings.'));
       })
       .finally(() => setLoading(false));
   }

@@ -5,6 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { DetailFrame } from '@/components/layout/DetailFrame';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
+import { messageForError } from '@/api/client';
 import { getObservationAssistantContext } from '@/api/assistant';
 import { getIntelligenceCard } from '@/api/observations';
 import { firstAllowedClaims, summarizeObservationAssistantContext } from '@/lib/assistantContext';
@@ -32,7 +33,7 @@ export default function SightingDetailScreen() {
       setCard(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load this intelligence card.');
+      setError(messageForError(err, 'Unable to load this intelligence card.'));
     } finally {
       setLoading(false);
     }
@@ -42,7 +43,7 @@ export default function SightingDetailScreen() {
       setAssistantContext(context);
       setAssistantError(null);
     } catch (err) {
-      setAssistantError(err instanceof Error ? err.message : 'Unable to load grounded assistant context.');
+      setAssistantError(messageForError(err, 'Unable to load grounded assistant context.'));
     }
   }
 

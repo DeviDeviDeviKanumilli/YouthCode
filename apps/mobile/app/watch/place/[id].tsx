@@ -6,6 +6,7 @@ import { DetailFrame } from '@/components/layout/DetailFrame';
 import { MapOverlaySummary } from '@/components/layout/MapOverlaySummary';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
+import { messageForError } from '@/api/client';
 import { getWatchPlaceDetail } from '@/api/watch';
 import type { GoodPlaceDetail as GoodPlaceDetailType } from '@/types/watch';
 import { colors } from '@/theme/colors';
@@ -29,7 +30,7 @@ export default function WatchPlaceDetailScreen() {
         setError(null);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Unable to load this place.');
+        setError(messageForError(err, 'Unable to load this place.'));
       })
       .finally(() => setLoading(false));
   }

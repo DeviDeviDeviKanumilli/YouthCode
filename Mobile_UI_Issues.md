@@ -60,6 +60,11 @@ Branch: `main`
   - Added an Explore Sampling Gap Layer card with nearby grid-cell count, top sampling label, explanation, uncertainty, and label breakdown.
   - Added unit coverage for bbox generation and sampling label summarization.
 
+- Backend API errors were shown directly in mobile UI panels.
+  - Added a structured `ApiError` and user-safe `messageForError` helper.
+  - Updated backend-backed screens/hooks to show calm retryable copy for 404, 422, 429, 5xx, and network failures.
+  - Added unit coverage for user-safe error mapping.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -79,7 +84,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 9 files, 21 tests.
+- `cd apps/mobile && npm test` passed: 9 files, 22 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -95,6 +100,7 @@ Branch: `main`
 - Watch detail screens now surface backend map overlay context where provided.
 - Saved sighting detail now surfaces grounded observation Assistant Context.
 - Explore now surfaces public Sampling Gap Layer context and absence cautions.
+- Backend error states now use user-safe mobile copy instead of raw response bodies.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

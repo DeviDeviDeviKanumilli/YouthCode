@@ -12,6 +12,7 @@ import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import { MapBackdrop } from '@/components/layout/MapBackdrop';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
+import { messageForError } from '@/api/client';
 import { GoodPlaceCard } from '@/components/cards/GoodPlaceCard';
 import { WatchItemCard } from '@/components/cards/WatchItemCard';
 import { getWatchScreen } from '@/api/watch';
@@ -49,8 +50,7 @@ export default function WatchScreen() {
       setResponse(data);
       setError(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unable to load watch data.';
-      setError(message);
+      setError(messageForError(err, 'Unable to load watch data.'));
     } finally {
       setLoading(false);
     }

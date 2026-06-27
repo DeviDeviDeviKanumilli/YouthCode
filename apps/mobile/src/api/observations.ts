@@ -1,4 +1,4 @@
-import { API_BASE_URL, apiGet, apiPost } from './client';
+import { API_BASE_URL, apiErrorFromResponse, apiGet, apiPost } from './client';
 import type {
   IdentificationRequest,
   IdentificationResponse,
@@ -31,8 +31,11 @@ export async function uploadObservationMedia(observationId: string, photoUri: st
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`POST /observations/${observationId}/media/upload failed: ${response.status} ${text}`);
+    throw await apiErrorFromResponse(
+      'POST',
+      `/observations/${observationId}/media/upload`,
+      response
+    );
   }
   return response.json() as Promise<MediaRead>;
 }

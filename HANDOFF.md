@@ -175,6 +175,24 @@ Still to do:
 
 - Manually verify the Sampling Gap Layer card in Android once a device or emulator is available.
 
+### 2026-06-27 - User-safe API error handling
+
+Changed:
+
+- Added a structured mobile `ApiError` class and `messageForError` helper.
+- Updated backend-backed screens/hooks to show user-safe messages for missing records, validation issues, rate limits, backend failures, and network failures.
+- Preserved native location errors as device-specific diagnostics.
+- Added unit coverage for API error message mapping.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 9 files, 22 tests.
+
+Still to do:
+
+- Manually verify retry/error states in Android once a device or emulator is available.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

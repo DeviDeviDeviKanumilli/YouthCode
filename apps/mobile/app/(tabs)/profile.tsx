@@ -5,6 +5,7 @@ import { SectionHeading } from '@/components/layout/SectionHeading';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { MaterialIcons } from '@expo/vector-icons';
+import { messageForError } from '@/api/client';
 import { getHealth, getVersion } from '@/api/system';
 import { useLocalArea } from '@/location/LocationProvider';
 import { useLocalUser } from '@/user/UserProvider';
@@ -41,7 +42,7 @@ export default function ProfileScreen() {
         setApiStatus({
           health: 'unavailable',
           version: 'unknown',
-          error: err instanceof Error ? err.message : 'Unable to reach EcoSentinel API.',
+          error: messageForError(err, 'Unable to reach EcoSentinel API.'),
           loading: false,
         });
       });

@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { messageForError } from '@/api/client';
 import { createUser, getUser } from '@/api/users';
 
 const STORE_KEY = 'ecosentinel.mobile.userId';
@@ -42,7 +43,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUserId(user.id);
       await SecureStore.setItemAsync(STORE_KEY, user.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create a local user session.');
+      setError(messageForError(err, 'Unable to create a local user session.'));
       setUserId(null);
     } finally {
       setReady(true);

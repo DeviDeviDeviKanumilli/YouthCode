@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { messageForError } from '@/api/client';
 import { getSamplingGapsForArea } from '@/api/sampling';
 import { summarizeSamplingGaps } from '@/lib/sampling';
 import type { SamplingGapSummary } from '@/types/sampling';
@@ -15,7 +16,7 @@ export function useSamplingGaps(lat: number, lon: number, radiusKm: number) {
       setSummary(summarizeSamplingGaps(collection));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load sampling gap context.');
+      setError(messageForError(err, 'Unable to load sampling gap context.'));
     } finally {
       setLoading(false);
     }

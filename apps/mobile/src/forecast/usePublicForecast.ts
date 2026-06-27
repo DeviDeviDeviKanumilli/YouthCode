@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getPublicForecast } from '@/api/forecast';
+import { messageForError } from '@/api/client';
 import { summarizeForecastLayers } from '@/lib/forecast';
 import type { ForecastLayerSummary } from '@/types/forecast';
 
@@ -15,7 +16,7 @@ export function usePublicForecast(lat: number, lon: number, radiusKm: number) {
       setSummary(summarizeForecastLayers(collection));
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load forecast map layer.');
+      setError(messageForError(err, 'Unable to load forecast map layer.'));
     } finally {
       setLoading(false);
     }

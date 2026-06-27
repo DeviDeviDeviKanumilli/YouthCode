@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import { messageForError } from '@/api/client';
 import { createObservation, getIntelligenceCard, identifyObservation, uploadObservationMedia } from '@/api/observations';
 import { FALLBACK_COORDS, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
 import { useLocalUser } from '@/user/UserProvider';
@@ -106,7 +107,7 @@ export default function ReportScreen() {
       setResult(card);
       setStage('result');
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Unable to submit this sighting.');
+      setSubmitError(messageForError(err, 'Unable to submit this sighting.'));
       setStage('clues');
     }
   }

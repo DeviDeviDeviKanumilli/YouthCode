@@ -7,6 +7,7 @@ import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import { MapBackdrop } from '@/components/layout/MapBackdrop';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
+import { messageForError } from '@/api/client';
 import { getWatchScreen } from '@/api/watch';
 import type { GoodPlaceToCheck, WatchItem, WatchScreenResponse } from '@/types/watch';
 import { colors } from '@/theme/colors';
@@ -40,7 +41,7 @@ export default function ExploreScreen() {
       setResponse(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load local context.');
+      setError(messageForError(err, 'Unable to load local context.'));
     } finally {
       setLoading(false);
     }

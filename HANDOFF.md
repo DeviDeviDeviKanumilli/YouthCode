@@ -35,10 +35,13 @@ Verified:
 
 - `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
 - `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
+- Rebuilt and installed the Android debug dev client on the connected physical Pixel 10 Pro XL (`59040DLCQ000QZ`) with `expo-camera` and `expo-location` linked.
+- Started Metro for the dev client at `exp+ecosentinel-mobile://expo-development-client/?url=http%3A%2F%2F10.0.0.142%3A8083` using `EXPO_PUBLIC_API_BASE_URL=http://10.0.0.142:8000`.
+- Opened the installed dev client on the phone from Expo CLI and confirmed the JS bundle compiled without Metro runtime errors.
 
 Still to do:
 
-- Run the updated app in the physical Android dev client and confirm the permission prompts, camera preview, backend submission, and result card on-device.
+- Manually confirm the permission prompts, camera preview, backend submission, and result card on the phone screen.
 - Review image fallback URLs in-device; if any Commons filename does not resolve, replace it with a confirmed URL.
 - Continue removing/deepening remaining Profile/Guide/Sightings placeholder behavior in a later pass.
 

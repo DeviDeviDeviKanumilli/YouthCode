@@ -26,6 +26,12 @@ import {
   type ReportAnswer,
   type ReportAnswerState,
 } from '@/lib/reportAnswers';
+import {
+  DEFAULT_OBSERVATION_PRIVACY,
+  privacyDescription,
+  privacyTitle,
+  type ObservationPrivacyLevel,
+} from '@/lib/privacy';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
@@ -57,6 +63,7 @@ export default function ReportScreen() {
     growth_pattern: 'not_sure',
     habitat_type: initialHabitatType(reportContext),
   });
+  const [privacyLevel, setPrivacyLevel] = useState<ObservationPrivacyLevel>(DEFAULT_OBSERVATION_PRIVACY);
   const [result, setResult] = useState<SightingIntelligenceCard | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -86,7 +93,7 @@ export default function ReportScreen() {
         longitude: location.lon,
         coordinate_uncertainty_m: area.locationGranted ? 35 : 5000,
         timestamp: new Date().toISOString(),
-        privacy_level: 'obscured',
+        privacy_level: privacyLevel,
         raw_note: buildRawNoteFromContext(reportContext),
         habitat_answers: buildReportHabitatAnswers(reportContext, answers),
       });
@@ -205,6 +212,7 @@ export default function ReportScreen() {
             value={answers.habitat_type}
             onChange={(value) => setAnswers((current) => ({ ...current, habitat_type: value }))}
           />
+          <PrivacyQuestion value={privacyLevel} onChange={setPrivacyLevel} />
           <Pressable accessibilityRole="button" onPress={analyze} style={styles.primaryButton}>
             <Text style={styles.primaryText}>Analyze sighting</Text>
           </Pressable>
@@ -367,6 +375,51 @@ function HabitatTypeQuestion({
               onPress={() => onChange(option)}
               style={[styles.habitatButton, selected && styles.answerSelected]}>
               <Text style={[styles.answerText, selected && styles.answerSelectedText]}>{labelForHabitatType(option)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function PrivacyQuestion({
+  value,
+  onChange,
+}: {
+  value: ObservationPrivacyLevel;
+  onChange: (value: ObservationPrivacyLevel) => void;
+}) {
+  const options: ObservationPrivacyLevel[] = ['obscured', 'private', 'public'];
+
+  return (
+    <View style={styles.privacyCard}>
+      <View style={styles.questionTitleRow}>
+        <View style={styles.privacyIcon}>
+          <MaterialIcons name="privacy-tip" size={20} color={colors.blue} />
+        </View>
+        <View style={styles.privacyTitleCopy}>
+          <Text style={styles.questionTitle}>Location privacy</Text>
+          <Text style={styles.privacyIntro}>You can keep precise coordinates out of public views.</Text>
+        </View>
+      </View>
+      <View style={styles.privacyStack}>
+        {options.map((option) => {
+          const selected = value === option;
+          return (
+            <Pressable
+              key={option}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              onPress={() => onChange(option)}
+              style={[styles.privacyOption, selected && styles.privacySelected]}>
+              <View style={styles.privacyOptionHeader}>
+                <Text style={[styles.privacyOptionTitle, selected && styles.privacySelectedText]}>
+                  {privacyTitle(option)}
+                </Text>
+                {selected ? <MaterialIcons name="check-circle" size={18} color={colors.blue} /> : null}
+              </View>
+              <Text style={styles.privacyOptionBody}>{privacyDescription(option)}</Text>
             </Pressable>
           );
         })}
@@ -742,6 +795,67 @@ const styles = StyleSheet.create({
     borderColor: colors.outline,
     padding: 14,
     gap: 12,
+  },
+  privacyCard: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 14,
+    gap: 12,
+  },
+  privacyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E1E9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyTitleCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  privacyIntro: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  privacyStack: {
+    gap: 8,
+  },
+  privacyOption: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    backgroundColor: colors.surface,
+    padding: 12,
+    gap: 5,
+  },
+  privacySelected: {
+    borderColor: '#9BB3E8',
+    backgroundColor: '#EEF4FF',
+  },
+  privacyOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  privacyOptionTitle: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 14,
+  },
+  privacySelectedText: {
+    color: colors.blue,
+  },
+  privacyOptionBody: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
   },
   questionTitleRow: {
     flexDirection: 'row',

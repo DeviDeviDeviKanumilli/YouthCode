@@ -19,6 +19,28 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Report location privacy selector
+
+Changed:
+
+- Added a Report Location Privacy selector for `obscured`, `private`, and `public` backend privacy levels.
+- Kept `obscured` as the default for normal consumer sightings.
+- Added explicit public-location warning copy so exact coordinate sharing is an active user choice.
+- Added private-location copy for sensitive sightings and public-export avoidance.
+- Added helper coverage for privacy defaults and copy.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 13 files, 33 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
+
 ### 2026-06-27 - Report habitat answer alignment
 
 Changed:

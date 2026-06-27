@@ -104,6 +104,13 @@ Branch: `main`
   - Keeps the Sighting Intelligence Card visible if the optional pipeline-status call fails.
   - Added unit coverage for pipeline status titles, step labels, and next-action copy.
 
+- Saved Sighting Intelligence Card detail did not show uploaded evidence media.
+  - Added a mobile client for `GET /observations/{observation_id}/media`.
+  - Uses the first backend evidence image as the saved sighting detail hero image when available.
+  - Added an evidence media card with image count and metadata-removal context.
+  - Keeps the intelligence card available if the optional media fetch fails.
+  - Added unit coverage for backend-relative media URL resolution and evidence counts.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -123,7 +130,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 14 files, 35 tests.
+- `cd apps/mobile && npm test` passed: 15 files, 37 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -132,6 +139,7 @@ Branch: `main`
 
 - Observation upload flow is wired through backend observation, media byte upload, identification, and intelligence card endpoints.
 - Saved observations can reopen the backend Sighting Intelligence Card from the Sightings tab.
+- Saved sighting details now load and display backend evidence media when available.
 - Report prefill context from Watch, Good Places, and sighting history is now visible before submission and carried into backend habitat answers.
 - My Sightings is wired to `GET /users/{user_id}/observations`.
 - Watch and Explore are wired to backend local signal endpoints.

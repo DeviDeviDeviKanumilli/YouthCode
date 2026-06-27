@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { DetailFrame } from '@/components/layout/DetailFrame';
@@ -7,11 +8,12 @@ import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
 import { messageForError } from '@/api/client';
 import { getObservationAssistantContext } from '@/api/assistant';
-import { getIntelligenceCard } from '@/api/observations';
+import { getIntelligenceCard, getObservationMedia } from '@/api/observations';
 import { firstAllowedClaims, summarizeObservationAssistantContext } from '@/lib/assistantContext';
-import type { SightingIntelligenceCard } from '@/types/report';
+import type { MediaRead, SightingIntelligenceCard } from '@/types/report';
 import type { ObservationAssistantContext } from '@/types/assistant';
 import { intelligenceCardTitle, signalPriorityDisplay } from '@/lib/intelligenceCard';
+import { firstEvidenceImageUrl, mediaEvidenceSummary } from '@/lib/mediaEvidence';
 import { watchItemImage } from '@/lib/images';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -20,9 +22,11 @@ export default function SightingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [card, setCard] = useState<SightingIntelligenceCard | null>(null);
+  const [media, setMedia] = useState<MediaRead[]>([]);
   const [assistantContext, setAssistantContext] = useState<ObservationAssistantContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
   const [assistantError, setAssistantError] = useState<string | null>(null);
 
   async function load() {
@@ -36,6 +40,14 @@ export default function SightingDetailScreen() {
       setError(messageForError(err, 'Unable to load this intelligence card.'));
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const evidence = await getObservationMedia(id);
+      setMedia(evidence);
+      setMediaError(null);
+    } catch (err) {
+      setMediaError(messageForError(err, 'Unable to load evidence media.'));
     }
 
     try {
@@ -53,12 +65,14 @@ export default function SightingDetailScreen() {
   }, [id]);
 
   const possibleName = intelligenceCardTitle(card);
+  const evidenceImageUrl =
+    firstEvidenceImageUrl(media) ?? watchItemImage({ title: possibleName, type: 'species_watch', imageUrl: null });
 
   return (
     <DetailFrame
       title={possibleName}
       subtitle="Sighting Intelligence Card"
-      imageUrl={watchItemImage({ title: possibleName, type: 'species_watch', imageUrl: null })}
+      imageUrl={evidenceImageUrl}
       imageAlt={possibleName}
       onBack={() => router.back()}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -93,6 +107,18 @@ export default function SightingDetailScreen() {
 
             {card.similar_species_warning ? (
               <StatusPanel title="Similar species warning" message={card.similar_species_warning} />
+            ) : null}
+
+            {media.length > 0 ? <EvidenceMediaCard media={media} imageUrl={firstEvidenceImageUrl(media)} /> : null}
+
+            {mediaError ? (
+              <StatusPanel
+                title="Evidence media unavailable"
+                message={mediaError}
+                actionLabel="Retry"
+                onActionPress={load}
+                tone="error"
+              />
             ) : null}
 
             <SectionHeading title="Local context" />
@@ -142,6 +168,27 @@ export default function SightingDetailScreen() {
         ) : null}
       </ScrollView>
     </DetailFrame>
+  );
+}
+
+function EvidenceMediaCard({ media, imageUrl }: { media: MediaRead[]; imageUrl: string | null }) {
+  const summary = mediaEvidenceSummary(media);
+
+  return (
+    <View style={styles.mediaCard}>
+      {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.mediaImage} contentFit="cover" /> : null}
+      <View style={styles.mediaCopy}>
+        <Text style={styles.mediaEyebrow}>Evidence media</Text>
+        <Text style={styles.mediaTitle}>
+          {summary.imageCount} image{summary.imageCount === 1 ? '' : 's'} attached
+        </Text>
+        <Text style={styles.mediaBody}>
+          {summary.metadataRemovedCount > 0
+            ? 'Metadata was removed before storage for privacy.'
+            : `${summary.total} evidence file${summary.total === 1 ? '' : 's'} linked to this record.`}
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -284,6 +331,44 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemibold,
     fontSize: 16,
     lineHeight: 24,
+  },
+  mediaCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  mediaImage: {
+    width: 86,
+    height: 104,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceSoft,
+  },
+  mediaCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  mediaEyebrow: {
+    color: colors.mossDark,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  mediaTitle: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 16,
+  },
+  mediaBody: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
   },
   infoBlock: {
     borderTopWidth: 1,

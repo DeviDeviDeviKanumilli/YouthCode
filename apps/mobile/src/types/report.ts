@@ -34,6 +34,11 @@ export type MediaRead = {
   mime_type: string;
   storage_key: string;
   public_url?: string | null;
+  original_filename?: string | null;
+  size_bytes?: number | null;
+  quality_score?: number | null;
+  metadata_removed?: boolean;
+  created_at?: string;
 };
 
 export type IdentificationRequest = {

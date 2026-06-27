@@ -18,6 +18,10 @@ export function createObservationMedia(observationId: string, payload: MediaCrea
   return apiPost<MediaRead, MediaCreatePayload>(`/observations/${observationId}/media`, payload);
 }
 
+export function getObservationMedia(observationId: string) {
+  return apiGet<MediaRead[]>(`/observations/${observationId}/media`);
+}
+
 export async function uploadObservationMedia(observationId: string, photoUri: string) {
   const formData = new FormData();
   formData.append('file', {

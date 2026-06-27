@@ -19,6 +19,29 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Evidence media on saved sighting detail
+
+Changed:
+
+- Added mobile client support for `GET /observations/{observation_id}/media`.
+- Added media evidence helpers for backend-relative URL resolution and evidence counts.
+- Updated saved Sighting Intelligence Card detail to use the first uploaded evidence image as the detail hero when available.
+- Added an evidence media card showing image count and metadata-removal context.
+- Kept media loading non-blocking so the Intelligence Card remains visible if the optional media request fails.
+- Added helper coverage for media URL resolution and evidence summaries.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 15 files, 37 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+
 ### 2026-06-27 - Report pipeline status
 
 Changed:

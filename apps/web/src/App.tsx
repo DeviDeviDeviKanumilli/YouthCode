@@ -4,6 +4,7 @@ import {
   useMemo,
   useState,
   type Dispatch,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import {
@@ -11,6 +12,8 @@ import {
   Bell,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Database,
   Download,
@@ -18,15 +21,17 @@ import {
   LayoutGrid,
   Leaf,
   ListChecks,
-  Map,
+  Map as MapIcon,
   MessageSquare,
   RefreshCw,
   Save,
   Search,
   Send,
   Settings,
+  Shield,
   SlidersHorizontal,
   Table2,
+  X,
   XCircle,
 } from "lucide-react";
 import {
@@ -46,7 +51,6 @@ import {
   buildAnalystAnswer,
   buildDemoPayload,
   delawareBasinBbox,
-  provenanceSources,
 } from "./data";
 import ResearchMap from "./ResearchMap";
 import type {
@@ -92,7 +96,7 @@ const screens: Array<{
   { id: "overview", label: "Overview", icon: LayoutGrid },
   { id: "verification", label: "Verification Queue", icon: ListChecks },
   { id: "observations", label: "Observations", icon: Table2 },
-  { id: "forecast", label: "Forecast Map", icon: Map },
+  { id: "forecast", label: "Forecast Map", icon: MapIcon },
   { id: "sampling", label: "Sampling Gaps", icon: Database },
   { id: "exports", label: "Exports", icon: Download },
   { id: "analyst", label: "AI Analyst", icon: MessageSquare },
@@ -118,7 +122,7 @@ function buildOverviewSubtitle(filters: DashboardFilters) {
 
 const screenCopy: Record<ScreenId, { title: string; subtitle: string }> = {
   overview: {
-    title: "Research overview",
+    title: "Research Workbench",
     subtitle: "",
   },
   verification: {
@@ -209,6 +213,282 @@ function readRole(): ResearchRole {
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/\s+/g, "-");
+}
+
+function formatTimeAgo(value: string) {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return value;
+  }
+  const hours = Math.max(1, Math.round((Date.now() - parsed) / 3_600_000));
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
+function confidenceDotLevel(confidence: number) {
+  return Math.max(1, Math.min(5, Math.round(confidence / 20)));
+}
+
+function computeOverviewStats(observations: DashboardObservation[], exports: ExportRecord[]) {
+  const needsVerification = observations.filter((row) =>
+    ["Unverified", "Needs more evidence"].includes(row.verificationStatus),
+  ).length;
+  const prioritySignals = observations.filter(
+    (row) => row.signalLabel === "Priority ecological signal",
+  ).length;
+  const highValue = observations.filter(
+    (row) => row.signalLabel === "High-value verification candidate",
+  ).length;
+  const verified = observations.filter((row) =>
+    ["Expert verified", "Field confirmed"].includes(row.verificationStatus),
+  ).length;
+  const underSampled = observations.filter((row) =>
+    row.samplingLabel.toLowerCase().includes("under-sampled"),
+  ).length;
+  const exportReady = exports.filter((row) => row.status === "Completed").length;
+
+  return {
+    needsVerification,
+    prioritySignals,
+    highValue,
+    verified,
+    underSampled,
+    exportReady,
+  };
+}
+
+function DonutChart({
+  segments,
+  size = 140,
+  centerLabel,
+}: {
+  segments: Array<{ value: number; color: string; label: string }>;
+  size?: number;
+  centerLabel: string;
+}) {
+  const total = segments.reduce((sum, segment) => sum + segment.value, 0) || 1;
+  const radius = 46;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+
+  return (
+    <div className="donut-chart-wrap">
+      <svg width={size} height={size} viewBox="0 0 120 120" aria-hidden="true">
+        <circle cx="60" cy="60" r={radius} fill="none" stroke="#E8EDE6" strokeWidth="14" />
+        {segments.map((segment) => {
+          const length = (segment.value / total) * circumference;
+          const circle = (
+            <circle
+              key={segment.label}
+              cx="60"
+              cy="60"
+              r={radius}
+              fill="none"
+              stroke={segment.color}
+              strokeWidth="14"
+              strokeDasharray={`${length} ${circumference - length}`}
+              strokeDashoffset={-offset}
+              transform="rotate(-90 60 60)"
+            />
+          );
+          offset += length;
+          return circle;
+        })}
+        <text x="60" y="56" textAnchor="middle" fontSize="18" fontWeight="800" fill="#102019">
+          {centerLabel}
+        </text>
+        <text x="60" y="72" textAnchor="middle" fontSize="10" fill="#5F6C63">
+          Total
+        </text>
+      </svg>
+      <div className="donut-legend">
+        {segments.map((segment) => (
+          <div key={segment.label}>
+            <span>
+              <i style={{ background: segment.color }} /> {segment.label}
+            </span>
+            <strong>{segment.value}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConfidenceRingSvg({ value, label }: { value: number; label: string }) {
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  const filled = (value / 100) * circumference;
+
+  return (
+    <div className="confidence-row">
+      <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true">
+        <circle cx="40" cy="40" r={radius} fill="none" stroke="#E8EDE6" strokeWidth="8" />
+        <circle
+          cx="40"
+          cy="40"
+          r={radius}
+          fill="none"
+          stroke="#0B7A4C"
+          strokeWidth="8"
+          strokeDasharray={`${filled} ${circumference - filled}`}
+          transform="rotate(-90 40 40)"
+        />
+        <text x="40" y="44" textAnchor="middle" fontSize="14" fontWeight="800" fill="#102019">
+          {value}%
+        </text>
+      </svg>
+      <div>
+        <strong>{label}</strong>
+        <span>Grounded confidence for this answer</span>
+      </div>
+    </div>
+  );
+}
+
+function ScoreCircle({ score, tone = "green" }: { score: number; tone?: "green" | "amber" | "muted" }) {
+  return <span className={`score-circle ${tone}`}>{score}</span>;
+}
+
+function SpeciesThumbnail({ label, index = 0 }: { label: string; index?: number }) {
+  return (
+    <span
+      aria-label={`${label} thumbnail`}
+      className={`species-thumbnail tile-${index % 6}`}
+      role="img"
+    />
+  );
+}
+
+function ConfidenceDots({ confidence }: { confidence: number }) {
+  const level = confidenceDotLevel(confidence);
+  return (
+    <span className="confidence-dots" aria-label={`${confidence}% confidence`}>
+      {Array.from({ length: 5 }, (_, index) => (
+        <i key={index} className={index < level ? "on" : undefined} />
+      ))}
+    </span>
+  );
+}
+
+function computeExportExpires(requested: string): string {
+  const parsed = Date.parse(requested);
+  if (Number.isNaN(parsed)) {
+    return "7 days after completion";
+  }
+  const expires = new Date(parsed + 7 * 24 * 60 * 60 * 1000);
+  return expires.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function computeSamplingAnalysis(cells: SamplingCell[]) {
+  const total = cells.length;
+  const byCategory = new Map<string, number>();
+  cells.forEach((cell) => {
+    byCategory.set(cell.category, (byCategory.get(cell.category) ?? 0) + 1);
+  });
+  return Array.from(byCategory.entries())
+    .map(([category, count]) => ({
+      category,
+      cells: count,
+      pct: total > 0 ? (count / total) * 100 : 0,
+    }))
+    .sort((left, right) => right.cells - left.cells);
+}
+
+function DetectionSparkbar({ count, max = 5 }: { count: number; max?: number }) {
+  const capped = Math.min(count, max);
+  return (
+    <span className="spark-bars" aria-hidden="true">
+      {Array.from({ length: max }, (_, index) => (
+        <i
+          key={index}
+          className={index < capped ? "on" : undefined}
+          style={{ height: `${((index + 1) / max) * 100}%` }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function UncertaintyFactors({ factors }: { factors: Array<{ label: string; value: number }> }) {
+  return (
+    <div className="uncertainty-factors">
+      {factors.map((factor) => (
+        <div key={factor.label} className="uncertainty-factor">
+          <span>{factor.label}</span>
+          <div className="bar">
+            <span style={{ width: `${factor.value}%` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function buildUncertaintyFactors(observations: DashboardObservation[]) {
+  const unverified = observations.filter(
+    (row) => !["Expert verified", "Field confirmed"].includes(row.verificationStatus),
+  ).length;
+  const underSampled = observations.filter((row) =>
+    row.samplingLabel.toLowerCase().includes("under-sampled"),
+  ).length;
+  const ratio = (count: number) =>
+    observations.length > 0 ? Math.round((count / observations.length) * 100) : 0;
+
+  return [
+    { label: "Unverified records", value: ratio(unverified) },
+    { label: "Under-sampled context", value: ratio(underSampled) },
+    { label: "Seasonal variability", value: 42 },
+    { label: "Identity confidence spread", value: 36 },
+  ];
+}
+
+function buildVerificationDonut(observations: DashboardObservation[]) {
+  const verified = observations.filter((row) =>
+    ["Expert verified", "Field confirmed"].includes(row.verificationStatus),
+  ).length;
+  const rejected = observations.filter((row) => row.verificationStatus === "Rejected").length;
+  const needsReview = Math.max(observations.length - verified - rejected, 0);
+  return [
+    { value: verified, color: "#0B7A4C", label: "Verified" },
+    { value: needsReview, color: "#C98A1A", label: "Needs review" },
+    { value: rejected, color: "#B84A42", label: "Rejected" },
+  ];
+}
+
+function buildCitedSources(observations: DashboardObservation[]) {
+  const verified = observations.filter((row) =>
+    ["Expert verified", "Field confirmed"].includes(row.verificationStatus),
+  ).length;
+  return [
+    {
+      source: "EcoSentinel observations",
+      type: "Platform",
+      records: observations.length,
+      range: "Jun 2026",
+      verification: `${verified} verified`,
+      contribution: Math.round((observations.length / (observations.length + 120)) * 100),
+    },
+    {
+      source: "GBIF",
+      type: "Occurrence",
+      records: 120,
+      range: "2018–2026",
+      verification: "Historical",
+      contribution: Math.round((120 / (observations.length + 120)) * 100),
+    },
+    {
+      source: "NLCD",
+      type: "Environmental",
+      records: observations.length,
+      range: "2021",
+      verification: "Derived",
+      contribution: 18,
+    },
+  ];
 }
 
 function getActiveFilterChips(filters: DashboardFilters) {
@@ -335,23 +615,6 @@ function InfoGroup({ title, rows }: { title: string; rows: Array<[string, string
   );
 }
 
-function ProvenanceList() {
-  return (
-    <div className="source-list">
-      {provenanceSources.map(([name, role]) => (
-        <div key={name}>
-          <span>{name}</span>
-          <small>{role}</small>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function VisualTile({ index, label }: { index: number; label: string }) {
-  return <span aria-label={label} className={`visual-tile tile-${index % 6}`} role="img" />;
-}
-
 function VisualHero({ label }: { label: string }) {
   return (
     <div aria-label={`${label} evidence image`} className="visual-hero" role="img">
@@ -425,15 +688,28 @@ function RecordList({
           onClick={() => onSelect(row.id)}
           type="button"
         >
-          <VisualTile index={index} label={row.commonName} />
+          <SpeciesThumbnail index={index} label={row.commonName} />
           <span>
             <strong>{row.commonName}</strong>
             <small className="scientific-name">{row.scientificName}</small>
             <small>
-              {row.location} · {row.confidence}% confidence
+              {row.location} · {formatTimeAgo(row.submittedAt)}
             </small>
           </span>
-          <SignalBadge label={row.signalLabel} />
+          {compact ? (
+            <SignalBadge label={row.signalLabel} />
+          ) : (
+            <ScoreCircle
+              score={row.signalScore}
+              tone={
+                row.signalLabel === "Priority ecological signal"
+                  ? "amber"
+                  : row.signalScore < 50
+                    ? "muted"
+                    : "green"
+              }
+            />
+          )}
         </button>
       ))}
     </div>
@@ -539,7 +815,7 @@ function ObservationActionsBar({
   const primary =
     mode === "map"
       ? { label: "Open in queue", icon: ListChecks, onClick: actions.onOpenVerification }
-      : { label: "View on map", icon: Map, onClick: actions.onViewOnMap };
+      : { label: "View on map", icon: MapIcon, onClick: actions.onViewOnMap };
   const secondary =
     mode === "review" || mode === "map"
       ? null
@@ -649,7 +925,7 @@ function Sidebar({
         <div className="profile-row">
           <div className="avatar" aria-hidden="true" />
           <div>
-            <strong>Dr. Alex Morgan</strong>
+            <strong>Dr. Michael Chan</strong>
             <select
               aria-label="Research role"
               onChange={(event) => onRoleChange(event.target.value as ResearchRole)}
@@ -742,10 +1018,12 @@ function PageHeading({
   screen,
   source,
   subtitle,
+  actions,
 }: {
   screen: ScreenId;
   source: DashboardPayload["source"];
   subtitle?: string;
+  actions?: ReactNode;
 }) {
   const copy = screenCopy[screen];
   const displaySubtitle = subtitle ?? copy.subtitle;
@@ -755,9 +1033,12 @@ function PageHeading({
         <h1>{copy.title}</h1>
         {displaySubtitle ? <p>{displaySubtitle}</p> : null}
       </div>
-      <span className="scope-pill">
-        {source === "api" ? "Research mode" : "Demo fallback"}
-      </span>
+      <div className="page-actions">
+        <span className="scope-pill">
+          {source === "api" ? "Research mode" : "Demo fallback"}
+        </span>
+        {actions}
+      </div>
     </section>
   );
 }
@@ -927,99 +1208,177 @@ function FilterRail({
   );
 }
 
-function MetricsGrid({ observations }: { observations: DashboardObservation[] }) {
-  const needsVerification = observations.filter((row) =>
-    ["Unverified", "Needs more evidence"].includes(row.verificationStatus),
-  ).length;
-  const prioritySignals = observations.filter((row) =>
-    ["High-value verification candidate", "Priority ecological signal"].includes(row.signalLabel),
-  ).length;
-  const underSampled = observations.filter((row) =>
-    row.samplingLabel.toLowerCase().includes("under-sampled"),
-  ).length;
+function MetricsGrid({
+  observations,
+  exports,
+}: {
+  observations: DashboardObservation[];
+  exports: ExportRecord[];
+}) {
+  const stats = computeOverviewStats(observations, exports);
 
-  const metrics = [
-    ["Total observations", observations.length.toLocaleString(), "Current dashboard filters"],
-    ["Needs verification", needsVerification.toLocaleString(), "Unverified + needs more evidence"],
-    ["Priority ecological signals", prioritySignals.toLocaleString(), "High-value or priority label · visible"],
-    ["Under-sampled records", underSampled.toLocaleString(), "Records with sampling gap label · visible"],
+  const primary = [
+    ["Total observations", observations.length.toLocaleString(), "+18% from last 30 days"],
+    ["Needs verification", stats.needsVerification.toLocaleString(), "Unverified + needs more evidence"],
+    ["Priority signals", stats.prioritySignals.toLocaleString(), "High-value verification candidates"],
+    ["Verified records", stats.verified.toLocaleString(), "Expert or field confirmed"],
+  ] as const;
+
+  const secondary = [
+    ["High-value candidates", stats.highValue.toLocaleString(), "Visible in current filters"],
+    ["Under-sampled zones", stats.underSampled.toLocaleString(), "Sampling gap labels"],
+    ["Export-ready records", stats.exportReady.toLocaleString(), "Completed exports available"],
   ] as const;
 
   return (
-    <section className="metrics-grid">
-      {metrics.map(([label, value, meta]) => (
-        <div key={label} className="metric">
-          <span>{label}</span>
-          <strong>{value}</strong>
-          <small>{meta}</small>
-        </div>
-      ))}
-    </section>
+    <>
+      <section className="metrics-grid">
+        {primary.map(([label, value, meta]) => (
+          <div key={label} className="metric">
+            <span className="metric-label">{label}</span>
+            <strong className="metric-value">{value}</strong>
+            <small className="metric-scope">{meta}</small>
+          </div>
+        ))}
+      </section>
+      <section className="kpi-row-secondary">
+        {secondary.map(([label, value, meta]) => (
+          <div key={label} className="metric">
+            <span className="metric-label">{label}</span>
+            <strong className="metric-value">{value}</strong>
+            <small className="metric-scope">{meta}</small>
+          </div>
+        ))}
+      </section>
+    </>
   );
 }
 
 function OverviewPage({
-  actions,
   observations,
+  exports,
   selected,
-  forecast,
   onSelect,
+  onOpenVerification,
+  onOpenExports,
+  filterCount,
+  queueCount,
 }: {
-  actions?: ObservationActions;
   observations: DashboardObservation[];
+  exports: ExportRecord[];
   selected: DashboardObservation | null;
-  forecast: ForecastPayload | null;
   onSelect: (id: string) => void;
+  onOpenVerification: () => void;
+  onOpenExports: () => void;
+  filterCount: number;
+  queueCount: number;
 }) {
+  const stats = computeOverviewStats(observations, exports);
+  const donutSegments = [
+    {
+      label: "Priority signals",
+      value: stats.prioritySignals,
+      color: "#B63A32",
+    },
+    {
+      label: "High-value candidates",
+      value: stats.highValue,
+      color: "#B86B00",
+    },
+    {
+      label: "Needs more evidence",
+      value: observations.filter((row) => row.verificationStatus === "Needs more evidence").length,
+      color: "#0B7A4C",
+    },
+    {
+      label: "Other",
+      value: Math.max(
+        0,
+        observations.length - stats.prioritySignals - stats.highValue -
+          observations.filter((row) => row.verificationStatus === "Needs more evidence").length,
+      ),
+      color: "#8A9690",
+    },
+  ].filter((segment) => segment.value > 0);
+
+  const priorityRows = [...observations]
+    .sort((a, b) => b.signalScore - a.signalScore)
+    .slice(0, 5);
+
   return (
     <div className="overview-grid">
-      <MetricsGrid observations={observations} />
-      <section className="panel map-panel">
-        <PanelTitle
-          title="Forecast map"
-          meta="Records · potential corridors · sampling gaps"
-        />
-        {selected ? (
-          <ResearchMap
-            observations={observations}
-            selected={selected}
-            forecast={forecast}
-            onSelect={onSelect}
+      <MetricsGrid exports={exports} observations={observations} />
+      <div className="overview-workbench">
+        <section className="panel">
+          <PanelTitle title="Signal overview" meta="Current filter scope" />
+          <DonutChart
+            centerLabel={observations.length.toLocaleString()}
+            segments={donutSegments.length > 0 ? donutSegments : [{ label: "No data", value: 1, color: "#DDE5DC" }]}
           />
-        ) : (
-          <EmptyState
-            title="No map records visible"
-            body="Clear search or restore filters to show observations on the map."
-          />
-        )}
-      </section>
-      <section className="panel priority-panel">
-        <PanelTitle title="Priority review stream" meta={`${observations.length} visible in current filters`} />
-        <RecordList
-          rows={observations.slice(0, 5)}
-          selectedId={selected?.id ?? ""}
-          onSelect={onSelect}
-          compact
-        />
-      </section>
-      <section className="panel detail-wide">
-        <PanelTitle title="Selected observation" meta={selected?.id ?? "No visible record"} />
-        {selected ? (
-          <>
-            <ObservationDetail selected={selected} />
-            {actions ? <ObservationActionsBar actions={actions} compact /> : null}
-          </>
-        ) : (
-          <EmptyState
-            title="No observation selected"
-            body="The current search and filters do not match any observations."
-          />
-        )}
-      </section>
-      <section className="panel provenance-panel">
-        <PanelTitle title="Provenance and data sources" meta="Current selected record" />
-        <ProvenanceList />
-      </section>
+          <button className="plain-button" onClick={onOpenVerification} style={{ margin: "0 16px 14px" }} type="button">
+            View all signals
+          </button>
+        </section>
+        <section className="panel">
+          <PanelTitle title="Recent priority signals" meta="Sorted by Ecological Signal Priority" />
+          <div className="recent-signals">
+            {priorityRows.map((row, index) => (
+              <button
+                key={row.id}
+                className={row.id === selected?.id ? "recent-signal-row active" : "recent-signal-row"}
+                onClick={() => onSelect(row.id)}
+                type="button"
+              >
+                <SpeciesThumbnail index={index} label={row.commonName} />
+                <span>
+                  <strong>{row.commonName}</strong>
+                  <small className="scientific-name">{row.scientificName}</small>
+                  <small>{row.location}</small>
+                  <SignalBadge label={row.signalLabel} />
+                </span>
+                <span className="time-ago">{formatTimeAgo(row.submittedAt)}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+        <section className="panel">
+          <PanelTitle title="Workbench summary" meta="Quick links" />
+          <div className="workbench-summary">
+            <div className="workbench-row">
+              <ListChecks size={16} aria-hidden="true" />
+              <span>Active filters</span>
+              <strong>{filterCount}</strong>
+            </div>
+            <div className="workbench-row">
+              <ClipboardList size={16} aria-hidden="true" />
+              <span>Verification queue</span>
+              <button className="plain-button compact-action" onClick={onOpenVerification} type="button">
+                Review ({queueCount})
+              </button>
+            </div>
+            <div className="workbench-row">
+              <Table2 size={16} aria-hidden="true" />
+              <span>New observations</span>
+              <strong>{observations.length}</strong>
+            </div>
+            <div className="workbench-row">
+              <MapIcon size={16} aria-hidden="true" />
+              <span>Signals updated</span>
+              <strong>{stats.prioritySignals + stats.highValue}</strong>
+            </div>
+            <div className="workbench-row">
+              <Download size={16} aria-hidden="true" />
+              <span>Exports ready</span>
+              <button className="plain-button compact-action" onClick={onOpenExports} type="button">
+                Open ({stats.exportReady})
+              </button>
+            </div>
+          </div>
+          <button className="primary-action full-width" onClick={onOpenVerification} style={{ margin: "0 14px 14px" }} type="button">
+            Open verification queue
+          </button>
+        </section>
+      </div>
     </div>
   );
 }
@@ -1065,19 +1424,56 @@ function VerificationPage({
   };
 
   return (
-    <div className="queue-layout">
+    <div className="verification-layout">
       <section className="panel queue-list">
-        <PanelTitle title="Review queue" meta="Sorted by Ecological Signal Priority" />
+        <PanelTitle title="Verification queue" meta={`${observations.length} records`} />
         <RecordList rows={observations} selectedId={selected?.id ?? ""} onSelect={onSelect} />
       </section>
       <section className="panel review-surface">
         <PanelTitle
-          title={selected ? `${selected.commonName} review` : "No visible record"}
-          meta={selected?.scientificName ?? "Adjust filters"}
+          title={selected ? selected.commonName : "No visible record"}
+          meta={selected ? selected.id : "Adjust filters"}
         />
         {selected ? (
           <>
-            <ObservationDetail selected={selected} expanded />
+            <div className="evidence-gallery">
+              <div>
+                <VisualHero label={selected.commonName} />
+                <div className="evidence-thumbs">
+                  {Array.from({ length: Math.min(4, Math.max(1, selected.evidenceCount)) }).map((_, index) => (
+                    <span key={index} className={`visual-tile tile-${index % 6}`} />
+                  ))}
+                </div>
+              </div>
+              <div className="detail-main">
+                <p className="scientific-name">{selected.scientificName}</p>
+                <dl>
+                  <div>
+                    <dt>Location</dt>
+                    <dd>
+                      {selected.location} ({selected.latitude.toFixed(4)}, {selected.longitude.toFixed(4)})
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Observed</dt>
+                    <dd>{selected.submittedAt}</dd>
+                  </div>
+                  <div>
+                    <dt>Signal score</dt>
+                    <dd>
+                      {selected.signalScore}/100 · <SignalBadge label={selected.signalLabel} />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Confidence</dt>
+                    <dd>
+                      {selected.confidence}% <ConfidenceDots confidence={selected.confidence} />
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
+            <ObservationDetail expanded selected={selected} />
             {actions ? <ObservationActionsBar actions={actions} mode="review" /> : null}
           </>
         ) : (
@@ -1088,60 +1484,6 @@ function VerificationPage({
         )}
         {!canVerify ? (
           <div className="inline-notice">You need reviewer or admin access to verify observations.</div>
-        ) : null}
-        {selected ? (
-          <div className="review-support-grid">
-            <section>
-              <h3>Verification history</h3>
-              {historyLoading ? (
-                <div className="history-line">
-                  <span className="status-dot" />
-                  <p>Loading verification history.</p>
-                </div>
-              ) : null}
-              {!historyLoading && history.length === 0 ? (
-                <div className="history-line">
-                  <span className="status-dot" />
-                  <p>
-                    System queued this record for review because it is a{" "}
-                    {selected.signalLabel.toLowerCase()}.
-                  </p>
-                </div>
-              ) : null}
-              {history.map((event) => (
-                <div key={event.id} className="history-line">
-                  <span className="status-dot" />
-                  <p>
-                    <strong>{event.newStatus}</strong> from {event.previousStatus} on{" "}
-                    {event.createdAt}.
-                    {event.notes ? ` ${event.notes}` : ""}
-                  </p>
-                </div>
-              ))}
-              {historyError ? <div className="inline-notice">{historyError}</div> : null}
-            </section>
-            <section>
-              <h3>Reviewer notes</h3>
-              <textarea
-                aria-label="Reviewer notes"
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Add the evidence basis, uncertainty, or requested evidence before taking action."
-                value={notes}
-              />
-              <label className="evidence-select">
-                <span>Evidence request type</span>
-                <select onChange={(event) => setEvidenceType(event.target.value)} value={evidenceType}>
-                  <option>Close-up media and habitat context</option>
-                  <option>Additional angle of possible species</option>
-                  <option>Host plant or substrate confirmation</option>
-                  <option>More precise but privacy-safe location context</option>
-                </select>
-              </label>
-              <small className="review-hint">
-                Notes are required for reject and needs-more-evidence decisions.
-              </small>
-            </section>
-          </div>
         ) : null}
         <div className="review-actions" aria-label="Verification actions">
           <button
@@ -1184,6 +1526,70 @@ function VerificationPage({
           </button>
         </div>
       </section>
+      <aside className="panel verification-side">
+        <PanelTitle title="Possible species" meta="AI-ranked candidates" />
+        {selected ? (
+          <>
+            <div className="species-candidate">
+              <span>
+                <strong>{selected.commonName}</strong>
+                <div className="candidate-bar">
+                  <span style={{ width: `${selected.confidence}%` }} />
+                </div>
+              </span>
+              <strong>{selected.confidence}%</strong>
+            </div>
+            <div className="species-candidate">
+              <span>
+                Similar species warning
+                <div className="candidate-bar">
+                  <span style={{ width: "24%" }} />
+                </div>
+              </span>
+              <strong>24%</strong>
+            </div>
+            <div className="species-candidate">
+              <span>
+                Regional look-alike
+                <div className="candidate-bar">
+                  <span style={{ width: "14%" }} />
+                </div>
+              </span>
+              <strong>14%</strong>
+            </div>
+          </>
+        ) : (
+          <EmptyState title="No species context" body="Select a queue record to review candidates." />
+        )}
+        <PanelTitle title="Verification history" meta="Audit trail" />
+        {historyLoading ? <p className="inline-notice">Loading verification history.</p> : null}
+        {history.map((event) => (
+          <div key={event.id} className="history-line">
+            <span className="status-dot" />
+            <p>
+              <strong>{event.newStatus}</strong> from {event.previousStatus} on {event.createdAt}.
+              {event.notes ? ` ${event.notes}` : ""}
+            </p>
+          </div>
+        ))}
+        {historyError ? <div className="inline-notice">{historyError}</div> : null}
+        <h3>Reviewer notes</h3>
+        <textarea
+          aria-label="Reviewer notes"
+          onChange={(event) => setNotes(event.target.value)}
+          placeholder="Add the evidence basis, uncertainty, or requested evidence before taking action."
+          value={notes}
+        />
+        <label className="evidence-select">
+          <span>Evidence request type</span>
+          <select onChange={(event) => setEvidenceType(event.target.value)} value={evidenceType}>
+            <option>Close-up media and habitat context</option>
+            <option>Additional angle of possible species</option>
+            <option>Host plant or substrate confirmation</option>
+            <option>More precise but privacy-safe location context</option>
+          </select>
+        </label>
+      </aside>
     </div>
   );
 }
@@ -1194,16 +1600,20 @@ function ObservationsPage({
   selected,
   isPending,
   query,
+  filters,
   onCreateExport,
   onSelect,
+  onClearFilters,
 }: {
   actions?: ObservationActions;
   observations: DashboardObservation[];
   selected: DashboardObservation | null;
   isPending: boolean;
   query: string;
+  filters: DashboardFilters;
   onCreateExport: (request: ExportRequest) => Promise<void>;
   onSelect: (id: string) => void;
+  onClearFilters: () => void;
 }) {
   const [showSource, setShowSource] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -1245,31 +1655,56 @@ function ObservationsPage({
     setMessage("CSV export request created from the current observations table view.");
   };
 
+  const selectedIndex = selected ? observations.findIndex((row) => row.id === selected.id) : -1;
+  const selectNeighbor = (direction: -1 | 1) => {
+    if (selectedIndex < 0 || observations.length === 0) {
+      return;
+    }
+    const nextIndex = (selectedIndex + direction + observations.length) % observations.length;
+    onSelect(observations[nextIndex].id);
+  };
+
+  const filterChips = getActiveFilterChips(filters);
+
   return (
     <div className="table-layout">
       <section className="panel table-panel">
+        <div className="filter-chip-row" aria-label="Active filters">
+          {filterChips.map((chip) => (
+            <span key={chip} className="filter-chip">
+              {chip}
+            </span>
+          ))}
+          {filterChips.length > 0 ? (
+            <button className="plain-button compact-action" onClick={onClearFilters} type="button">
+              Clear all
+            </button>
+          ) : null}
+        </div>
         <div className="table-toolbar">
           <span>
             {observations.length} records visible · {activeView}
             {showSource ? " · source column shown" : ""}
           </span>
           <div>
+            <button className="plain-button" type="button">
+              Bulk actions
+            </button>
+            <button className="plain-button" onClick={() => setShowSource((open) => !open)} type="button">
+              Column controls
+            </button>
             <button className="plain-button" onClick={saveView} type="button">
               <Save size={16} aria-hidden="true" />
               Save view
             </button>
-            <button className="plain-button" onClick={() => setShowSource((open) => !open)} type="button">
-              <SlidersHorizontal size={16} aria-hidden="true" />
-              {showSource ? "Hide source" : "Show source"}
-            </button>
             <button
-              className="plain-button"
+              className="primary-action"
               disabled={isPending || observations.length === 0}
               onClick={() => void exportView()}
               type="button"
             >
               <Download size={16} aria-hidden="true" />
-              {isPending ? "Requesting..." : "Export view"}
+              {isPending ? "Requesting..." : "Export"}
             </button>
           </div>
         </div>
@@ -1300,7 +1735,7 @@ function ObservationsPage({
             </tr>
           </thead>
           <tbody>
-            {observations.map((row) => (
+            {observations.map((row, index) => (
               <tr
                 key={row.id}
                 className={row.id === selected?.id ? "selected-row" : undefined}
@@ -1308,10 +1743,17 @@ function ObservationsPage({
               >
                 <td>{row.id}</td>
                 <td>
-                  {row.commonName}
-                  <span className="scientific-name">{row.scientificName}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <SpeciesThumbnail index={index} label={row.commonName} />
+                    <span>
+                      {row.commonName}
+                      <span className="scientific-name">{row.scientificName}</span>
+                    </span>
+                  </span>
                 </td>
-                <td>{row.confidence}%</td>
+                <td>
+                  {row.confidence}% <ConfidenceDots confidence={row.confidence} />
+                </td>
                 <td>
                   <StatusBadge status={row.verificationStatus} />
                 </td>
@@ -1327,10 +1769,34 @@ function ObservationsPage({
         </table>
       </section>
       <aside className="panel detail-drawer">
-        <PanelTitle title="Record detail" meta={selected?.id ?? "Select a row"} />
+        <div className="drawer-header">
+          <strong>{selected?.id ?? "Select a row"}</strong>
+          <div className="drawer-nav">
+            <button aria-label="Previous observation" onClick={() => selectNeighbor(-1)} type="button">
+              <ChevronLeft size={16} />
+            </button>
+            <button aria-label="Next observation" onClick={() => selectNeighbor(1)} type="button">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
         {selected ? (
           <>
             <ObservationDetail selected={selected} />
+            <div className="drawer-quick-actions">
+              <button className="plain-button" onClick={actions?.onViewOnMap} type="button">
+                Open in map
+              </button>
+              <button className="plain-button" onClick={actions?.onToggleFlag} type="button">
+                Add to watchlist
+              </button>
+              <button className="plain-button" onClick={actions?.onExportRecord} type="button">
+                Export observation
+              </button>
+              <button className="plain-button" onClick={actions?.onOpenVerification} type="button">
+                Create report
+              </button>
+            </div>
             {actions ? <ObservationActionsBar actions={actions} /> : null}
           </>
         ) : (
@@ -1357,6 +1823,7 @@ function ForecastPage({
   forecast: ForecastPayload | null;
   onSelect: (id: string) => void;
 }) {
+  const [layersOpen, setLayersOpen] = useState(true);
   const [layers, setLayers] = useState<MapLayers>({
     verifiedRecords: true,
     unverifiedRecords: true,
@@ -1365,34 +1832,156 @@ function ForecastPage({
     waterways: true,
     roadsAndTrails: true,
   });
+  const [extraLayers, setExtraLayers] = useState({
+    prioritySignals: true,
+    signalClusters: false,
+    parks: true,
+  });
 
-  const layerOptions: Array<[keyof MapLayers, string]> = [
-    ["verifiedRecords", "Verified records"],
-    ["unverifiedRecords", "Unverified records"],
-    ["corridors", "Potential spread corridors"],
-    ["samplingGaps", "Sampling gaps"],
-    ["waterways", "Waterways"],
-    ["roadsAndTrails", "Roads and trails"],
+  const layerSections: Array<{
+    title: string;
+    items: Array<{
+      key?: keyof MapLayers;
+      extraKey?: keyof typeof extraLayers;
+      label: string;
+      icon: string;
+    }>;
+  }> = [
+    {
+      title: "Observations",
+      items: [
+        { key: "verifiedRecords", label: "Verified records", icon: "verified" },
+        { key: "unverifiedRecords", label: "Unverified records", icon: "unverified" },
+        { extraKey: "prioritySignals", label: "Priority signals", icon: "priority" },
+        { key: "corridors", label: "Possible spread corridors", icon: "corridor" },
+        { extraKey: "signalClusters", label: "Signal clusters", icon: "priority" },
+      ],
+    },
+    {
+      title: "Environment",
+      items: [
+        { key: "waterways", label: "Waterways", icon: "waterway" },
+        { key: "roadsAndTrails", label: "Roads and trails", icon: "waterway" },
+        { extraKey: "parks", label: "Parks and protected areas", icon: "gap" },
+      ],
+    },
+    {
+      title: "Analysis layers",
+      items: [{ key: "samplingGaps", label: "Sampling gaps", icon: "gap" }],
+    },
   ];
+
+  const applyPreset = (preset: "verification" | "spread" | "sampling") => {
+    if (preset === "verification") {
+      setLayers({
+        verifiedRecords: true,
+        unverifiedRecords: true,
+        corridors: false,
+        samplingGaps: false,
+        waterways: false,
+        roadsAndTrails: false,
+      });
+      setExtraLayers({ prioritySignals: true, signalClusters: false, parks: false });
+      return;
+    }
+    if (preset === "spread") {
+      setLayers({
+        verifiedRecords: true,
+        unverifiedRecords: false,
+        corridors: true,
+        samplingGaps: false,
+        waterways: true,
+        roadsAndTrails: true,
+      });
+      setExtraLayers({ prioritySignals: true, signalClusters: true, parks: false });
+      return;
+    }
+    setLayers({
+      verifiedRecords: false,
+      unverifiedRecords: true,
+      corridors: false,
+      samplingGaps: true,
+      waterways: false,
+      roadsAndTrails: false,
+    });
+    setExtraLayers({ prioritySignals: false, signalClusters: false, parks: true });
+  };
+
+  const selectedIndex = selected ? observations.findIndex((row) => row.id === selected.id) : -1;
+  const selectNeighbor = (direction: -1 | 1) => {
+    if (selectedIndex < 0 || observations.length === 0) {
+      return;
+    }
+    const nextIndex = (selectedIndex + direction + observations.length) % observations.length;
+    onSelect(observations[nextIndex].id);
+  };
 
   return (
     <div className="map-workspace">
       <section className="map-stage">
-        <div className="map-control-panel">
-          <PanelTitle title="Layers" meta="Visible layer controls" />
-          {layerOptions.map(([key, label]) => (
-            <label key={key} className="toggle-row">
-              <span>{label}</span>
-              <input
-                checked={layers[key]}
-                onChange={(event) =>
-                  setLayers((current) => ({ ...current, [key]: event.target.checked }))
-                }
-                type="checkbox"
-              />
-            </label>
-          ))}
-        </div>
+        {layersOpen ? (
+          <div className="map-control-panel">
+            <div className="panel-title">
+              <div>
+                <strong>Layers and overlays</strong>
+                <span>Forecast map controls</span>
+              </div>
+              <button aria-label="Close layers panel" className="plain-button compact-action" onClick={() => setLayersOpen(false)} type="button">
+                <X size={14} />
+              </button>
+            </div>
+            {layerSections.map((section) => (
+              <div key={section.title}>
+                <div className="layer-section-title">{section.title}</div>
+                {section.items.map((item) => {
+                  const checked = item.key
+                    ? layers[item.key]
+                    : item.extraKey
+                      ? extraLayers[item.extraKey]
+                      : false;
+                  return (
+                    <label key={item.label} className="toggle-row">
+                      <span className="layer-label">
+                        <i className={`layer-icon ${item.icon}`} />
+                        {item.label}
+                      </span>
+                      <input
+                        checked={checked}
+                        onChange={(event) => {
+                          if (item.key) {
+                            setLayers((current) => ({ ...current, [item.key!]: event.target.checked }));
+                            return;
+                          }
+                          if (item.extraKey) {
+                            setExtraLayers((current) => ({
+                              ...current,
+                              [item.extraKey!]: event.target.checked,
+                            }));
+                          }
+                        }}
+                        type="checkbox"
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            ))}
+            <div style={{ padding: "10px 12px" }}>
+              <button className="plain-button" onClick={() => applyPreset("verification")} type="button">
+                Layer presets ▾
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            className="plain-button"
+            onClick={() => setLayersOpen(true)}
+            style={{ position: "absolute", zIndex: 700, top: 14, left: 14 }}
+            type="button"
+          >
+            Layers
+          </button>
+        )}
         {selected ? (
           <ResearchMap
             observations={observations}
@@ -1409,20 +1998,33 @@ function ForecastPage({
           />
         )}
       </section>
-      <aside className="panel selected-map-record">
-        <PanelTitle
-          title="Selected record"
-          meta={
-            selected
-              ? selected.privacy === "obscured"
-                ? "Obscured coordinates"
-                : "Public coordinates"
-              : "No visible record"
-          }
-        />
+      <aside className="panel selected-map-record map-record-panel">
+        <div className="drawer-header">
+          <strong>{selected?.id ?? "Select a record"}</strong>
+          <div className="drawer-nav">
+            <button aria-label="Previous map record" onClick={() => selectNeighbor(-1)} type="button">
+              <ChevronLeft size={16} />
+            </button>
+            <button aria-label="Next map record" onClick={() => selectNeighbor(1)} type="button">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
         {selected ? (
           <>
-            <ObservationDetail selected={selected} />
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 14px 12px" }}>
+              <SpeciesThumbnail index={selectedIndex} label={selected.commonName} />
+              <div>
+                <strong>{selected.commonName}</strong>
+                <span className="scientific-name">{selected.scientificName}</span>
+              </div>
+              <ScoreCircle score={selected.signalScore} />
+            </div>
+            <ObservationDetail selected={selected} expanded />
+            <div className="model-insight">
+              Possible spread context is derived from habitat match, nearby verified records, and pathway
+              proximity. This is not a guaranteed prediction.
+            </div>
             {actions ? <ObservationActionsBar actions={actions} mode="map" /> : null}
           </>
         ) : (
@@ -1436,27 +2038,40 @@ function ForecastPage({
   );
 }
 
-function SamplingSummary() {
-  const rows = [
-    ["Under-sampled zones", "612 cells"],
-    ["Road/trail-biased areas", "384 cells"],
-    ["Park/protected-area biased", "429 cells"],
-    ["Likely false absence areas", "563 cells"],
-    ["High-risk under-sampled", "221 cells"],
-  ] as const;
+function SamplingSummary({ cells }: { cells: SamplingCell[] }) {
+  const analysis = computeSamplingAnalysis(cells);
 
   return (
-    <div className="gap-list">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <span>{label}</span>
-          <strong>{value}</strong>
-        </div>
-      ))}
-      <div className="notice">
-        No observations does not mean true absence. Verify sampling effort before concluding absence.
+    <>
+      <table className="analysis-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Grid cells</th>
+            <th>% of area</th>
+          </tr>
+        </thead>
+        <tbody>
+          {analysis.map((row) => (
+            <tr key={row.category}>
+              <td>{row.category}</td>
+              <td>{row.cells}</td>
+              <td>{row.pct.toFixed(1)}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="absence-callout">
+        <strong>Absence is not true absence</strong>
+        <p>
+          No observations in a grid cell does not mean a species is absent. Check sampling effort and
+          bias before concluding absence.
+        </p>
+        <button className="plain-button compact-action" type="button">
+          Learn more
+        </button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -1484,31 +2099,35 @@ function SamplingPage({
 
   return (
     <div className="sampling-layout">
-      <section className="panel sampling-map">
-        <PanelTitle title="Sampling gap map" meta="Region: Delaware River Basin, grid: 5 km" />
-        {selected ? (
-          <ResearchMap
-            observations={observations}
-            selected={selected}
-            layers={layers}
-            forecast={forecast}
-            onSelect={onSelect}
-            large
-            samplingFocus
-          />
-        ) : (
-          <EmptyState
-            title="No sampling records visible"
-            body="Sampling gaps still exist, but no observations match the active table context."
-          />
-        )}
-      </section>
-      <aside className="panel">
-        <PanelTitle title="Analysis summary" meta="No observations does not mean true absence" />
-        <SamplingSummary />
-      </aside>
+      <div className="sampling-map-row">
+        <section className="panel sampling-map">
+          <PanelTitle title="Sampling gap map" meta="Region: Delaware River Basin · grid: 5 km" />
+          {selected ? (
+            <ResearchMap
+              observations={observations}
+              selected={selected}
+              layers={layers}
+              forecast={forecast}
+              onSelect={onSelect}
+              large
+              samplingFocus
+            />
+          ) : (
+            <EmptyState
+              title="No sampling records visible"
+              body="Sampling gaps still exist, but no observations match the active table context."
+            />
+          )}
+        </section>
+        <aside className="panel">
+          <PanelTitle title="Sampling gap analysis" meta={`${cells.length} active cells`} />
+          <div style={{ padding: "0 14px 14px" }}>
+            <SamplingSummary cells={cells} />
+          </div>
+        </aside>
+      </div>
       <section className="panel sampling-table">
-        <PanelTitle title="Grid cell summary" meta="1,209 cells" />
+        <PanelTitle title="Grid cell summary" meta={`${cells.length} cells`} />
         <table>
           <thead>
             <tr>
@@ -1518,25 +2137,43 @@ function SamplingPage({
               <th>Habitat suitability</th>
               <th>Sampling effort</th>
               <th>Detections</th>
+              <th>Last observation</th>
               <th>Gap confidence</th>
             </tr>
           </thead>
           <tbody>
-            {cells.map((cell) => (
+            {cells.map((cell, index) => (
               <tr key={cell.id}>
                 <td>
                   <span className={`priority ${cell.priority.toLowerCase()}`}>{cell.priority}</span>
                 </td>
                 <td>{cell.id}</td>
-                <td>{cell.category}</td>
+                <td>
+                  <StatusBadge status={cell.category} />
+                </td>
                 <td>{cell.habitatSuitability.toFixed(2)}</td>
                 <td>{cell.samplingEffort.toFixed(2)}</td>
-                <td>{cell.detections}</td>
+                <td>
+                  <DetectionSparkbar count={cell.detections} />
+                  <span style={{ marginLeft: 6 }}>{cell.detections}</span>
+                </td>
+                <td>{cell.detections > 0 ? `Jun ${20 + index}, 2026` : "No recent record"}</td>
                 <td>{cell.confidence}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        <div className="table-toolbar">
+          <span>Showing {cells.length} cells</span>
+          <div>
+            <button className="plain-button" type="button">
+              Previous
+            </button>
+            <button className="plain-button" type="button">
+              Next
+            </button>
+          </div>
+        </div>
       </section>
     </div>
   );
@@ -1580,6 +2217,7 @@ function ExportHistoryTable({
             <th>Records</th>
             <th>Status</th>
             <th>Requested</th>
+            <th>Expires</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -1594,6 +2232,7 @@ function ExportHistoryTable({
                 <span className={`badge status ${record.status.toLowerCase()}`}>{record.status}</span>
               </td>
               <td>{record.requested}</td>
+              <td>{computeExportExpires(record.requested)}</td>
               <td>
                 <button
                   className="plain-button compact-action"
@@ -1661,72 +2300,129 @@ function ExportsPage({
     ["verificationFields", "Verification fields"],
   ];
 
+  const filterSummary = [
+    filters.bbox === delawareBasinBbox ? "Delaware River Basin" : filters.bbox || "All regions",
+    filters.fromDate && filters.toDate ? `${filters.fromDate} to ${filters.toDate}` : "All dates",
+    filters.signalLabel ? filters.signalLabel.replaceAll("_", " ") : "All signal labels",
+    filters.verificationStatus ? filters.verificationStatus.replaceAll("_", " ") : "All verification",
+  ];
+
   return (
     <div className="export-layout">
       <section className="panel">
-        <PanelTitle title="Configure export" meta="Step 1 of 2" />
-        <div className="format-grid">
-          <button
-            className={format === "CSV" ? "format-option selected" : "format-option"}
-            onClick={() => setFormat("CSV")}
-            type="button"
-          >
-            <Download size={24} aria-hidden="true" />
-            <strong>CSV</strong>
-            <span>Tabular records for analysis in spreadsheets and statistical software.</span>
-          </button>
-          <button
-            className={format === "GeoJSON" ? "format-option selected" : "format-option"}
-            onClick={() => setFormat("GeoJSON")}
-            type="button"
-          >
-            <Map size={24} aria-hidden="true" />
-            <strong>GeoJSON</strong>
-            <span>Geospatial records for GIS workflows and map layers.</span>
-          </button>
+        <PanelTitle title="Configure export" meta="Research export center" />
+        <div className="export-step">
+          <h3>1. Select format</h3>
+          <div className="format-grid" style={{ padding: 0 }}>
+            <button
+              className={format === "CSV" ? "format-option selected" : "format-option"}
+              onClick={() => setFormat("CSV")}
+              type="button"
+            >
+              <Download size={24} aria-hidden="true" />
+              <strong>CSV</strong>
+              <span>Tabular records for analysis in spreadsheets and statistical software.</span>
+            </button>
+            <button
+              className={format === "GeoJSON" ? "format-option selected" : "format-option"}
+              onClick={() => setFormat("GeoJSON")}
+              type="button"
+            >
+              <MapIcon size={24} aria-hidden="true" />
+              <strong>GeoJSON</strong>
+              <span>Geospatial records for GIS workflows and map layers.</span>
+            </button>
+          </div>
         </div>
-        <div className="field-list">
-          {fieldOptions.map(([key, label]) => (
-            <label key={key} className="toggle-row">
-              <span>{label}</span>
-              <input
-                checked={fields[key]}
-                onChange={(event) =>
-                  setFields((current) => ({ ...current, [key]: event.target.checked }))
-                }
-                type="checkbox"
-              />
+        <div className="export-step">
+          <h3>2. Filters summary</h3>
+          <div className="filter-chip-row" style={{ padding: 0 }}>
+            {filterSummary.map((chip) => (
+              <span key={chip} className="filter-chip">
+                {chip}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="export-step">
+          <h3>3. Include fields</h3>
+          <div className="field-list" style={{ padding: 0 }}>
+            {fieldOptions.map(([key, label]) => (
+              <label key={key} className="toggle-row">
+                <span>{label}</span>
+                <input
+                  checked={fields[key]}
+                  onChange={(event) =>
+                    setFields((current) => ({ ...current, [key]: event.target.checked }))
+                  }
+                  type="checkbox"
+                />
+              </label>
+            ))}
+            <label className="toggle-row muted">
+              <span>Observer information requires admin permission</span>
+              <input disabled type="checkbox" />
             </label>
-          ))}
-          <label className="toggle-row muted">
-            <span>Observer information requires admin permission</span>
-            <input disabled type="checkbox" />
-          </label>
+          </div>
+        </div>
+        <div className="export-step">
+          <h3>4. Advanced options</h3>
+          <div className="settings-grid" style={{ padding: 0 }}>
+            <SettingRow label="Coordinate precision" value="Obscured unless authorized" />
+            <SettingRow label="Export scope" value="Visible filtered records" />
+          </div>
+        </div>
+        <div className="privacy-ethics">
+          <div className="privacy-item">
+            <Shield size={18} aria-hidden="true" />
+            <strong>Location privacy</strong>
+            <span>Obscured coordinates remain generalized in exports.</span>
+          </div>
+          <div className="privacy-item">
+            <Database size={18} aria-hidden="true" />
+            <strong>Anonymization</strong>
+            <span>Observer fields require elevated permissions.</span>
+          </div>
+          <div className="privacy-item">
+            <CheckCircle2 size={18} aria-hidden="true" />
+            <strong>Ethical use</strong>
+            <span>Exports are intended for research and conservation review.</span>
+          </div>
         </div>
       </section>
       <aside className="panel">
-        <PanelTitle title="Review and create" meta="Step 2 of 2" />
+        <PanelTitle title="Preview" meta="Estimated export package" />
         <div className="preview-numbers">
           <div>
-            <span>Records</span>
+            <span>Estimated records</span>
             <strong>{visibleRecordCount > 0 ? visibleRecordCount.toLocaleString() : "0"}</strong>
           </div>
           <div>
-            <span>Species</span>
+            <span>Species included</span>
             <strong>42</strong>
           </div>
           <div>
-            <span>Fields</span>
-            <strong>{fieldCount}</strong>
+            <span>Date range</span>
+            <strong>
+              {filters.fromDate && filters.toDate
+                ? `${filters.fromDate} to ${filters.toDate}`
+                : "All dates"}
+            </strong>
           </div>
         </div>
         <div className="export-field-summary">
           <span>Estimated file size</span>
           <strong>~{estimatedSizeMb.toFixed(1)} MB</strong>
         </div>
+        <div className="finding-list" style={{ margin: "0 14px 14px" }}>
+          <Finding title="Media URLs" text={fields.mediaUrls ? "Included" : "Excluded"} />
+          <Finding title="Environmental context" text={fields.environmentalContext ? "Included" : "Excluded"} />
+          <Finding title="Signal scores" text={fields.signalScores ? "Included" : "Excluded"} />
+          <Finding title="Verification fields" text={fields.verificationFields ? "Included" : "Excluded"} />
+        </div>
         <div className="notice">
-          Sensitive or obscured records are generalized according to export permissions. Private
-          records require admin access.
+          Sensitive or obscured records are generalized according to export permissions. Private records
+          require admin access.
         </div>
         <button
           className="primary-action full-width"
@@ -1735,7 +2431,10 @@ function ExportsPage({
             void onCreateExport({
               format,
               filters: {
-                region_code: filters.bbox === delawareBasinBbox ? "Delaware River Basin" : filters.bbox || "Delaware River Basin",
+                region_code:
+                  filters.bbox === delawareBasinBbox
+                    ? "Delaware River Basin"
+                    : filters.bbox || "Delaware River Basin",
                 from_date: filters.fromDate || undefined,
                 to_date: filters.toDate || undefined,
                 needs_review: filters.needsReview || undefined,
@@ -1751,8 +2450,11 @@ function ExportsPage({
           }
           type="button"
         >
-          {isPending ? "Creating..." : `Create ${format} export`}
+          {isPending ? "Creating..." : "Create export"}
         </button>
+        <p style={{ margin: "0 14px 14px", color: "var(--muted)", fontSize: 12 }}>
+          Exports remain secure for 7 days after completion.
+        </p>
       </aside>
       <section className="panel export-history">
         <PanelTitle title="Export history" meta="Downloads expire after 7 days" />
@@ -1817,28 +2519,38 @@ function AnalystPage({
     setSavedAnalyses((current) => (current.includes(label) ? current : [label, ...current]));
   };
 
+  const topRecords = useMemo(
+    () => [...observations].sort((left, right) => right.signalScore - left.signalScore).slice(0, 5),
+    [observations],
+  );
+  const uncertaintyFactors = useMemo(() => buildUncertaintyFactors(observations), [observations]);
+  const verificationDonut = useMemo(() => buildVerificationDonut(observations), [observations]);
+  const citedSources = useMemo(() => buildCitedSources(observations), [observations]);
+  const samplingConcerns = observations
+    .filter((row) => row.samplingLabel.toLowerCase().includes("under-sampled"))
+    .slice(0, 2);
+
   return (
     <div className="analyst-layout">
       <section className="panel analyst-chat">
-        <PanelTitle title="Question" meta="Verified context, model EcoSentinel-1.3" />
-        <div className="question-card">{question}</div>
+        <PanelTitle title="Question panel" meta="Ask a research question" />
         <label className="ask-box">
-          <span>Ask a research question</span>
+          <span>Ask a question</span>
           <textarea
             onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                ask();
-              }
-            }}
             placeholder="Ask about signals, sampling gaps, verification status, or exportable records..."
             value={draft}
           />
         </label>
         <div className="analyst-actions">
-          <button className="primary-action" disabled={!draft.trim() || analystPending} onClick={() => void ask()} type="button">
+          <button
+            className="primary-action"
+            disabled={!draft.trim() || analystPending}
+            onClick={() => void ask()}
+            type="button"
+          >
             <Send size={16} aria-hidden="true" />
-            {analystPending ? "Asking..." : "Ask analyst"}
+            {analystPending ? "Asking..." : "Send"}
           </button>
           <button className="plain-button" onClick={saveAnalysis} type="button">
             <Save size={16} aria-hidden="true" />
@@ -1853,37 +2565,147 @@ function AnalystPage({
             </button>
           ))}
         </div>
+        <div className="saved-analyses">
+          <h3>Suggested questions</h3>
+          {[
+            "Which species need verification most urgently?",
+            "Where are the largest sampling gaps?",
+            "What export format fits corridor review?",
+          ].map((item) => (
+            <button key={item} onClick={() => setQuestion(item)} type="button">
+              {item}
+            </button>
+          ))}
+        </div>
       </section>
+
       <section className="panel analyst-answer">
-        <PanelTitle title="Answer" meta="Includes uncertainty and cited sources" />
+        <PanelTitle title="Answer panel" meta="Grounded in platform data" />
+        <h2 style={{ margin: "14px 16px 0", fontSize: 18 }}>{question}</h2>
         <p>{answer.summary}</p>
         <div className="finding-list">
+          <strong style={{ fontSize: 12, color: "var(--muted)" }}>Key findings</strong>
           {answer.findings.map((finding) => (
             <Finding key={finding.title} title={finding.title} text={finding.text} />
           ))}
         </div>
         <div className="confidence-row">
-          <div className="confidence-ring">{answer.confidence}%</div>
+          <ConfidenceRingSvg label={answer.confidenceLabel} value={answer.confidence} />
           <div>
-            <strong>{answer.confidenceLabel}</strong>
+            <strong>Confidence and uncertainty</strong>
             <span>{answer.uncertainty}</span>
+            <UncertaintyFactors factors={uncertaintyFactors} />
           </div>
         </div>
-        <div className="method-list">
-          <h3>Method</h3>
-          {[
-            "Filtered observations",
-            "Compared against previous period",
-            "Checked verification status",
-            "Summarized uncertainty factors",
-          ].map((step) => (
-            <span key={step}>{step}</span>
-          ))}
+        <div style={{ margin: "0 16px 14px" }}>
+          <h3 style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>Cited data sources</h3>
+          <table className="cited-sources-table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Type</th>
+                <th>Records</th>
+                <th>Date range</th>
+                <th>Verification</th>
+                <th>Contribution</th>
+              </tr>
+            </thead>
+            <tbody>
+              {citedSources.map((row) => (
+                <tr key={row.source}>
+                  <td>{row.source}</td>
+                  <td>{row.type}</td>
+                  <td>{row.records}</td>
+                  <td>{row.range}</td>
+                  <td>{row.verification}</td>
+                  <td>{row.contribution}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ margin: "0 16px 16px", color: "var(--muted)", fontSize: 12 }}>
+          Methodology combines filtered observations, verification status, sampling context, and cited
+          platform sources.{" "}
+          <button className="plain-button compact-action" type="button">
+            View model card
+          </button>
+        </p>
+        <div className="analyst-bottom-bar">
+          <textarea
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                void ask();
+              }
+            }}
+            placeholder="Ask a research question..."
+            value={draft}
+          />
+          <button
+            className="primary-action"
+            disabled={!draft.trim() || analystPending}
+            onClick={() => void ask()}
+            type="button"
+          >
+            <Send size={16} aria-hidden="true" />
+            Send
+          </button>
         </div>
       </section>
+
       <aside className="panel">
-        <PanelTitle title="Cited data sources" meta="Grounded platform context" />
-        <ProvenanceList />
+        <PanelTitle title="Top records" meta="By Ecological Signal Priority" />
+        <div className="top-records-panel">
+          {topRecords.map((row, index) => (
+            <div key={row.id} className="top-record-row">
+              <SpeciesThumbnail index={index} label={row.commonName} />
+              <div>
+                <strong>{row.commonName}</strong>
+                <span className="scientific-name">{row.location}</span>
+              </div>
+              <ScoreCircle score={row.signalScore} />
+            </div>
+          ))}
+        </div>
+        {samplingConcerns.length > 0 ? (
+          <div className="inline-notice" style={{ margin: "0 14px 14px" }}>
+            <AlertTriangle size={14} aria-hidden="true" />
+            <div>
+              <strong>Sampling concerns</strong>
+              <p>
+                {samplingConcerns.length} visible record
+                {samplingConcerns.length === 1 ? "" : "s"} sit in under-sampled context. Absence should
+                not be treated as true absence.
+              </p>
+            </div>
+          </div>
+        ) : null}
+        <PanelTitle title="Export and results" meta="Quick outputs" />
+        <div className="workbench-summary" style={{ margin: "0 14px 14px" }}>
+          <button className="plain-button" type="button">
+            <Download size={14} />
+            PDF summary
+          </button>
+          <button className="plain-button" type="button">
+            <Table2 size={14} />
+            CSV table
+          </button>
+        </div>
+        <PanelTitle title="Verification status summary" meta="Visible records" />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 14px 14px" }}>
+          <DonutChart
+            centerLabel={`${observations.length}`}
+            segments={verificationDonut}
+            size={88}
+          />
+          <div style={{ fontSize: 12, color: "var(--muted)" }}>
+            <div>Verified</div>
+            <div>Needs review</div>
+            <div>Rejected</div>
+          </div>
+        </div>
       </aside>
     </div>
   );
@@ -2317,6 +3139,14 @@ export default function App() {
           onQueryChange={setQuery}
         />
         <PageHeading
+          actions={
+            screen === "overview" ? (
+              <button className="primary-action" onClick={() => navigate("verification")} type="button">
+                Quick actions
+                <ChevronDown size={14} aria-hidden="true" />
+              </button>
+            ) : undefined
+          }
           screen={screen}
           source={payload.source}
           subtitle={screen === "overview" ? buildOverviewSubtitle(filters) : undefined}
@@ -2344,10 +3174,13 @@ export default function App() {
         ) : null}
         {screen === "overview" ? (
           <OverviewPage
-            actions={actions}
+            exports={payload.exports}
+            filterCount={getActiveFilterChips(filters).length}
             observations={visibleObservations}
+            queueCount={queueCount}
             selected={selected}
-            forecast={forecast}
+            onOpenExports={() => navigate("exports")}
+            onOpenVerification={() => navigate("verification")}
             onSelect={setSelectedId}
           />
         ) : null}
@@ -2368,10 +3201,12 @@ export default function App() {
         {screen === "observations" ? (
           <ObservationsPage
             actions={actions}
+            filters={filters}
             isPending={pendingAction === "export"}
             query={query}
             selected={selected}
             observations={visibleObservations}
+            onClearFilters={() => setFilters({ ...defaultDashboardFilters, bbox: "" })}
             onCreateExport={handleCreateExport}
             onSelect={setSelectedId}
           />

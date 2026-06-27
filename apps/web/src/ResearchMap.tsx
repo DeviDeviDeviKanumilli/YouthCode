@@ -245,12 +245,15 @@ export default function ResearchMap({
       );
 
       visibleObservations.forEach((row) => {
+        const isSelected = row.id === selectedIdRef.current;
         L.marker([row.latitude, row.longitude], {
           icon: L.divIcon({
-            className: markerClassName(row, row.id === selectedIdRef.current),
-            html: "<span></span>",
-            iconAnchor: [9, 9],
-            iconSize: [18, 18],
+            className: markerClassName(row, isSelected),
+            html: isSelected
+              ? `<span class="score-marker">${Math.round(row.signalScore)}</span>`
+              : "<span></span>",
+            iconAnchor: isSelected ? [16, 16] : [9, 9],
+            iconSize: isSelected ? [32, 32] : [18, 18],
           }),
         })
           .bindPopup(
@@ -280,37 +283,37 @@ export default function ResearchMap({
   return (
     <div className={large ? "research-map large" : "research-map"}>
       <div ref={hostRef} className="leaflet-host" />
-      <div className="map-legend">
-        {layers.verifiedRecords && (
+      <div className="map-legend-bar" aria-label="Map legend">
+        {layers.verifiedRecords ? (
           <span>
             <i className="legend-dot verified" /> Expert verified
           </span>
-        )}
-        {layers.unverifiedRecords && (
+        ) : null}
+        {layers.unverifiedRecords ? (
           <span>
             <i className="legend-dot pending" /> Needs verification
           </span>
-        )}
-        {layers.corridors && (
+        ) : null}
+        {layers.corridors ? (
           <span>
             <i className="legend-line" /> Potential spread corridor
           </span>
-        )}
-        {layers.samplingGaps && (
+        ) : null}
+        {layers.samplingGaps ? (
           <span>
             <i className="legend-box" /> Sampling gap
           </span>
-        )}
-        {layers.waterways && (
+        ) : null}
+        {layers.waterways ? (
           <span>
             <i className="legend-waterway" /> Waterway
           </span>
-        )}
-        {layers.roadsAndTrails && (
+        ) : null}
+        {layers.roadsAndTrails ? (
           <span>
             <i className="legend-trail" /> Roads/trails
           </span>
-        )}
+        ) : null}
       </div>
     </div>
   );

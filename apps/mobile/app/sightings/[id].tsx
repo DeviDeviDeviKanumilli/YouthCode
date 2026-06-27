@@ -8,11 +8,11 @@ import { StatusPanel } from '@/components/layout/StatusPanel';
 import { messageForError } from '@/api/client';
 import { getObservationAssistantContext } from '@/api/assistant';
 import { getIntelligenceCard, getObservation, getObservationMedia } from '@/api/observations';
-import { firstAllowedClaims, summarizeObservationAssistantContext } from '@/lib/assistantContext';
 import type { MediaRead, ObservationRead, SightingIntelligenceCard } from '@/types/report';
 import type { ObservationAssistantContext } from '@/types/assistant';
 import { intelligenceCardTitle } from '@/lib/intelligenceCard';
 import { SightingIntelligenceCardContent } from '@/components/cards/SightingIntelligenceCardContent';
+import { ObservationAssistantContextPanel } from '@/components/cards/ObservationAssistantContextPanel';
 import { firstEvidenceImageUrl, mediaEvidenceSummary } from '@/lib/mediaEvidence';
 import {
   coordinateUncertaintyLabel,
@@ -132,7 +132,7 @@ export default function SightingDetailScreen() {
               />
             ) : null}
 
-            {assistantContext ? <AssistantContextPanel context={assistantContext} /> : null}
+            {assistantContext ? <ObservationAssistantContextPanel context={assistantContext} /> : null}
 
             {assistantError ? (
               <StatusPanel
@@ -214,52 +214,6 @@ function EvidenceMediaCard({ media, imageUrl }: { media: MediaRead[]; imageUrl: 
             : `${summary.total} evidence file${summary.total === 1 ? '' : 's'} linked to this record.`}
         </Text>
       </View>
-    </View>
-  );
-}
-
-function AssistantContextPanel({ context }: { context: ObservationAssistantContext }) {
-  const summary = summarizeObservationAssistantContext(context);
-  const claims = firstAllowedClaims(context);
-
-  return (
-    <View style={styles.assistantCard}>
-      <View style={styles.assistantHeader}>
-        <View style={styles.assistantIcon}>
-          <MaterialIcons name="psychology" size={20} color={colors.mossDark} />
-        </View>
-        <View style={styles.assistantCopy}>
-          <Text style={styles.assistantEyebrow}>Grounded assistant context</Text>
-          <Text style={styles.assistantTitle}>{summary.allowedClaimCount} allowed claims from platform data</Text>
-        </View>
-      </View>
-      <View style={styles.assistantFlags}>
-        <EvidencePill label="Identification" enabled={summary.hasIdentification} />
-        <EvidencePill label="Environment" enabled={summary.hasEnvironmentalContext} />
-        <EvidencePill label="Signal score" enabled={summary.hasSignalScore} />
-      </View>
-      {claims.map((claim) => (
-        <Text key={claim} style={styles.allowedClaim}>
-          {claim}
-        </Text>
-      ))}
-      <Text style={styles.assistantNotice}>{context.required_uncertainty_notice}</Text>
-      <Text style={styles.assistantSources}>
-        {summary.dataSourceCount} data sources, verification status: {summary.verificationStatus}
-      </Text>
-    </View>
-  );
-}
-
-function EvidencePill({ label, enabled }: { label: string; enabled: boolean }) {
-  return (
-    <View style={[styles.evidencePill, !enabled && styles.evidencePillMuted]}>
-      <MaterialIcons
-        name={enabled ? 'check-circle' : 'radio-button-unchecked'}
-        size={14}
-        color={enabled ? colors.mossDark : colors.muted}
-      />
-      <Text style={[styles.evidencePillText, !enabled && styles.evidencePillTextMuted]}>{label}</Text>
     </View>
   );
 }
@@ -458,89 +412,6 @@ const styles = StyleSheet.create({
   },
   sourceStack: {
     gap: 8,
-  },
-  assistantCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.outline,
-    padding: 14,
-    gap: 12,
-  },
-  assistantHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  assistantIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.mossSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  assistantCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  assistantEyebrow: {
-    color: colors.mossDark,
-    fontFamily: fonts.label,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  assistantTitle: {
-    color: colors.ink,
-    fontFamily: fonts.bodySemibold,
-    fontSize: 15,
-  },
-  assistantFlags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  evidencePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 999,
-    backgroundColor: colors.mossSoft,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-  },
-  evidencePillMuted: {
-    backgroundColor: colors.surfaceSoft,
-  },
-  evidencePillText: {
-    color: colors.mossDark,
-    fontFamily: fonts.label,
-    fontSize: 10,
-    letterSpacing: 0.7,
-    textTransform: 'uppercase',
-  },
-  evidencePillTextMuted: {
-    color: colors.muted,
-  },
-  allowedClaim: {
-    color: colors.ink,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  assistantNotice: {
-    color: colors.muted,
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  assistantSources: {
-    color: colors.mossDark,
-    fontFamily: fonts.label,
-    fontSize: 10,
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
   },
   sourceRow: {
     flexDirection: 'row',

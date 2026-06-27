@@ -1,11 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { messageForError } from '@/api/client';
+import { getObservationAssistantContext } from '@/api/assistant';
 import {
   createObservation,
   getIntelligenceCard,
@@ -44,7 +45,15 @@ import {
   pipelineStepLabel,
 } from '@/lib/pipelineStatus';
 import { SightingIntelligenceCardContent } from '@/components/cards/SightingIntelligenceCardContent';
+import { ObservationAssistantContextPanel } from '@/components/cards/ObservationAssistantContextPanel';
 import { intelligenceCardTitle } from '@/lib/intelligenceCard';
+import {
+  clearReportDraft,
+  loadReportDraft,
+  saveReportDraft,
+  type ReportDraft,
+} from '@/lib/reportDraft';
+import type { ObservationAssistantContext } from '@/types/assistant';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
@@ -65,7 +74,7 @@ export default function ReportScreen() {
     placeType?: string | string[];
     habitatHint?: string | string[];
   }>();
-  const reportContext = buildReportContext(params);
+  const reportContext = useMemo(() => buildReportContext(params), [params]);
   const followUpObservationId = reportContext.observationId;
 
   const [stage, setStage] = useState<Stage>('camera');
@@ -79,7 +88,55 @@ export default function ReportScreen() {
   const [privacyLevel, setPrivacyLevel] = useState<ObservationPrivacyLevel>(DEFAULT_OBSERVATION_PRIVACY);
   const [result, setResult] = useState<SightingIntelligenceCard | null>(null);
   const [pipelineStatus, setPipelineStatus] = useState<PipelineStatusResponse | null>(null);
+  const [assistantContext, setAssistantContext] = useState<ObservationAssistantContext | null>(null);
+  const [assistantError, setAssistantError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [savedDraft, setSavedDraft] = useState<ReportDraft | null>(null);
+
+  useEffect(() => {
+    void loadReportDraft().then((draft) => {
+      if (draft) {
+        setSavedDraft(draft);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!photoUri || stage === 'analyzing' || stage === 'result' || stage === 'camera') {
+      return;
+    }
+
+    void saveReportDraft({
+      photoUri,
+      stage: stage === 'confirm' ? 'confirm' : 'clues',
+      answers,
+      privacyLevel,
+      reportContext,
+      savedAt: new Date().toISOString(),
+    }).then(() => setSavedDraft(null));
+  }, [answers, photoUri, privacyLevel, reportContext, stage]);
+
+  function resumeDraft() {
+    if (!savedDraft) {
+      return;
+    }
+
+    setPhotoUri(savedDraft.photoUri);
+    setAnswers(savedDraft.answers);
+    setPrivacyLevel(savedDraft.privacyLevel);
+    setStage(savedDraft.stage);
+    setSavedDraft(null);
+  }
+
+  async function discardDraft(resetFlow = false) {
+    await clearReportDraft();
+    setSavedDraft(null);
+    if (resetFlow) {
+      setPhotoUri(null);
+      setSubmitError(null);
+      setStage('camera');
+    }
+  }
 
   async function capture() {
     const photo = await cameraRef.current?.takePictureAsync({ quality: 0.82, skipProcessing: false });
@@ -123,12 +180,23 @@ export default function ReportScreen() {
       setResult(card);
 
       try {
+        const context = await getObservationAssistantContext(observation.observation_id);
+        setAssistantContext(context);
+        setAssistantError(null);
+      } catch (err) {
+        setAssistantContext(null);
+        setAssistantError(messageForError(err, 'Unable to load grounded assistant context.'));
+      }
+
+      try {
         const status = await getPipelineStatus(observation.observation_id);
         setPipelineStatus(status);
       } catch {
         setPipelineStatus(null);
       }
 
+      await clearReportDraft();
+      setSavedDraft(null);
       setStage('result');
     } catch (err) {
       setSubmitError(messageForError(err, 'Unable to submit this sighting.'));
@@ -162,6 +230,22 @@ export default function ReportScreen() {
           <Text style={styles.cameraTitle}>New sighting</Text>
           <IconButton icon="my-location" onPress={() => void area.refresh()} />
         </View>
+        {savedDraft ? (
+          <View style={[styles.draftBanner, { top: insets.top + 68 }]}>
+            <View style={styles.draftCopy}>
+              <Text style={styles.draftTitle}>Saved draft available</Text>
+              <Text style={styles.draftBody}>Resume your last photo and habitat clues.</Text>
+            </View>
+            <View style={styles.draftActions}>
+              <Pressable accessibilityRole="button" onPress={resumeDraft} style={styles.draftResume}>
+                <Text style={styles.draftResumeText}>Resume</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => void discardDraft()} style={styles.draftDiscard}>
+                <Text style={styles.draftDiscardText}>Discard</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
         <View style={[styles.cameraBottom, { paddingBottom: Math.max(insets.bottom + 24, 42) }]}>
           <View style={styles.locationPill}>
             <MaterialIcons name="location-on" size={16} color="#80A9FF" />
@@ -235,6 +319,9 @@ export default function ReportScreen() {
             onChange={(value) => setAnswers((current) => ({ ...current, habitat_type: value }))}
           />
           <PrivacyQuestion value={privacyLevel} onChange={setPrivacyLevel} />
+          <Pressable accessibilityRole="button" onPress={() => void discardDraft(true)} style={styles.textButton}>
+            <Text style={styles.discardDraftText}>Discard draft</Text>
+          </Pressable>
           <Pressable accessibilityRole="button" onPress={analyze} style={styles.primaryButton}>
             <Text style={styles.primaryText}>Analyze sighting</Text>
           </Pressable>
@@ -276,6 +363,8 @@ export default function ReportScreen() {
           <Text style={styles.resultTitle}>{intelligenceCardTitle(result)}</Text>
           <SightingIntelligenceCardContent card={result} mode="compact" />
           {pipelineStatus ? <PipelineStatusCard status={pipelineStatus} /> : null}
+          {assistantContext ? <ObservationAssistantContextPanel context={assistantContext} /> : null}
+          {assistantError ? <Text style={styles.errorText}>{assistantError}</Text> : null}
           <Pressable accessibilityRole="button" onPress={() => router.replace('/sightings')} style={styles.primaryButton}>
             <Text style={styles.primaryText}>Done</Text>
           </Pressable>
@@ -618,6 +707,59 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: 'rgba(0,0,0,0.42)',
   },
+  draftBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(9,22,17,0.82)',
+    padding: 14,
+    gap: 12,
+  },
+  draftCopy: {
+    gap: 4,
+  },
+  draftTitle: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 15,
+  },
+  draftBody: {
+    color: 'rgba(255,255,255,0.78)',
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  draftActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  draftResume: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: colors.blue,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  draftResumeText: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 13,
+  },
+  draftDiscard: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  draftDiscardText: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 13,
+  },
   cameraTitle: {
     color: colors.white,
     fontFamily: fonts.bodySemibold,
@@ -775,6 +917,11 @@ const styles = StyleSheet.create({
     color: colors.blue,
     fontFamily: fonts.bodySemibold,
     fontSize: 15,
+  },
+  discardDraftText: {
+    color: colors.red,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 14,
   },
   clueContent: {
     gap: 14,

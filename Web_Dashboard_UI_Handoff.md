@@ -18,6 +18,45 @@ Running handoff log for the research dashboard on the `web-dashboard-ui` branch.
 
 ## Handoff Log
 
+### 2026-06-27 - API validation, filters, history, exports, and CI
+
+Changed:
+
+- Fixed `apps/web/scripts/sync-api-env.mjs` to use `apps/api/.venv/bin/python` when available, so local API mode can generate `.env.local` from the real backend environment.
+- Wired the global dashboard filters to real research API query params for `GET /research/observations`, including `species_id`, `bbox`, `region_code`, `from_date`, `to_date`, `verification_status`, `signal_label`, `needs_review`, and `has_media`.
+- Kept deterministic demo fallback when the API is unavailable, while adding a distinct API fallback banner when API mode is configured but requests fail.
+- Added live verification history loading from `GET /verification/{observation_id}/history` on the verification screen.
+- Switched export creation to `POST /research/export`, then refreshes lifecycle state through `GET /research/exports/{export_id}` so completed exports use the real `download_url`.
+- Added clearer export state handling for `Processing`, `Completed`, and `Failed`, plus refresh/retry behavior.
+- Added calmer, specific UI states for API auth/permission failures, missing media, and missing environmental context.
+- Added requester identity visibility in the dashboard UX instead of building a token form against the missing `POST /auth/token` endpoint.
+- Added `.github/workflows/web-dashboard.yml` to run `npm ci` and `npm run build` in `apps/web`.
+- Updated the smoke script to tolerate current export row actions (`Retry`, `Refresh`, or `Download`) instead of assuming a single demo-only failed export state.
+
+Verified:
+
+- `docker compose up -d postgres redis api` is blocked locally because `docker` is not installed in this environment.
+- Local API validation succeeded using `apps/api/.venv`, local Postgres, and the existing API `.env`.
+- `cd apps/api && ./.venv/bin/alembic current` reported `0017 (head)`.
+- `cd apps/api && ./.venv/bin/python -m app.scripts.demo` succeeded and produced a valid reviewer `requester_id`.
+- `cd apps/web && npm run sync-api` now succeeds and writes `.env.local`.
+- `cd apps/web && npm run build` passes.
+- `cd apps/web && npm run smoke` passes.
+- Focused live API verification succeeded for:
+  - `GET /research/observations`
+  - `GET /research/verification-queue`
+  - `GET /verification/{observation_id}/history`
+  - `POST /verification/{observation_id}`
+  - `POST /research/export`
+  - `GET /research/exports/{export_id}`
+  - `POST /assistant/context/research`
+  - `GET /forecast/research`
+
+Notes:
+
+- `POST /auth/token` is still missing from the backend routes; the dashboard intentionally stays on requester identity + optional `VITE_API_TOKEN` instead of adding a broken auth form.
+- `POST /research/exports` still creates pending export records without a generated download. The dashboard now uses `POST /research/export` for the actual researcher export workflow, then refreshes the corresponding record through `GET /research/exports/{export_id}`.
+
 ### 2026-06-27 - API mode wiring for local development
 
 Changed:

@@ -71,7 +71,16 @@ async function main() {
 
   await page.click('button.nav-item:has-text("Exports")');
   await page.waitForTimeout(300);
-  await page.click('button:has-text("Retry")');
+  const retryButton = page.locator('button:has-text("Retry")').first();
+  const refreshButton = page.locator('button:has-text("Refresh")').first();
+  const downloadButton = page.locator('button:has-text("Download")').first();
+  if (await retryButton.isVisible().catch(() => false)) {
+    await retryButton.click();
+  } else if (await refreshButton.isVisible().catch(() => false)) {
+    await refreshButton.click();
+  } else if (await downloadButton.isVisible().catch(() => false)) {
+    await downloadButton.click();
+  }
   await page.waitForTimeout(400);
   await capture(page, "exports-retry");
 

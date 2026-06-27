@@ -19,6 +19,27 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Mobile startup backend status
+
+Changed:
+
+- Added a mobile System Status provider that runs `/health` and `/version` at app startup.
+- Added a shared degraded-backend banner in the main `ScreenFrame` shell with retry behavior and user-safe status copy.
+- Refactored Profile to display the shared startup backend status instead of making a second health/version request.
+- Added helper coverage for healthy, unavailable, and degraded backend status summaries.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, remaining runtime limitation, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 10 files, 26 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
+
 ### 2026-06-27 - Main branch mobile integration QA pass
 
 Changed:

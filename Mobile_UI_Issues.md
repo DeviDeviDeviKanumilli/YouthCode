@@ -70,6 +70,12 @@ Branch: `main`
   - Added a grounded area context card on Explore with observation count, sampling-cell count, signal counts, sampling-gap counts, high-priority records, data sparsity warning, uncertainty notice, and data-source count.
   - Added unit coverage for region assistant context summarization.
 
+- Startup backend health/version checks were only visible after opening Profile.
+  - Added an app-wide System Status provider that calls `/health` and `/version` at startup.
+  - Added a shared degraded-backend banner in the main tab frame with safe copy and retry behavior.
+  - Refactored Profile to reuse the same startup status instead of issuing a separate health/version request.
+  - Added unit coverage for healthy, unavailable, and degraded system-status summaries.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -89,7 +95,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 9 files, 23 tests.
+- `cd apps/mobile && npm test` passed: 10 files, 26 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -107,6 +113,7 @@ Branch: `main`
 - Explore now surfaces public Sampling Gap Layer context and absence cautions.
 - Backend error states now use user-safe mobile copy instead of raw response bodies.
 - Explore now surfaces grounded area-level Assistant Context.
+- App startup now checks backend health/version and surfaces a degraded-backend banner across the main mobile shell.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

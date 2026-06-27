@@ -1,56 +1,18 @@
-import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { MaterialIcons } from '@expo/vector-icons';
-import { messageForError } from '@/api/client';
-import { getHealth, getVersion } from '@/api/system';
+import { systemStatusDetail, systemStatusTone, systemStatusValue } from '@/lib/systemStatus';
 import { useLocalArea } from '@/location/LocationProvider';
+import { useSystemStatus } from '@/system/SystemStatusProvider';
 import { useLocalUser } from '@/user/UserProvider';
-
-type ApiStatus = {
-  health: string;
-  version: string;
-  error: string | null;
-  loading: boolean;
-};
 
 export default function ProfileScreen() {
   const area = useLocalArea();
+  const systemStatus = useSystemStatus();
   const user = useLocalUser();
-  const [apiStatus, setApiStatus] = useState<ApiStatus>({
-    health: 'checking',
-    version: 'unknown',
-    error: null,
-    loading: true,
-  });
-
-  function loadApiStatus() {
-    setApiStatus((current) => ({ ...current, loading: true, error: null }));
-    Promise.all([getHealth(), getVersion()])
-      .then(([health, version]) => {
-        setApiStatus({
-          health: health.status,
-          version: version.version,
-          error: null,
-          loading: false,
-        });
-      })
-      .catch((err: unknown) => {
-        setApiStatus({
-          health: 'unavailable',
-          version: 'unknown',
-          error: messageForError(err, 'Unable to reach EcoSentinel API.'),
-          loading: false,
-        });
-      });
-  }
-
-  useEffect(() => {
-    loadApiStatus();
-  }, []);
 
   return (
     <ScreenFrame
@@ -65,11 +27,11 @@ export default function ProfileScreen() {
         <StatusCard
           icon="cloud-done"
           title="EcoSentinel API"
-          value={apiStatus.loading ? 'Checking' : apiStatus.health}
-          detail={apiStatus.error ?? `Backend version ${apiStatus.version}`}
-          tone={apiStatus.error ? 'error' : 'ok'}
+          value={systemStatusValue(systemStatus)}
+          detail={systemStatusDetail(systemStatus)}
+          tone={systemStatusTone(systemStatus)}
           actionLabel="Retry"
-          onActionPress={loadApiStatus}
+          onActionPress={() => void systemStatus.refresh()}
         />
         <StatusCard
           icon="person"

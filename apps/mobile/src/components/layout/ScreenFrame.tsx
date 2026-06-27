@@ -5,6 +5,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors } from '@/theme/colors';
 import { fonts, typeScale } from '@/theme/typography';
 import { MaterialIcons } from '@expo/vector-icons';
+import { systemStatusDetail, systemStatusValue } from '@/lib/systemStatus';
+import { useSystemStatus } from '@/system/SystemStatusProvider';
 
 type ScreenFrameProps = {
   title: string;
@@ -32,6 +34,9 @@ export function ScreenFrame({
   topHeight = 320,
 }: ScreenFrameProps) {
   const insets = useSafeAreaInsets();
+  const systemStatus = useSystemStatus();
+  const showBackendBanner =
+    !systemStatus.loading && Boolean(systemStatus.error || systemStatus.healthStatus !== 'ok');
 
   return (
     <SafeAreaView style={styles.root}>
@@ -68,6 +73,24 @@ export function ScreenFrame({
         <View style={styles.sheetHandleWrap}>
           <View style={styles.sheetHandle} />
         </View>
+        {showBackendBanner ? (
+          <View style={styles.backendBanner}>
+            <View style={styles.backendIconWrap}>
+              <MaterialIcons name="cloud-off" size={18} color="#B6473D" />
+            </View>
+            <View style={styles.backendCopy}>
+              <Text style={styles.backendTitle}>Backend {systemStatusValue(systemStatus)}</Text>
+              <Text style={styles.backendDetail}>{systemStatusDetail(systemStatus)}</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Retry backend status check"
+              onPress={() => void systemStatus.refresh()}
+              style={({ pressed }) => [styles.backendRetry, pressed && styles.pressed]}>
+              <Text style={styles.backendRetryText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <View style={styles.sheetContent}>{children}</View>
       </View>
     </SafeAreaView>
@@ -168,5 +191,53 @@ const styles = StyleSheet.create({
   },
   sheetContent: {
     flex: 1,
+  },
+  backendBanner: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E9B8B2',
+    backgroundColor: '#FFF2EF',
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  backendIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F4D8D4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backendCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  backendTitle: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 13,
+  },
+  backendDetail: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  backendRetry: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E9B8B2',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  backendRetryText: {
+    color: '#8F342D',
+    fontFamily: fonts.bodySemibold,
+    fontSize: 12,
   },
 });

@@ -19,6 +19,28 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Demo scenarios in mobile Explore
+
+Changed:
+
+- Added mobile demo scenario types, API client, and hook for `GET /demo/scenarios`.
+- Added an Explore demo scenario deck for deterministic judge walkthroughs using backend-approved scenario title, script step, observed outputs, and check counts.
+- Added `bbox` support to the mobile public forecast client and a bbox forecast hook.
+- Selecting a demo scenario now frames the Explore map with the scenario `map_query.bbox`; opening a seeded demo card routes to the existing Sighting Intelligence Card detail screen.
+- Added helper coverage for demo scenario summary copy and deterministic check counts.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 11 files, 27 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
+
 ### 2026-06-27 - Mobile startup backend status
 
 Changed:

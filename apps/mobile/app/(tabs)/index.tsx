@@ -14,13 +14,16 @@ import type { GoodPlaceToCheck, WatchItem, WatchScreenResponse } from '@/types/w
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { FALLBACK_RADIUS_KM, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
-import { usePublicForecast } from '@/forecast/usePublicForecast';
+import { usePublicForecast, usePublicForecastBbox } from '@/forecast/usePublicForecast';
 import { useNearbyRegion } from '@/regions/useNearbyRegion';
 import { useSamplingGaps } from '@/sampling/useSamplingGaps';
+import { useDemoScenarios } from '@/demo/useDemoScenarios';
+import { summarizeDemoScenario } from '@/lib/demoScenarios';
 import { goodPlaceImage, watchItemImage } from '@/lib/images';
 import { summarizeRegionAssistantContext } from '@/lib/assistantContext';
 import { summarizeNearbyRegion } from '@/lib/regions';
 import { samplingLabelCopy } from '@/lib/sampling';
+import type { DemoScenario } from '@/types/demo';
 import type { RegionAssistantContext } from '@/types/assistant';
 import type { NearbyRegionSummary } from '@/types/regions';
 import type { SamplingGapSummary } from '@/types/sampling';
@@ -34,6 +37,11 @@ export default function ExploreScreen() {
   const nearbyRegion = useNearbyRegion(coords.lat, coords.lon, 10);
   const samplingGaps = useSamplingGaps(coords.lat, coords.lon, 10);
   const regionAssistant = useRegionAssistantContext(coords.lat, coords.lon, 10);
+  const demoScenarios = useDemoScenarios();
+  const [activeDemoScenarioId, setActiveDemoScenarioId] = useState<string | null>(null);
+  const activeDemoScenario =
+    demoScenarios.scenarios.find((scenario) => scenario.id === activeDemoScenarioId) ?? null;
+  const demoForecast = usePublicForecastBbox(activeDemoScenario?.map_query.bbox ?? null);
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +65,9 @@ export default function ExploreScreen() {
   }, [coords.lat, coords.lon]);
 
   const regionLabel = area.locationGranted ? area.label : response?.region.label ?? area.label;
+  const mapSummary = activeDemoScenario ? demoForecast.summary : forecast.summary;
+  const mapLoading = activeDemoScenario ? demoForecast.loading : forecast.loading;
+  const mapError = activeDemoScenario ? demoForecast.error : forecast.error;
   const leadingPlace = response?.goodPlacesToCheck[0];
   const leadingWatch = response?.watchedNearYou[0];
 
@@ -69,15 +80,16 @@ export default function ExploreScreen() {
       topHeight={420}
       topContent={
         <MapBackdrop
-          locationLabel={regionLabel}
-          layerSummary={forecast.summary}
-          isLoadingLayers={forecast.loading}
-          layerError={forecast.error}
+          locationLabel={activeDemoScenario ? activeDemoScenario.title : regionLabel}
+          demoLabel={activeDemoScenario ? 'Demo scenario map' : undefined}
+          layerSummary={mapSummary}
+          isLoadingLayers={mapLoading}
+          layerError={mapError}
           onTargetPress={() =>
             void area.refresh().then(() =>
               Promise.all([
                 load(),
-                forecast.refresh(),
+                activeDemoScenario ? demoForecast.refresh() : forecast.refresh(),
                 nearbyRegion.refresh(),
                 samplingGaps.refresh(),
                 regionAssistant.refresh(),
@@ -106,13 +118,48 @@ export default function ExploreScreen() {
           <StatusPanel title="Could not load Explore" message={error} actionLabel="Retry" onActionPress={load} tone="error" />
         ) : null}
 
-        {forecast.error ? (
+        {forecast.error && !activeDemoScenario ? (
           <StatusPanel
             title="Forecast map is unavailable"
             message={forecast.error}
             actionLabel="Retry map"
             onActionPress={() => void forecast.refresh()}
             tone="error"
+          />
+        ) : null}
+
+        {demoForecast.error && activeDemoScenario ? (
+          <StatusPanel
+            title="Demo map is unavailable"
+            message={demoForecast.error}
+            actionLabel="Retry demo map"
+            onActionPress={() => void demoForecast.refresh()}
+            tone="error"
+          />
+        ) : null}
+
+        {demoScenarios.error ? (
+          <StatusPanel
+            title="Demo scenarios are unavailable"
+            message={demoScenarios.error}
+            actionLabel="Retry demos"
+            onActionPress={() => void demoScenarios.refresh()}
+            tone="error"
+          />
+        ) : null}
+
+        {demoScenarios.scenarios.length > 0 ? (
+          <DemoScenarioDeck
+            scenarios={demoScenarios.scenarios}
+            activeScenarioId={activeDemoScenarioId}
+            onSelect={(scenario) => setActiveDemoScenarioId(scenario.id)}
+            onClear={() => setActiveDemoScenarioId(null)}
+            onOpenSighting={(scenario) =>
+              router.push({
+                pathname: '/sightings/[id]',
+                params: { id: scenario.seeded_observation_id },
+              })
+            }
           />
         ) : null}
 
@@ -213,6 +260,91 @@ export default function ExploreScreen() {
         ) : null}
       </ScrollView>
     </ScreenFrame>
+  );
+}
+
+function DemoScenarioDeck({
+  scenarios,
+  activeScenarioId,
+  onSelect,
+  onClear,
+  onOpenSighting,
+}: {
+  scenarios: DemoScenario[];
+  activeScenarioId: string | null;
+  onSelect: (scenario: DemoScenario) => void;
+  onClear: () => void;
+  onOpenSighting: (scenario: DemoScenario) => void;
+}) {
+  return (
+    <View style={styles.demoSection}>
+      <View style={styles.demoSectionHeader}>
+        <View style={styles.regionCopy}>
+          <Text style={styles.demoEyebrow}>Deterministic demo mode</Text>
+          <Text style={styles.demoSectionTitle}>Seeded scenarios for judge walkthroughs</Text>
+        </View>
+        {activeScenarioId ? (
+          <Pressable accessibilityRole="button" onPress={onClear} style={({ pressed }) => [styles.demoClear, pressed && styles.pressed]}>
+            <Text style={styles.demoClearText}>Local map</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.demoRow}>
+        {scenarios.map((scenario) => (
+          <DemoScenarioCard
+            key={scenario.id}
+            scenario={scenario}
+            selected={scenario.id === activeScenarioId}
+            onSelect={() => onSelect(scenario)}
+            onOpenSighting={() => onOpenSighting(scenario)}
+          />
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function DemoScenarioCard({
+  scenario,
+  selected,
+  onSelect,
+  onOpenSighting,
+}: {
+  scenario: DemoScenario;
+  selected: boolean;
+  onSelect: () => void;
+  onOpenSighting: () => void;
+}) {
+  const summary = summarizeDemoScenario(scenario);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onSelect}
+      style={({ pressed }) => [styles.demoCard, selected && styles.demoCardSelected, pressed && styles.pressed]}>
+      <View style={styles.demoCardTop}>
+        <Text style={styles.demoPersona}>{scenario.persona}</Text>
+        <Text style={styles.demoCheck}>
+          {summary.passingAssertionCount}/{summary.assertionCount} checks
+        </Text>
+      </View>
+      <Text style={styles.demoTitle}>{scenario.title}</Text>
+      <Text style={styles.demoStep}>{summary.firstStep}</Text>
+      <View style={styles.demoPills}>
+        <Text style={styles.demoPill}>{summary.possibleSpecies}</Text>
+        <Text style={styles.demoPill}>{summary.signalLabel}</Text>
+      </View>
+      <View style={styles.demoFooter}>
+        <Text style={styles.demoLayerText}>{summary.mapLayerCount} map layers</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onOpenSighting}
+          style={({ pressed }) => [styles.demoOpenButton, pressed && styles.pressed]}>
+          <Text style={styles.demoOpenText}>Open card</Text>
+        </Pressable>
+      </View>
+    </Pressable>
   );
 }
 
@@ -521,6 +653,130 @@ const styles = StyleSheet.create({
     borderColor: colors.outline,
     padding: 16,
     gap: 14,
+  },
+  demoSection: {
+    backgroundColor: '#101D17',
+    borderRadius: 24,
+    padding: 16,
+    gap: 14,
+    overflow: 'hidden',
+  },
+  demoSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  demoEyebrow: {
+    color: 'rgba(220,229,226,0.72)',
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  demoSectionTitle: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  demoClear: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  demoClearText: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 12,
+  },
+  demoRow: {
+    gap: 12,
+    paddingRight: 8,
+  },
+  demoCard: {
+    width: 286,
+    minHeight: 230,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(252,250,244,0.08)',
+    padding: 14,
+    gap: 11,
+  },
+  demoCardSelected: {
+    borderColor: '#A9CDAE',
+    backgroundColor: 'rgba(177,207,164,0.18)',
+  },
+  demoCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  demoPersona: {
+    color: '#DCE5E2',
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  demoCheck: {
+    color: '#BBD7BF',
+    fontFamily: fonts.bodySemibold,
+    fontSize: 12,
+  },
+  demoTitle: {
+    color: colors.white,
+    fontFamily: fonts.displayBold,
+    fontSize: 18,
+    lineHeight: 23,
+  },
+  demoStep: {
+    color: 'rgba(220,229,226,0.82)',
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  demoPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  demoPill: {
+    color: '#07110D',
+    backgroundColor: '#E5EEDB',
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
+    textTransform: 'capitalize',
+  },
+  demoFooter: {
+    marginTop: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  demoLayerText: {
+    color: 'rgba(220,229,226,0.76)',
+    fontFamily: fonts.body,
+    fontSize: 12,
+  },
+  demoOpenButton: {
+    borderRadius: 999,
+    backgroundColor: colors.blue,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  demoOpenText: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 12,
   },
   assistantIcon: {
     width: 42,

@@ -76,6 +76,13 @@ Branch: `main`
   - Refactored Profile to reuse the same startup status instead of issuing a separate health/version request.
   - Added unit coverage for healthy, unavailable, and degraded system-status summaries.
 
+- Demo scenarios from the mobile integration guide were not available in the mobile UI.
+  - Added a mobile client and hook for `GET /demo/scenarios`.
+  - Added a deterministic demo scenario deck on Explore using only backend-approved scenario title/script/output text.
+  - Selecting a scenario switches the Forecast Map request to the scenario `map_query.bbox`.
+  - Added an action to open the seeded observation's backend Sighting Intelligence Card.
+  - Added unit coverage for demo scenario summary copy and deterministic check counts.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -95,7 +102,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 10 files, 26 tests.
+- `cd apps/mobile && npm test` passed: 11 files, 27 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -114,6 +121,7 @@ Branch: `main`
 - Backend error states now use user-safe mobile copy instead of raw response bodies.
 - Explore now surfaces grounded area-level Assistant Context.
 - App startup now checks backend health/version and surfaces a degraded-backend banner across the main mobile shell.
+- Explore now surfaces deterministic demo scenarios and can frame the Forecast Map with scenario bbox context.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

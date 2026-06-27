@@ -111,6 +111,11 @@ Branch: `main`
   - Keeps the intelligence card available if the optional media fetch fails.
   - Added unit coverage for backend-relative media URL resolution and evidence counts.
 
+- Profile validated the backend user session but did not show backend user details.
+  - Kept the full `GET /users/{user_id}` response in the shared mobile user context.
+  - Updated Profile to show backend display name, role, privacy settings, and reviewer status.
+  - Added unit coverage for user display, role, and privacy summary copy.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -130,7 +135,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 15 files, 37 tests.
+- `cd apps/mobile && npm test` passed: 16 files, 40 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -150,6 +155,7 @@ Branch: `main`
 - Backend error states now use user-safe mobile copy instead of raw response bodies.
 - Explore now surfaces grounded area-level Assistant Context.
 - App startup now checks backend health/version and surfaces a degraded-backend banner across the main mobile shell.
+- Profile now surfaces backend user role/privacy settings from `GET /users/{user_id}`.
 - Explore now surfaces deterministic demo scenarios and can frame the Forecast Map with scenario bbox context.
 - Report now submits backend-friendly habitat clue values and habitat type context.
 - Report now lets users choose public, obscured, or private location privacy while defaulting to obscured.

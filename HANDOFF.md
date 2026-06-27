@@ -19,6 +19,26 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Backend user details in Profile
+
+Changed:
+
+- Updated `UserProvider` to retain the full backend `GET /users/{user_id}` response instead of only the user ID.
+- Updated Profile to show backend display name, role, user ID prefix, privacy settings, and trusted reviewer status.
+- Added helper coverage for user display, role, and privacy summary copy.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 16 files, 40 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+
 ### 2026-06-27 - Evidence media on saved sighting detail
 
 Changed:

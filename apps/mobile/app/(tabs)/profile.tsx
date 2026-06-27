@@ -5,6 +5,7 @@ import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { MaterialIcons } from '@expo/vector-icons';
 import { systemStatusDetail, systemStatusTone, systemStatusValue } from '@/lib/systemStatus';
+import { userDisplayName, userPrivacySummary, userRoleLabel } from '@/lib/userProfile';
 import { useLocalArea } from '@/location/LocationProvider';
 import { useSystemStatus } from '@/system/SystemStatusProvider';
 import { useLocalUser } from '@/user/UserProvider';
@@ -37,8 +38,26 @@ export default function ProfileScreen() {
           icon="person"
           title="Observer session"
           value={user.ready && user.userId ? 'Ready' : user.ready ? 'Unavailable' : 'Preparing'}
-          detail={user.error ?? (user.userId ? `Anonymous user ${user.userId.slice(0, 8)}` : 'Creating local observer session')}
+          detail={
+            user.error ??
+            (user.userId
+              ? `${userDisplayName(user.user)} · ${userRoleLabel(user.user)} · ${user.userId.slice(0, 8)}`
+              : 'Creating local observer session')
+          }
           tone={user.error ? 'error' : 'ok'}
+          actionLabel="Refresh"
+          onActionPress={() => void user.refresh()}
+        />
+        <StatusCard
+          icon="privacy-tip"
+          title="Backend privacy"
+          value={userRoleLabel(user.user)}
+          detail={
+            user.user?.trusted_reviewer_status
+              ? `${userPrivacySummary(user.user)} Trusted reviewer enabled.`
+              : userPrivacySummary(user.user)
+          }
+          tone="ok"
           actionLabel="Refresh"
           onActionPress={() => void user.refresh()}
         />

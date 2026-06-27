@@ -4,7 +4,6 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { DetailFrame } from '@/components/layout/DetailFrame';
-import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
 import { messageForError } from '@/api/client';
 import { getObservationAssistantContext } from '@/api/assistant';
@@ -12,7 +11,8 @@ import { getIntelligenceCard, getObservation, getObservationMedia } from '@/api/
 import { firstAllowedClaims, summarizeObservationAssistantContext } from '@/lib/assistantContext';
 import type { MediaRead, ObservationRead, SightingIntelligenceCard } from '@/types/report';
 import type { ObservationAssistantContext } from '@/types/assistant';
-import { intelligenceCardTitle, signalPriorityDisplay } from '@/lib/intelligenceCard';
+import { intelligenceCardTitle } from '@/lib/intelligenceCard';
+import { SightingIntelligenceCardContent } from '@/components/cards/SightingIntelligenceCardContent';
 import { firstEvidenceImageUrl, mediaEvidenceSummary } from '@/lib/mediaEvidence';
 import {
   coordinateUncertaintyLabel,
@@ -106,24 +106,7 @@ export default function SightingDetailScreen() {
 
         {card ? (
           <>
-            <View style={styles.badgeRow}>
-              <Badge icon="eco" label={card.confidence_label ?? 'Needs verification'} tone="moss" />
-              <Badge icon="fact-check" label={card.verification_status} tone="muted" />
-            </View>
-
-            <View style={styles.priorityCard}>
-              <View>
-                <Text style={styles.priorityLabel}>Ecological Signal Priority</Text>
-                <Text style={styles.priorityValue}>{signalPriorityDisplay(card)}</Text>
-              </View>
-              <Text style={styles.priorityTag}>{card.signal_label ?? 'Needs verification'}</Text>
-            </View>
-
-            <Text style={styles.explanation}>{card.plain_language_explanation}</Text>
-
-            {card.similar_species_warning ? (
-              <StatusPanel title="Similar species warning" message={card.similar_species_warning} />
-            ) : null}
+            <SightingIntelligenceCardContent card={card} mode="full" />
 
             {media.length > 0 ? <EvidenceMediaCard media={media} imageUrl={firstEvidenceImageUrl(media)} /> : null}
 
@@ -149,15 +132,6 @@ export default function SightingDetailScreen() {
               />
             ) : null}
 
-            <SectionHeading title="Local context" />
-            <InfoBlock title="Local status" text={card.local_status} />
-            <InfoBlock title="Nearby records" text={card.known_nearby_records_summary} />
-            <InfoBlock title="Habitat match" text={card.habitat_match_summary} />
-            <InfoBlock title="Pathway context" text={card.pathway_summary} />
-            <InfoBlock title="Sampling value" text={card.sampling_value_summary} />
-
-            <StatusPanel title="Uncertainty notice" message={card.uncertainty_notice} />
-
             {assistantContext ? <AssistantContextPanel context={assistantContext} /> : null}
 
             {assistantError ? (
@@ -169,16 +143,6 @@ export default function SightingDetailScreen() {
                 tone="error"
               />
             ) : null}
-
-            <SectionHeading title="Data sources" />
-            <View style={styles.sourceStack}>
-              {card.data_sources_used.map((source) => (
-                <View key={source} style={styles.sourceRow}>
-                  <MaterialIcons name="dataset" size={16} color={colors.moss} />
-                  <Text style={styles.sourceText}>{source}</Text>
-                </View>
-              ))}
-            </View>
 
             <Pressable
               accessibilityRole="button"
@@ -296,33 +260,6 @@ function EvidencePill({ label, enabled }: { label: string; enabled: boolean }) {
         color={enabled ? colors.mossDark : colors.muted}
       />
       <Text style={[styles.evidencePillText, !enabled && styles.evidencePillTextMuted]}>{label}</Text>
-    </View>
-  );
-}
-
-function Badge({
-  icon,
-  label,
-  tone,
-}: {
-  icon: keyof typeof MaterialIcons.glyphMap;
-  label: string;
-  tone: 'moss' | 'muted';
-}) {
-  const color = tone === 'moss' ? colors.mossDark : colors.muted;
-  return (
-    <View style={[styles.badge, tone === 'muted' && styles.mutedBadge]}>
-      <MaterialIcons name={icon} size={14} color={color} />
-      <Text style={[styles.badgeText, { color }]}>{label}</Text>
-    </View>
-  );
-}
-
-function InfoBlock({ title, text }: { title: string; text: string }) {
-  return (
-    <View style={styles.infoBlock}>
-      <Text style={styles.infoTitle}>{title}</Text>
-      <Text style={styles.infoText}>{text}</Text>
     </View>
   );
 }

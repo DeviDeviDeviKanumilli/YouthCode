@@ -4,11 +4,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import type { ForecastLayerSummary } from '@/types/forecast';
+import type { ForecastMapMarker } from '@/lib/forecastMap';
 
 type MapBackdropProps = {
   locationLabel: string;
   demoLabel?: string;
   layerSummary?: ForecastLayerSummary | null;
+  mapMarkers?: ForecastMapMarker[];
   isLoadingLayers?: boolean;
   layerError?: string | null;
   onTargetPress?: () => void;
@@ -18,6 +20,7 @@ export function MapBackdrop({
   locationLabel,
   demoLabel,
   layerSummary,
+  mapMarkers = [],
   isLoadingLayers = false,
   layerError,
   onTargetPress,
@@ -26,6 +29,7 @@ export function MapBackdrop({
     ? layerSummary.observations + layerSummary.knownRecords + layerSummary.possibleCorridors
     : 0;
   const samplingCount = layerSummary?.samplingGaps ?? 0;
+  const hasBackendMarkers = mapMarkers.length > 0;
 
   return (
     <View style={styles.root}>
@@ -63,12 +67,18 @@ export function MapBackdrop({
         <View style={styles.userPulse} />
         <View style={styles.userRing} />
         <View style={styles.userDot} />
-        <View style={[styles.markerRing, { top: '18%', left: '12%' }]} />
-        <View style={[styles.markerDot, { top: '22%', left: '16%', backgroundColor: colors.moss }]} />
-        <View style={[styles.markerRing, { top: '42%', left: '54%', borderColor: 'rgba(212,137,67,0.34)' }]} />
-        <View style={[styles.markerDot, { top: '46%', left: '58%', backgroundColor: colors.amber }]} />
-        <View style={[styles.markerRing, { top: '60%', left: '28%', borderColor: 'rgba(91,126,181,0.32)' }]} />
-        <View style={[styles.markerDot, { top: '64%', left: '32%', backgroundColor: colors.blue }]} />
+        {hasBackendMarkers
+          ? mapMarkers.map((marker) => <ForecastMarker key={marker.id} marker={marker} />)
+          : (
+            <>
+              <View style={[styles.markerRing, { top: '18%', left: '12%' }]} />
+              <View style={[styles.markerDot, { top: '22%', left: '16%', backgroundColor: colors.moss }]} />
+              <View style={[styles.markerRing, { top: '42%', left: '54%', borderColor: 'rgba(212,137,67,0.34)' }]} />
+              <View style={[styles.markerDot, { top: '46%', left: '58%', backgroundColor: colors.amber }]} />
+              <View style={[styles.markerRing, { top: '60%', left: '28%', borderColor: 'rgba(91,126,181,0.32)' }]} />
+              <View style={[styles.markerDot, { top: '64%', left: '32%', backgroundColor: colors.blue }]} />
+            </>
+          )}
       </View>
       <View style={styles.layerPanel}>
         <View style={styles.layerRow}>
@@ -79,7 +89,9 @@ export function MapBackdrop({
           {layerError
             ? 'Forecast layer unavailable'
             : layerSummary
-              ? `${layerSummary.totalFeatures} public map features`
+              ? hasBackendMarkers
+                ? `${mapMarkers.length} mapped signals from backend forecast`
+                : `${layerSummary.totalFeatures} public map features`
               : 'Loading forecast layer'}
         </Text>
       </View>
@@ -102,6 +114,50 @@ function LayerPill({
       <Text style={styles.layerPillValue}>{value}</Text>
       <Text style={styles.layerPillLabel}>{label}</Text>
     </View>
+  );
+}
+
+function markerColor(tone: ForecastMapMarker['tone']) {
+  switch (tone) {
+    case 'observation':
+      return colors.moss;
+    case 'known_record':
+      return colors.blue;
+    case 'corridor':
+      return colors.amber;
+    case 'sampling_gap':
+      return '#8A7B67';
+    default:
+      return '#6E8F9A';
+  }
+}
+
+function ForecastMarker({ marker }: { marker: ForecastMapMarker }) {
+  const color = markerColor(marker.tone);
+  return (
+    <>
+      <View
+        style={[
+          styles.markerRing,
+          {
+            top: `${marker.yPercent - 4}%`,
+            left: `${marker.xPercent - 6}%`,
+            borderColor: `${color}55`,
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.markerDot,
+          styles.positionedMarkerDot,
+          {
+            top: `${marker.yPercent}%`,
+            left: `${marker.xPercent}%`,
+            backgroundColor: color,
+          },
+        ]}
+      />
+    </>
   );
 }
 
@@ -304,5 +360,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },
+  },
+  positionedMarkerDot: {
+    marginLeft: -8,
+    marginTop: -8,
   },
 });

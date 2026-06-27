@@ -43,6 +43,8 @@ import {
   pipelineStatusTitle,
   pipelineStepLabel,
 } from '@/lib/pipelineStatus';
+import { SightingIntelligenceCardContent } from '@/components/cards/SightingIntelligenceCardContent';
+import { intelligenceCardTitle } from '@/lib/intelligenceCard';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
@@ -271,15 +273,8 @@ export default function ReportScreen() {
             <MaterialIcons name="eco" size={16} color={colors.mossDark} />
             <Text style={styles.resultBadgeText}>Possible match</Text>
           </View>
-          <Text style={styles.resultTitle}>{result.possible_species?.common_name ?? result.possible_species?.scientific_name ?? 'Sighting saved'}</Text>
-          <View style={styles.resultMeta}>
-            <Text style={styles.resultMetaText}>{result.confidence_label ?? 'Review needed'}</Text>
-            <Text style={styles.resultMetaText}>{result.verification_status}</Text>
-          </View>
-          <Text style={styles.resultBody}>{result.plain_language_explanation}</Text>
-          <ResultBlock title="Local context" text={result.known_nearby_records_summary} />
-          <ResultBlock title="Habitat clues" text={result.habitat_match_summary} />
-          <ResultBlock title="What happens next" text={result.uncertainty_notice} />
+          <Text style={styles.resultTitle}>{intelligenceCardTitle(result)}</Text>
+          <SightingIntelligenceCardContent card={result} mode="compact" />
           {pipelineStatus ? <PipelineStatusCard status={pipelineStatus} /> : null}
           <Pressable accessibilityRole="button" onPress={() => router.replace('/sightings')} style={styles.primaryButton}>
             <Text style={styles.primaryText}>Done</Text>
@@ -496,14 +491,6 @@ function PrivacyQuestion({
   );
 }
 
-function ResultBlock({ title, text }: { title: string; text: string }) {
-  return (
-    <View style={styles.resultBlock}>
-      <Text style={styles.resultBlockTitle}>{title}</Text>
-      <Text style={styles.resultBlockText}>{text}</Text>
-    </View>
-  );
-}
 
 function ReportContextPanel({ context }: { context: ReportContext }) {
   const rows = [

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenFrame } from '@/components/layout/ScreenFrame';
@@ -49,7 +50,7 @@ export default function SightingsScreen() {
       title="Sightings"
       regionLabel="Your observations"
       subtitle={user.userId ? 'Submitted sightings and draft field notes.' : 'Preparing your local user session.'}
-      topContent={<PlaceholderHero />}
+      topContent={<FieldNotesHero count={items.length} />}
     >
       <ScrollView
         contentContainerStyle={styles.content}
@@ -144,10 +145,18 @@ function MiniStat({
   );
 }
 
-function PlaceholderHero() {
+function FieldNotesHero({ count }: { count: number }) {
   return (
     <View style={styles.heroWrap}>
-      <MaterialIcons name="feed" size={48} color="rgba(255,255,255,0.9)" />
+      <LinearGradient
+        colors={['rgba(79,107,82,0.35)', 'rgba(7,17,13,0.1)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <MaterialIcons name="feed" size={42} color="rgba(255,255,255,0.92)" />
+      <Text style={styles.heroTitle}>{count > 0 ? `${count} field note${count === 1 ? '' : 's'}` : 'Your field notes'}</Text>
+      <Text style={styles.heroSubtitle}>Submitted sightings stay linked to this device session.</Text>
     </View>
   );
 }
@@ -265,6 +274,21 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 24,
+  },
+  heroTitle: {
+    color: colors.white,
+    fontFamily: fonts.displayBold,
+    fontSize: 24,
+    textAlign: 'center',
+  },
+  heroSubtitle: {
+    color: 'rgba(255,255,255,0.82)',
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   pressed: {
     opacity: 0.84,

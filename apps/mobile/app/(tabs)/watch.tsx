@@ -28,6 +28,7 @@ import {
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { FALLBACK_RADIUS_KM, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
+import { timeOfDayGreeting } from '@/lib/greeting';
 
 export default function WatchScreen() {
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function WatchScreen() {
 
   return (
     <ScreenFrame
-      eyebrow="Good afternoon"
+      eyebrow={timeOfDayGreeting()}
       title="Watch"
       regionLabel={regionLabel}
       subtitle={area.locationGranted ? 'Things worth noticing nearby' : 'Enable location to rank signals around you.'}
@@ -75,6 +76,7 @@ export default function WatchScreen() {
         <MapBackdrop
           locationLabel={regionLabel}
           layerSummary={forecast.summary}
+          mapMarkers={forecast.markers}
           isLoadingLayers={forecast.loading}
           layerError={forecast.error}
           onTargetPress={() => void area.refresh().then(() => Promise.all([load(), forecast.refresh()]))}

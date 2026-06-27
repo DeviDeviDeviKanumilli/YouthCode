@@ -28,6 +28,7 @@ import type { RegionAssistantContext } from '@/types/assistant';
 import type { NearbyRegionSummary } from '@/types/regions';
 import type { SamplingGapSummary } from '@/types/sampling';
 import { reportParamsForGoodPlace, reportParamsForWatchItem, watchItemActionHref, watchPlaceActionHref } from '@/lib/watch';
+import { timeOfDayGreeting } from '@/lib/greeting';
 
 export default function ExploreScreen() {
   const router = useRouter();
@@ -69,6 +70,7 @@ export default function ExploreScreen() {
 
   const regionLabel = area.locationGranted ? area.label : response?.region.label ?? area.label;
   const mapSummary = activeDemoScenario ? demoForecast.summary : forecast.summary;
+  const mapMarkers = activeDemoScenario ? demoForecast.markers : forecast.markers;
   const mapLoading = activeDemoScenario ? demoForecast.loading : forecast.loading;
   const mapError = activeDemoScenario ? demoForecast.error : forecast.error;
   const leadingPlace = response?.goodPlacesToCheck[0];
@@ -76,7 +78,7 @@ export default function ExploreScreen() {
 
   return (
     <ScreenFrame
-      eyebrow="Good afternoon"
+      eyebrow={timeOfDayGreeting()}
       title="Explore"
       regionLabel={regionLabel}
       showTargetButton={false}
@@ -86,6 +88,7 @@ export default function ExploreScreen() {
           locationLabel={activeDemoScenario ? activeDemoScenario.title : regionLabel}
           demoLabel={activeDemoScenario ? 'Demo scenario map' : undefined}
           layerSummary={mapSummary}
+          mapMarkers={mapMarkers}
           isLoadingLayers={mapLoading}
           layerError={mapError}
           onTargetPress={() =>

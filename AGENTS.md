@@ -5,8 +5,8 @@ This file is the working memory for agents building EcoSentinel in this workspac
 ## Git Workflow
 
 - Work in the GitHub repository `DeviDeviDeviKanumilli/YouthCode`.
-- Use the `mobile-ui` branch for this workspace.
-- Push all major changes to the remote `mobile-ui` branch after committing them.
+- Use the `main` branch for this workspace.
+- Push all major changes to the remote `main` branch after committing them.
 
 ## Product Identity
 

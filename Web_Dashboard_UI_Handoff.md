@@ -18,6 +18,20 @@ Running handoff log for the research dashboard on the `web-dashboard-ui` branch.
 
 ## Handoff Log
 
+### 2026-06-27 - Demo date alignment and dynamic subtitle fixes
+
+Changed:
+
+- Updated all `demoObservations` `submittedAt` dates from May 2025 to June 2026 so they fall within the default filter window (2026-06-01 to 2026-06-30) and appear in demo mode by default.
+- Updated `demoExports` IDs and requested dates to June 2026 for date consistency.
+- Removed hardcoded "In May 2025" phrase from `buildAnalystAnswer` — summary is now date-agnostic.
+- Changed `MetricsGrid` "Total observations" subtitle from static "Delaware River Basin · Jun 2026" to dynamic "Current dashboard filters".
+
+Verified:
+
+- `npm run build` passes.
+- `npm run smoke` passes, with all 4 demo observations visible in overview screenshot.
+
 ### 2026-06-27 - API validation, filters, history, exports, and CI
 
 Changed:

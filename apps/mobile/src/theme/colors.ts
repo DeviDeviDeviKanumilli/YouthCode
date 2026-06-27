@@ -1,0 +1,31 @@
+export const colors = {
+  background: '#F4F1E8',
+  surface: '#FCFAF4',
+  surfaceAlt: '#F7F3EE',
+  surfaceDim: '#E7E1D8',
+  surfaceSoft: '#F1ECE3',
+  ink: '#07110D',
+  inkSoft: '#1C1B1B',
+  muted: '#4A4B4F',
+  mutedSoft: '#6D6E73',
+  outline: '#E4DDD2',
+  outlineSoft: '#DCD5CA',
+  moss: '#4F6B52',
+  mossDark: '#2C4825',
+  mossSoft: '#E4EDE1',
+  blue: '#3B5B9E',
+  blueSoft: '#E8EEF8',
+  amber: '#D48943',
+  amberSoft: '#FAE7E2',
+  red: '#A94A42',
+  redSoft: '#F8E5E1',
+  fog: '#E0DDD5',
+  mist: '#F4F1E8',
+  glass: 'rgba(255, 255, 255, 0.72)',
+  dark: '#07110D',
+  darkAlt: '#121A16',
+  white: '#FFFFFF',
+};
+
+export type ThemeColorKey = keyof typeof colors;
+

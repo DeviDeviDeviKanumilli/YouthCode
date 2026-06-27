@@ -6,6 +6,7 @@ import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
 import { getUserObservations } from '@/api/users';
+import { resolveApiUrl } from '@/api/client';
 import { useLocalUser } from '@/user/UserProvider';
 import type { UserObservationListItem } from '@/types/user';
 import { colors } from '@/theme/colors';
@@ -91,7 +92,11 @@ export default function SightingsScreen() {
               }
               style={({ pressed }) => [styles.noteCard, pressed && styles.pressed]}>
               <Image
-                source={{ uri: item.thumbnail_url ?? watchItemImage({ title: item.possible_species ?? 'Observation', type: 'species_watch', imageUrl: null }) }}
+                source={{
+                  uri:
+                    resolveApiUrl(item.thumbnail_url) ??
+                    watchItemImage({ title: item.possible_species ?? 'Observation', type: 'species_watch', imageUrl: null }),
+                }}
                 style={styles.noteImage}
                 contentFit="cover"
               />

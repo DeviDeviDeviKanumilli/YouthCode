@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_async_session
@@ -24,6 +24,19 @@ async def create_observation_media(
     session: SessionDep,
 ) -> Media:
     return await MediaService(session).create_media(observation_id, payload)
+
+
+@router.post(
+    "/observations/{observation_id}/media/upload",
+    response_model=MediaRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_observation_media(
+    observation_id: uuid.UUID,
+    session: SessionDep,
+    file: Annotated[UploadFile, File()],
+) -> Media:
+    return await MediaService(session).upload_media(observation_id, file)
 
 
 @router.get("/observations/{observation_id}/media", response_model=list[MediaRead])

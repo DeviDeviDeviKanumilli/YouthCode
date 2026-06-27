@@ -5,7 +5,7 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import { createObservation, createObservationMedia, getIntelligenceCard, identifyObservation } from '@/api/observations';
+import { createObservation, getIntelligenceCard, identifyObservation, uploadObservationMedia } from '@/api/observations';
 import { FALLBACK_COORDS, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
 import { useLocalUser } from '@/user/UserProvider';
 import type { SightingIntelligenceCard } from '@/types/report';
@@ -61,6 +61,12 @@ export default function ReportScreen() {
   }
 
   async function analyze() {
+    if (!photoUri) {
+      setSubmitError('Take a photo before analyzing this sighting.');
+      setStage('camera');
+      return;
+    }
+
     setStage('analyzing');
     setSubmitError(null);
 
@@ -89,14 +95,7 @@ export default function ReportScreen() {
         },
       });
 
-      const media = await createObservationMedia(observation.observation_id, {
-        file_type: 'image',
-        mime_type: 'image/jpeg',
-        storage_key: `mobile/${observation.observation_id}/${Date.now()}.jpg`,
-        public_url: photoUri,
-        original_filename: 'ecosentinel-sighting.jpg',
-        metadata_removed: true,
-      });
+      const media = await uploadObservationMedia(observation.observation_id, photoUri);
 
       await identifyObservation(observation.observation_id, {
         media_id: media.id,

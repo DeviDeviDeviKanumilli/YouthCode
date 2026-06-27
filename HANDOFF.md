@@ -65,6 +65,29 @@ Still to do:
 
 - Manually verify the Report context panel in Android once a device or emulator is available.
 
+### 2026-06-27 - Mobile media byte upload
+
+Changed:
+
+- Added `POST /observations/{observation_id}/media/upload` for multipart image uploads.
+- Added local backend media storage and `/media-files` static serving for development/demo media.
+- Updated the mobile Report flow to upload captured photo bytes before running identification.
+- Updated Sightings thumbnails to resolve backend-relative media URLs.
+- Updated the frozen OpenAPI contract and mobile integration guide.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 4 files, 13 tests.
+- `cd apps/api && ./.venv/bin/python -m ruff check .` passes.
+- `cd apps/api && ./.venv/bin/python -m mypy app tests` passes.
+- `cd apps/api && ./.venv/bin/python -m pytest` passes: 243 tests.
+
+Still to do:
+
+- Manually verify multipart upload from Android once a device or emulator is available.
+- Add production S3-compatible storage or presigned URL support for deployed environments.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

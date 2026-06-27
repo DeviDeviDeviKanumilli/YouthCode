@@ -16,9 +16,13 @@ when possible.
 
 1. Capture location, timestamp, privacy level, optional region code, and habitat answers.
 2. Send `POST /observations`.
-3. Upload or register image metadata with `POST /observations/{observation_id}/media`.
+3. Upload the captured image with `POST /observations/{observation_id}/media/upload`.
 4. Trigger identification with `POST /observations/{observation_id}/identify`.
 5. Show `GET /observations/{observation_id}/intelligence-card` as the user-facing summary.
+
+For migration or external storage integrations, metadata-only registration is still available at
+`POST /observations/{observation_id}/media`, but the consumer mobile app should use the upload
+endpoint so image bytes are available to the backend and reviewer workflows.
 
 Recommended privacy defaults:
 

@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.core.config import Settings, get_settings
@@ -48,6 +49,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_exception_handlers(app)
     app.add_middleware(RateLimitMiddleware, settings=app_settings)
     app.include_router(api_router)
+    if app_settings.storage_backend == "local":
+        app.mount(
+            app_settings.media_public_base_url,
+            StaticFiles(directory=app_settings.local_storage_dir, check_dir=False),
+            name="media-files",
+        )
     return app
 
 

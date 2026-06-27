@@ -32,6 +32,7 @@ class Settings(BaseSettings):
 
     storage_backend: Literal["local", "s3"] = "local"
     local_storage_dir: str = ".local/storage"
+    media_public_base_url: str = "/media-files"
     cors_origins: list[AnyHttpUrl] = Field(default_factory=list)
 
 

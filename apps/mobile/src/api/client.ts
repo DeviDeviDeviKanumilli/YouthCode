@@ -24,3 +24,13 @@ export async function apiPost<T, Body extends object>(path: string, body: Body):
   }
   return response.json() as Promise<T>;
 }
+
+export function resolveApiUrl(url: string | null | undefined) {
+  if (!url) {
+    return null;
+  }
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file:')) {
+    return url;
+  }
+  return `${API_BASE_URL}${url.startsWith('/') ? url : `/${url}`}`;
+}

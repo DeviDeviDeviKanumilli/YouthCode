@@ -49,6 +49,12 @@ Branch: `main`
   - Shows potential spread corridor/context type, geometry availability, record point availability, and uncertainty-aware map copy.
   - Added unit coverage for map overlay display copy.
 
+- Observation-specific Assistant Context existed in the backend but was not visible in mobile.
+  - Added a mobile client for `GET /assistant/context/observation/{observation_id}`.
+  - Added a grounded assistant context panel on saved Sighting Intelligence Card detail.
+  - Shows allowed claim count, evidence availability, required uncertainty notice, data source count, and verification status.
+  - Added unit coverage for assistant context summarization.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -68,7 +74,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 7 files, 18 tests.
+- `cd apps/mobile && npm test` passed: 8 files, 19 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -82,6 +88,7 @@ Branch: `main`
 - Watch and Explore are wired to backend local signal endpoints.
 - Explore now uses `GET /regions/nearby` for local ecosystem and sampling context.
 - Watch detail screens now surface backend map overlay context where provided.
+- Saved sighting detail now surfaces grounded observation Assistant Context.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

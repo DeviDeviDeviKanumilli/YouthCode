@@ -140,6 +140,24 @@ Still to do:
 
 - Manually verify the detail map context panel in Android once a device or emulator is available.
 
+### 2026-06-27 - Grounded assistant context on saved sightings
+
+Changed:
+
+- Added a mobile client and types for `GET /assistant/context/observation/{observation_id}`.
+- Added a grounded assistant context panel on saved Sighting Intelligence Card detail.
+- The panel shows allowed claims, evidence availability, required uncertainty notice, data source count, and verification status.
+- Added unit coverage for assistant context summarization.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 8 files, 19 tests.
+
+Still to do:
+
+- Manually verify the assistant context panel in Android once a device or emulator is available.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

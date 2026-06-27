@@ -5,8 +5,11 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { DetailFrame } from '@/components/layout/DetailFrame';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
+import { getObservationAssistantContext } from '@/api/assistant';
 import { getIntelligenceCard } from '@/api/observations';
+import { firstAllowedClaims, summarizeObservationAssistantContext } from '@/lib/assistantContext';
 import type { SightingIntelligenceCard } from '@/types/report';
+import type { ObservationAssistantContext } from '@/types/assistant';
 import { intelligenceCardTitle, signalPriorityDisplay } from '@/lib/intelligenceCard';
 import { watchItemImage } from '@/lib/images';
 import { colors } from '@/theme/colors';
@@ -16,8 +19,10 @@ export default function SightingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [card, setCard] = useState<SightingIntelligenceCard | null>(null);
+  const [assistantContext, setAssistantContext] = useState<ObservationAssistantContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [assistantError, setAssistantError] = useState<string | null>(null);
 
   async function load() {
     if (!id) return;
@@ -30,6 +35,14 @@ export default function SightingDetailScreen() {
       setError(err instanceof Error ? err.message : 'Unable to load this intelligence card.');
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const context = await getObservationAssistantContext(id);
+      setAssistantContext(context);
+      setAssistantError(null);
+    } catch (err) {
+      setAssistantError(err instanceof Error ? err.message : 'Unable to load grounded assistant context.');
     }
   }
 
@@ -90,6 +103,18 @@ export default function SightingDetailScreen() {
 
             <StatusPanel title="Uncertainty notice" message={card.uncertainty_notice} />
 
+            {assistantContext ? <AssistantContextPanel context={assistantContext} /> : null}
+
+            {assistantError ? (
+              <StatusPanel
+                title="Assistant context unavailable"
+                message={assistantError}
+                actionLabel="Retry"
+                onActionPress={load}
+                tone="error"
+              />
+            ) : null}
+
             <SectionHeading title="Data sources" />
             <View style={styles.sourceStack}>
               {card.data_sources_used.map((source) => (
@@ -116,6 +141,52 @@ export default function SightingDetailScreen() {
         ) : null}
       </ScrollView>
     </DetailFrame>
+  );
+}
+
+function AssistantContextPanel({ context }: { context: ObservationAssistantContext }) {
+  const summary = summarizeObservationAssistantContext(context);
+  const claims = firstAllowedClaims(context);
+
+  return (
+    <View style={styles.assistantCard}>
+      <View style={styles.assistantHeader}>
+        <View style={styles.assistantIcon}>
+          <MaterialIcons name="psychology" size={20} color={colors.mossDark} />
+        </View>
+        <View style={styles.assistantCopy}>
+          <Text style={styles.assistantEyebrow}>Grounded assistant context</Text>
+          <Text style={styles.assistantTitle}>{summary.allowedClaimCount} allowed claims from platform data</Text>
+        </View>
+      </View>
+      <View style={styles.assistantFlags}>
+        <EvidencePill label="Identification" enabled={summary.hasIdentification} />
+        <EvidencePill label="Environment" enabled={summary.hasEnvironmentalContext} />
+        <EvidencePill label="Signal score" enabled={summary.hasSignalScore} />
+      </View>
+      {claims.map((claim) => (
+        <Text key={claim} style={styles.allowedClaim}>
+          {claim}
+        </Text>
+      ))}
+      <Text style={styles.assistantNotice}>{context.required_uncertainty_notice}</Text>
+      <Text style={styles.assistantSources}>
+        {summary.dataSourceCount} data sources, verification status: {summary.verificationStatus}
+      </Text>
+    </View>
+  );
+}
+
+function EvidencePill({ label, enabled }: { label: string; enabled: boolean }) {
+  return (
+    <View style={[styles.evidencePill, !enabled && styles.evidencePillMuted]}>
+      <MaterialIcons
+        name={enabled ? 'check-circle' : 'radio-button-unchecked'}
+        size={14}
+        color={enabled ? colors.mossDark : colors.muted}
+      />
+      <Text style={[styles.evidencePillText, !enabled && styles.evidencePillTextMuted]}>{label}</Text>
+    </View>
   );
 }
 
@@ -232,6 +303,89 @@ const styles = StyleSheet.create({
   },
   sourceStack: {
     gap: 8,
+  },
+  assistantCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 14,
+    gap: 12,
+  },
+  assistantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  assistantIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.mossSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assistantCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  assistantEyebrow: {
+    color: colors.mossDark,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  assistantTitle: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 15,
+  },
+  assistantFlags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  evidencePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    backgroundColor: colors.mossSoft,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
+  evidencePillMuted: {
+    backgroundColor: colors.surfaceSoft,
+  },
+  evidencePillText: {
+    color: colors.mossDark,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  evidencePillTextMuted: {
+    color: colors.muted,
+  },
+  allowedClaim: {
+    color: colors.ink,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  assistantNotice: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  assistantSources: {
+    color: colors.mossDark,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   sourceRow: {
     flexDirection: 'row',

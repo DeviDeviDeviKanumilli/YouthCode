@@ -735,3 +735,126 @@ Use the screenshots as a structural reference, not as the final visual density t
 - explicit uncertainty everywhere
 
 The best version should feel like a research instrument: precise, calm, and trustworthy.
+
+## Implementation Status
+
+Initial normal React implementation lives in:
+
+```txt
+apps/web
+```
+
+Run it with:
+
+```txt
+cd apps/web
+npm install
+npm run dev
+```
+
+Build check:
+
+```txt
+cd apps/web
+npm run build
+```
+
+Interaction smoke check:
+
+```txt
+cd apps/web
+npm run smoke
+```
+
+Implemented first-pass sections:
+
+- Overview
+- Verification Queue
+- Observations
+- Forecast Map
+- Sampling Gaps
+- Export Center
+- AI Analyst
+- Settings
+
+Current implementation notes:
+
+- Uses Vite, TypeScript, normal React, and CSS.
+- Uses deterministic typed demo data with a typed API boundary and live-backend fallback support.
+- Supports hash navigation for direct section URLs: `#overview`, `#verification`, `#observations`, `#forecast`, `#sampling`, `#exports`, `#analyst`, and `#settings`.
+- Keeps the minimal scientific workbench direction: restrained panels, fewer badges, scoped filters, table/map-first layout, and uncertainty-aware wording.
+- Uses a real interactive Leaflet/OpenStreetMap research map with markers, popups, potential corridor overlays, and sampling-gap overlays.
+- Verification actions, export format selection, export creation, and filter clearing have visible UI state changes.
+- Verified locally with `npm run build` and `npm run smoke`.
+- The smoke check verifies map tiles, filter clearing/restoring, verification action feedback, export creation feedback, and the populated Settings page.
+
+Latest implementation pass:
+
+- Forecast Map layer controls now drive real map state for verified records, unverified records, potential spread corridors, sampling gaps, waterways, and roads/trails.
+- The map legend now only shows currently visible layers.
+- Sampling Gaps now uses the same real Leaflet/OpenStreetMap surface instead of a decorative fake grid.
+- Verification actions now require visible reviewer notes for `Needs more evidence` and `Reject with notes`, and the evidence request type is explicit.
+- Observation table controls now work: `Show source` toggles an actual source column and `Export view` creates a visible export request.
+- Export history actions now show stateful feedback for download, retry, and processing details.
+- Documentation in the sidebar now opens a short in-app guide hint that points to this living UI guide.
+- Filter chips wrap cleanly instead of clipping on narrower workspaces.
+- Local screenshot QA artifacts are saved under `apps/web/artifacts/` and ignored by git.
+- Verified again with `npm run build` and `npm run smoke` after the map/control updates.
+
+Functional workbench pass:
+
+- Research role is now active local UI state. Switching `researcher`, `reviewer`, or `admin` changes permission behavior and is reflected in the session menu.
+- The top notification and app-menu buttons now open useful popovers instead of acting as decorative icons.
+- Reviewer permissions are enforced in the UI: non-reviewer roles see the verification permission notice and disabled review actions.
+- Observation saved views now work locally. `Save view` stores the current visible table context, and saved view chips can be selected.
+- The AI Analyst now accepts a typed research question, produces a deterministic grounded answer from the current observation context, saves analyses, and includes method, sources, confidence, and uncertainty.
+- The analyst returns `Insufficient evidence` language when the current visible observation set is empty.
+- Settings can change the active verification role, keeping the shell role/session behavior consistent.
+- Smoke coverage now verifies notifications, app menu/session role, role-based verification permissions, saved views, analyst asking/saving, map tiles, map layer controls, table export, export creation, export-history feedback, and settings role changes.
+- Latest checks passed: `npm run build` and `npm run smoke`.
+
+Persistence and export-integrity pass:
+
+- Active role and selected observation now persist in local storage for development/demo sessions.
+- Saved observation views now persist in local storage.
+- Saved AI Analyst analyses now persist in local storage.
+- Export Center include-field toggles now control actual export request flags instead of being decorative.
+- Export preview field counts and estimated file size update from the selected export fields and format.
+- Smoke coverage now clears local storage for deterministic setup, then verifies local persistence survives reload for role, saved observation views, and saved AI analyses.
+- Smoke coverage now verifies export field toggles change the preview field count before creating an export.
+- Latest checks passed: `npm run build` and `npm run smoke`.
+
+Filter consistency pass:
+
+- Global filter state now lives at the dashboard shell level instead of inside the visual filter rail.
+- Active filters now affect visible observations, KPI metrics, priority review rows, Forecast Map records, Sampling Gap map records, AI Analyst context, and Export Center record counts.
+- Clearing filters expands the visible demo dataset; restoring filters narrows it back to the high-value unverified/needs-review demo context.
+- Export requests now include the visible record count in their filter payload.
+- Smoke coverage now verifies filtered and unfiltered visible counts.
+- Latest checks passed: `npm run build` and `npm run smoke`.
+
+Selection and download integrity pass:
+
+- Selected observation now stays consistent with the visible filtered/search result set. If filters hide the selected record, the dashboard selects the first visible record instead of showing stale detail.
+- Completed export rows now trigger a real browser download using generated CSV or GeoJSON content instead of only showing a status message.
+- CSV downloads include export metadata and privacy notes.
+- GeoJSON downloads produce a valid empty `FeatureCollection` with export metadata and privacy notes until backend-generated files are available.
+- Smoke coverage now verifies the hidden-selected-record case and asserts the browser download event for completed exports.
+- Latest checks passed: `npm run build` and `npm run smoke`.
+
+Empty-result integrity pass:
+
+- Selected observation can now be `null` when active search and filters return no observations.
+- Overview, Verification Queue, Observations, Forecast Map, and Sampling Gaps now render explicit empty states instead of stale selected-record details.
+- Review actions are disabled when no visible record is selected.
+- No-result search now shows zero KPI counts, no map records, an empty priority stream, and no selected-observation detail.
+- Smoke coverage now verifies a no-result search state and recovery back to a visible record.
+- Latest checks passed: `npm run build` and `npm run smoke`.
+
+Export retry integrity pass:
+
+- Failed export rows now queue a real retry entry in the export history instead of only showing a message.
+- Retry entries preserve the original export format, filter count, and record count, then appear at the top of the table with `Processing` status.
+- The retry action keeps the Export Center minimal: one compact action button, one status message, and one visible table update.
+- Smoke coverage now clicks a failed export retry and verifies the new processing retry row appears.
+- Latest checks passed: `npm run build` and `npm run smoke`.

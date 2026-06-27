@@ -1,0 +1,47 @@
+# Claude Code personal/local settings (machine-specific, not shared)
+.claude/settings.local.json
+
+# macOS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Env / secrets (NEVER commit real values — see .env.example)
+.env
+.env.*
+!.env.example
+
+# TypeScript / build output
+dist/
+build/
+*.tsbuildinfo
+
+# Prisma generated client
+packages/db/node_modules/.prisma/
+packages/db/generated/
+
+# Expo / EAS / React Native artifacts
+.expo/
+.expo-shared/
+apps/mobile/ios/
+apps/mobile/android/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Next.js (apps/api)
+apps/api/.next/
+apps/api/.vercel/
+
+# Logs / coverage
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+coverage/
+.vercel

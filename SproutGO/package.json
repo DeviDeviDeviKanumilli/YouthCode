@@ -1,0 +1,38 @@
+{
+  "name": "sproutgo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SproutGo — social, geotagged plant-discovery app (monorepo root)",
+  "workspaces": [
+    "packages/shared",
+    "packages/db",
+    "apps/api",
+    "apps/mobile"
+  ],
+  "scripts": {
+    "build:shared": "npm run build -w @sproutgo/shared",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:generate": "npm run generate -w @sproutgo/db",
+    "db:migrate": "npm run migrate -w @sproutgo/db",
+    "db:seed": "npm run seed -w @sproutgo/db",
+    "db:seed:scrape": "npm run seed:scrape -w @sproutgo/db",
+    "api:dev": "npm run dev -w @sproutgo/api",
+    "mobile:start": "npm run start -w @sproutgo/mobile"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "overrides": {
+    "react-native": "0.74.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "@expo/vector-icons": {
+      "react": "18.2.0"
+    }
+  }
+}

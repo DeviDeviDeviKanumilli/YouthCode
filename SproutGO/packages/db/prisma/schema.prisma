@@ -1,0 +1,291 @@
+// SproutGo database schema — transcribed from currentPlans/DATA_MODEL.md.
+// Backend is Prisma + Supabase Postgres. Profile.id mirrors Supabase auth.users.id.
+// Runtime connects via the pooler (DATABASE_URL, 6543); migrations use DIRECT_URL (5432).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums (mirror packages/shared/src/enums.ts — keep in sync)
+// ---------------------------------------------------------------------------
+
+enum Rarity {
+  COMMON
+  UNCOMMON
+  RARE
+  LEGENDARY
+}
+
+enum NativeStatus {
+  NATIVE
+  INTRODUCED
+  INVASIVE
+  UNKNOWN
+}
+
+enum Privacy {
+  PUBLIC
+  FRIENDS
+  PRIVATE
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+enum IdStatus {
+  PENDING
+  MATCHED
+  UNCERTAIN
+}
+
+enum PlantType {
+  TREE
+  FLOWER
+  SHRUB
+  FERN
+  GRASS
+  OTHER
+}
+
+enum IdSource {
+  OPENAI
+  PLANTID
+  PLANTNET
+  SEED
+  MANUAL
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
+/// Mirrors the Supabase auth user. id == auth.users.id (set on signup, no @default).
+model Profile {
+  id          String   @id @db.Uuid
+  username    String   @unique
+  avatarUrl   String?
+  bio         String?
+  // Server-side age attestation (13+ audience). Set at profile creation and enforced by
+  // the API — the client-side signup check is UX only and is bypassable.
+  dateOfBirth DateTime? @db.Date
+  totalPoints Int      @default(0)
+  isAdmin     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  observations     Observation[]
+  plantDexEntries  PlantDexEntry[]
+  posts            Post[]
+  likes            Like[]
+  comments         Comment[]
+  chatMessages     ChatMessage[]
+  sentRequests     FriendRequest[] @relation("SentRequests")
+  receivedRequests FriendRequest[] @relation("ReceivedRequests")
+  reports          Report[]
+}
+
+/// Global Library. scientificName is the primary match key for AI results.
+model Plant {
+  id             String       @id @default(uuid()) @db.Uuid
+  scientificName String       @unique
+  commonName     String?
+  family         String?
+  genus          String?
+  type           PlantType    @default(OTHER)
+  description    String?
+  habitat        String?
+  nativeStatus   NativeStatus @default(UNKNOWN)
+  rarity         Rarity       @default(COMMON)
+  imageUrl       String?
+  // Attribution for seeded Wikimedia/Commons images. CC-BY / CC-BY-SA legally require
+  // crediting the author + license; populated by the seed scrape, null for AI-created or
+  // image-less rows (LIBRARY_SEED.md). Nullable so existing rows/defaults are unaffected.
+  imageLicense     String?
+  imageAttribution String?
+  imageSourceUrl   String?
+  source         IdSource     @default(SEED)
+  confidence     Float?
+  createdAt      DateTime     @default(now())
+
+  observations    Observation[]
+  plantDexEntries PlantDexEntry[]
+  posts           Post[]
+  chatMessages    ChatMessage[]
+
+  @@index([commonName])
+  @@index([type])
+  @@index([rarity])
+  @@index([nativeStatus])
+}
+
+/// One discovery event. plantId is null while PENDING.
+model Observation {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  plantId       String?  @db.Uuid
+  imagePath     String
+  latitude      Float?
+  longitude     Float?
+  // Public-facing coordinates: for sensitive plants (rare/legendary/invasive) these are
+  // snapped to a coarse grid at write time; otherwise they equal the exact coords. The
+  // map bbox query filters NON-owner markers on THESE columns so a tiny bbox can't probe
+  // a rare plant's exact point (SECURITY_AND_PRIVACY §location). Null until a plant is
+  // matched (UNCERTAIN captures never reach the map). NOTE: if a Plant's rarity/
+  // nativeStatus is ever reclassified to sensitive AFTER capture, these columns must be
+  // backfilled (re-snapped) so the bbox query can't be probed for the exact point — the
+  // serializer re-snaps the OUTPUT defensively, but the query filters on these columns.
+  publicLatitude  Float?
+  publicLongitude Float?
+  confidence    Float?
+  idStatus      IdStatus @default(PENDING)
+  // Privacy-by-default: geotagged captures must not silently expose home/work locations.
+  privacy       Privacy  @default(PRIVATE)
+  pointsAwarded Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  user            Profile         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plant           Plant?          @relation(fields: [plantId], references: [id])
+  posts           Post[]
+  plantDexEntries PlantDexEntry[] @relation("FirstObservation")
+
+  @@index([userId])
+  @@index([plantId])
+  @@index([latitude, longitude])
+  @@index([publicLatitude, publicLongitude])
+  @@index([createdAt])
+}
+
+/// Unique species per user — one row per discovered species.
+model PlantDexEntry {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @db.Uuid
+  plantId            String   @db.Uuid
+  firstDiscoveredAt  DateTime @default(now())
+  firstObservationId String?  @db.Uuid
+  timesObserved      Int      @default(1)
+
+  user             Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plant            Plant        @relation(fields: [plantId], references: [id])
+  firstObservation Observation? @relation("FirstObservation", fields: [firstObservationId], references: [id])
+
+  @@unique([userId, plantId])
+}
+
+/// Social feed / forum post.
+model Post {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  observationId   String?  @db.Uuid
+  plantId         String?  @db.Uuid
+  imagePath       String?
+  title           String?
+  caption         String?
+  category        String?
+  generalLocation String?
+  privacy         Privacy  @default(PUBLIC)
+  likeCount       Int      @default(0)
+  commentCount    Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  user        Profile      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  observation Observation? @relation(fields: [observationId], references: [id])
+  plant       Plant?       @relation(fields: [plantId], references: [id])
+  likes       Like[]
+  comments    Comment[]
+  reports     Report[]
+
+  @@index([userId])
+  @@index([category])
+  @@index([createdAt])
+}
+
+/// One like per user per post (unique constraint).
+model Like {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  postId    String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  postId    String   @db.Uuid
+  userId    String   @db.Uuid
+  body      String
+  createdAt DateTime @default(now())
+
+  post Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model FriendRequest {
+  id          String       @id @default(uuid()) @db.Uuid
+  senderId    String       @db.Uuid
+  receiverId  String       @db.Uuid
+  status      FriendStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  respondedAt DateTime?
+
+  sender   Profile @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver Profile @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+}
+
+/// Materialized accepted friendship. One row per pair, ordered (userAId < userBId).
+model Friendship {
+  id        String   @id @default(uuid()) @db.Uuid
+  userAId   String   @db.Uuid
+  userBId   String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  @@unique([userAId, userBId])
+}
+
+/// Plant chat history — persisted only if OPEN_QUESTIONS #5 resolves to "persist".
+model ChatMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  plantId     String   @db.Uuid
+  userMessage String
+  aiResponse  String
+  createdAt   DateTime @default(now())
+
+  user  Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plant Plant   @relation(fields: [plantId], references: [id])
+
+  @@index([userId, plantId, createdAt])
+}
+
+/// Content report (moderation MVP). A user flags a post; admins review + delete.
+/// Fire-and-forget from the client (POST /posts/:id/report → 204), but persisted so there's
+/// a real moderation trail rather than a logged no-op.
+model Report {
+  id         String   @id @default(uuid()) @db.Uuid
+  reporterId String   @db.Uuid
+  postId     String   @db.Uuid
+  reason     String
+  createdAt  DateTime @default(now())
+
+  reporter Profile @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  post     Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}

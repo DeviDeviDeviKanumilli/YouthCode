@@ -105,6 +105,24 @@ Still to do:
 
 - Manually verify the Explore region card in Android once a device or emulator is available.
 
+### 2026-06-27 - Saved Sighting Intelligence Card detail
+
+Changed:
+
+- Added `/sightings/[id]` in the Expo Router app.
+- Wired Sightings list cards to open `GET /observations/{observation_id}/intelligence-card`.
+- Kept "Create follow-up report" as a separate action from opening the saved intelligence card.
+- Added unit coverage for intelligence-card title and Ecological Signal Priority display fallbacks.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 6 files, 16 tests.
+
+Still to do:
+
+- Manually verify saved sighting detail navigation in Android once a device or emulator is available.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

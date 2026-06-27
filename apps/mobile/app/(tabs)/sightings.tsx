@@ -86,8 +86,8 @@ export default function SightingsScreen() {
               accessibilityRole="button"
               onPress={() =>
                 router.push({
-                  pathname: '/report',
-                  params: { source: 'sighting_history', observationId: item.observation_id },
+                  pathname: '/sightings/[id]',
+                  params: { id: item.observation_id },
                 })
               }
               style={({ pressed }) => [styles.noteCard, pressed && styles.pressed]}>
@@ -109,6 +109,7 @@ export default function SightingsScreen() {
                   {item.signal_label ? `${item.signal_label} • ` : ''}
                   {formatDate(item.created_at)}
                 </Text>
+                <Text style={styles.noteHint}>Open intelligence card</Text>
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => router.push({ pathname: '/report', params: { source: 'sighting_history', observationId: item.observation_id } })}
@@ -239,6 +240,11 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontFamily: fonts.body,
     fontSize: 14,
+  },
+  noteHint: {
+    color: colors.blue,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 12,
   },
   secondaryButton: {
     alignSelf: 'flex-start',

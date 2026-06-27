@@ -39,6 +39,11 @@ Branch: `main`
   - Added a local ecosystem card on Explore with watched species, nearby signal, recent point, sampling, and uncertainty context.
   - Added unit coverage for region summary counts.
 
+- Saved Sightings could not reopen the backend Sighting Intelligence Card.
+  - Added a saved sighting detail route backed by `GET /observations/{observation_id}/intelligence-card`.
+  - Updated Sightings list cards to open the intelligence card while keeping follow-up reporting as a separate action.
+  - Added unit coverage for intelligence-card title and priority display fallbacks.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -58,7 +63,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 5 files, 14 tests.
+- `cd apps/mobile && npm test` passed: 6 files, 16 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -66,6 +71,7 @@ Branch: `main`
 ## Product Checklist Notes
 
 - Observation upload flow is wired through backend observation, media byte upload, identification, and intelligence card endpoints.
+- Saved observations can reopen the backend Sighting Intelligence Card from the Sightings tab.
 - Report prefill context from Watch, Good Places, and sighting history is now visible before submission and carried into backend habitat answers.
 - My Sightings is wired to `GET /users/{user_id}/observations`.
 - Watch and Explore are wired to backend local signal endpoints.

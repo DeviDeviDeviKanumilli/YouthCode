@@ -68,6 +68,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="watch/item/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="watch/place/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="sightings/[id]" options={{ headerShown: false }} />
         </Stack>
       </LocationProvider>
     </UserProvider>

@@ -8,10 +8,11 @@ import {
   extractForecastMapMarkers,
   type ForecastMapMarker,
 } from '@/lib/forecastMap';
-import type { ForecastLayerSummary } from '@/types/forecast';
+import type { ForecastLayerSummary, GeoJSONFeatureCollection } from '@/types/forecast';
 
 export function usePublicForecast(lat: number, lon: number, radiusKm: number) {
   const [summary, setSummary] = useState<ForecastLayerSummary | null>(null);
+  const [collection, setCollection] = useState<GeoJSONFeatureCollection | null>(null);
   const [markers, setMarkers] = useState<ForecastMapMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +22,7 @@ export function usePublicForecast(lat: number, lon: number, radiusKm: number) {
     try {
       const collection = await getPublicForecast(lat, lon, radiusKm);
       const bounds = boundsFromCenter(lat, lon, radiusKm);
+      setCollection(collection);
       setSummary(summarizeForecastLayers(collection));
       setMarkers(extractForecastMapMarkers(collection, bounds));
       setError(null);
@@ -37,6 +39,7 @@ export function usePublicForecast(lat: number, lon: number, radiusKm: number) {
 
   return {
     summary,
+    collection,
     markers,
     loading,
     error,
@@ -46,6 +49,7 @@ export function usePublicForecast(lat: number, lon: number, radiusKm: number) {
 
 export function usePublicForecastBbox(bbox: string | null) {
   const [summary, setSummary] = useState<ForecastLayerSummary | null>(null);
+  const [collection, setCollection] = useState<GeoJSONFeatureCollection | null>(null);
   const [markers, setMarkers] = useState<ForecastMapMarker[]>([]);
   const [loading, setLoading] = useState(Boolean(bbox));
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +57,7 @@ export function usePublicForecastBbox(bbox: string | null) {
   const refresh = useCallback(async () => {
     if (!bbox) {
       setSummary(null);
+      setCollection(null);
       setMarkers([]);
       setLoading(false);
       setError(null);
@@ -63,6 +68,7 @@ export function usePublicForecastBbox(bbox: string | null) {
     try {
       const collection = await getPublicForecastByBbox(bbox);
       const bounds = boundsFromBbox(bbox);
+      setCollection(collection);
       setSummary(summarizeForecastLayers(collection));
       setMarkers(bounds ? extractForecastMapMarkers(collection, bounds) : []);
       setError(null);
@@ -79,6 +85,7 @@ export function usePublicForecastBbox(bbox: string | null) {
 
   return {
     summary,
+    collection,
     markers,
     loading,
     error,

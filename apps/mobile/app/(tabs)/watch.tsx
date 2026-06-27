@@ -18,6 +18,7 @@ import { WatchItemCard } from '@/components/cards/WatchItemCard';
 import { getWatchScreen } from '@/api/watch';
 import type { GoodPlaceToCheck, WatchItem, WatchScreenResponse } from '@/types/watch';
 import { usePublicForecast } from '@/forecast/usePublicForecast';
+import { useSamplingGaps } from '@/sampling/useSamplingGaps';
 import {
   formatUpdatedAt,
   reportParamsForGoodPlace,
@@ -35,6 +36,7 @@ export default function WatchScreen() {
   const area = useLocalArea();
   const coords = useBackendCoordinates();
   const forecast = usePublicForecast(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
+  const samplingGaps = useSamplingGaps(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,12 +76,21 @@ export default function WatchScreen() {
       topHeight={300}
       topContent={
         <MapBackdrop
+          centerLat={coords.lat}
+          centerLon={coords.lon}
+          radiusKm={FALLBACK_RADIUS_KM}
           locationLabel={regionLabel}
           layerSummary={forecast.summary}
-          mapMarkers={forecast.markers}
-          isLoadingLayers={forecast.loading}
-          layerError={forecast.error}
-          onTargetPress={() => void area.refresh().then(() => Promise.all([load(), forecast.refresh()]))}
+          forecastCollection={forecast.collection}
+          samplingCollection={samplingGaps.collection}
+          isLoadingLayers={forecast.loading || samplingGaps.loading}
+          layerError={forecast.error ?? samplingGaps.error}
+          onObservationPress={(observationId) =>
+            router.push({ pathname: '/sightings/[id]', params: { id: observationId } })
+          }
+          onTargetPress={() =>
+            void area.refresh().then(() => Promise.all([load(), forecast.refresh(), samplingGaps.refresh()]))
+          }
         />
       }>
       <ScrollView

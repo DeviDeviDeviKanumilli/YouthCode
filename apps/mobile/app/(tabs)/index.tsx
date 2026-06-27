@@ -70,7 +70,7 @@ export default function ExploreScreen() {
 
   const regionLabel = area.locationGranted ? area.label : response?.region.label ?? area.label;
   const mapSummary = activeDemoScenario ? demoForecast.summary : forecast.summary;
-  const mapMarkers = activeDemoScenario ? demoForecast.markers : forecast.markers;
+  const mapCollection = activeDemoScenario ? demoForecast.collection : forecast.collection;
   const mapLoading = activeDemoScenario ? demoForecast.loading : forecast.loading;
   const mapError = activeDemoScenario ? demoForecast.error : forecast.error;
   const leadingPlace = response?.goodPlacesToCheck[0];
@@ -85,12 +85,19 @@ export default function ExploreScreen() {
       topHeight={420}
       topContent={
         <MapBackdrop
+          centerLat={coords.lat}
+          centerLon={coords.lon}
+          radiusKm={FALLBACK_RADIUS_KM}
           locationLabel={activeDemoScenario ? activeDemoScenario.title : regionLabel}
           demoLabel={activeDemoScenario ? 'Demo scenario map' : undefined}
           layerSummary={mapSummary}
-          mapMarkers={mapMarkers}
-          isLoadingLayers={mapLoading}
-          layerError={mapError}
+          forecastCollection={mapCollection}
+          samplingCollection={samplingGaps.collection}
+          isLoadingLayers={mapLoading || samplingGaps.loading}
+          layerError={mapError ?? samplingGaps.error}
+          onObservationPress={(observationId) =>
+            router.push({ pathname: '/sightings/[id]', params: { id: observationId } })
+          }
           onTargetPress={() =>
             void area.refresh().then(() =>
               Promise.all([

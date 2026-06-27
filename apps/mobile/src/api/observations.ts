@@ -64,3 +64,7 @@ export function getIntelligenceCard(observationId: string) {
 export function getPipelineStatus(observationId: string) {
   return apiGet<PipelineStatusResponse>(`/observations/${observationId}/pipeline-status`);
 }
+
+export function getObservationPipelineStatus(observationId: string) {
+  return getPipelineStatus(observationId);
+}

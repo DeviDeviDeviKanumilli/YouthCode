@@ -21,3 +21,31 @@ export type AssistantContextSummary = {
   hasEnvironmentalContext: boolean;
   hasSignalScore: boolean;
 };
+
+export type RegionAssistantContext = {
+  center: Record<string, string>;
+  radius_km: string;
+  nearby_signals: Record<string, unknown>[];
+  watched_species: Record<string, unknown>[];
+  sampling_gaps: Record<string, unknown>[];
+  recent_high_priority_observations: Record<string, unknown>[];
+  data_sparsity_warning: string;
+  source_summaries: {
+    observation_count?: number;
+    sampling_grid_cell_count?: number;
+    observation_sources?: Record<string, number>;
+    [key: string]: unknown;
+  };
+  required_uncertainty_notice: string;
+  data_sources_used: string[];
+};
+
+export type RegionAssistantSummary = {
+  nearbySignalCount: number;
+  watchedSpeciesCount: number;
+  samplingGapCount: number;
+  highPriorityCount: number;
+  observationCount: number;
+  samplingCellCount: number;
+  dataSourceCount: number;
+};

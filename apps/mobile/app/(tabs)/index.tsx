@@ -9,6 +9,7 @@ import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
 import { messageForError } from '@/api/client';
 import { getWatchScreen } from '@/api/watch';
+import { useRegionAssistantContext } from '@/assistant/useRegionAssistantContext';
 import type { GoodPlaceToCheck, WatchItem, WatchScreenResponse } from '@/types/watch';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
@@ -17,8 +18,10 @@ import { usePublicForecast } from '@/forecast/usePublicForecast';
 import { useNearbyRegion } from '@/regions/useNearbyRegion';
 import { useSamplingGaps } from '@/sampling/useSamplingGaps';
 import { goodPlaceImage, watchItemImage } from '@/lib/images';
+import { summarizeRegionAssistantContext } from '@/lib/assistantContext';
 import { summarizeNearbyRegion } from '@/lib/regions';
 import { samplingLabelCopy } from '@/lib/sampling';
+import type { RegionAssistantContext } from '@/types/assistant';
 import type { NearbyRegionSummary } from '@/types/regions';
 import type { SamplingGapSummary } from '@/types/sampling';
 import { reportParamsForGoodPlace, reportParamsForWatchItem, watchItemActionHref, watchPlaceActionHref } from '@/lib/watch';
@@ -30,6 +33,7 @@ export default function ExploreScreen() {
   const forecast = usePublicForecast(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
   const nearbyRegion = useNearbyRegion(coords.lat, coords.lon, 10);
   const samplingGaps = useSamplingGaps(coords.lat, coords.lon, 10);
+  const regionAssistant = useRegionAssistantContext(coords.lat, coords.lon, 10);
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +75,13 @@ export default function ExploreScreen() {
           layerError={forecast.error}
           onTargetPress={() =>
             void area.refresh().then(() =>
-              Promise.all([load(), forecast.refresh(), nearbyRegion.refresh(), samplingGaps.refresh()])
+              Promise.all([
+                load(),
+                forecast.refresh(),
+                nearbyRegion.refresh(),
+                samplingGaps.refresh(),
+                regionAssistant.refresh(),
+              ])
             )
           }
         />
@@ -126,6 +136,16 @@ export default function ExploreScreen() {
           />
         ) : null}
 
+        {regionAssistant.error ? (
+          <StatusPanel
+            title="Grounded area context is unavailable"
+            message={regionAssistant.error}
+            actionLabel="Retry context"
+            onActionPress={() => void regionAssistant.refresh()}
+            tone="error"
+          />
+        ) : null}
+
         {leadingPlace ? (
           <ExploreSignalCard
             label="Worth checking"
@@ -170,6 +190,15 @@ export default function ExploreScreen() {
           </View>
         ) : null}
 
+        {regionAssistant.context ? <RegionAssistantCard context={regionAssistant.context} /> : null}
+
+        {regionAssistant.loading && !regionAssistant.context ? (
+          <View style={styles.regionCard}>
+            <View style={styles.loadingLine} />
+            <View style={[styles.loadingLine, { width: '72%' }]} />
+          </View>
+        ) : null}
+
         <SectionHeading title="Good places to check" />
         {response && response.goodPlacesToCheck.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.placeRow}>
@@ -184,6 +213,35 @@ export default function ExploreScreen() {
         ) : null}
       </ScrollView>
     </ScreenFrame>
+  );
+}
+
+function RegionAssistantCard({ context }: { context: RegionAssistantContext }) {
+  const summary = summarizeRegionAssistantContext(context);
+  return (
+    <View style={styles.assistantCard}>
+      <View style={styles.regionHeader}>
+        <View style={styles.assistantIcon}>
+          <MaterialIcons name="psychology" size={20} color={colors.mossDark} />
+        </View>
+        <View style={styles.regionCopy}>
+          <Text style={styles.assistantEyebrow}>Grounded area context</Text>
+          <Text style={styles.regionTitle}>
+            {summary.observationCount} observations and {summary.samplingCellCount} sampling cells in context
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.regionStats}>
+        <MiniStat value={String(summary.nearbySignalCount)} label="signals" />
+        <MiniStat value={String(summary.samplingGapCount)} label="sampling gaps" />
+        <MiniStat value={String(summary.highPriorityCount)} label="priority records" />
+      </View>
+
+      <Text style={styles.regionNote}>{context.data_sparsity_warning}</Text>
+      <Text style={styles.regionUncertainty}>{context.required_uncertainty_notice}</Text>
+      <Text style={styles.assistantSources}>{summary.dataSourceCount} grounded data sources</Text>
+    </View>
   );
 }
 
@@ -456,6 +514,29 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 14,
   },
+  assistantCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 16,
+    gap: 14,
+  },
+  assistantIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.mossSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assistantEyebrow: {
+    color: colors.mossDark,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
   samplingIcon: {
     width: 42,
     height: 42,
@@ -565,6 +646,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 12,
     lineHeight: 18,
+  },
+  assistantSources: {
+    color: colors.mossDark,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
   placeRow: {
     gap: 12,

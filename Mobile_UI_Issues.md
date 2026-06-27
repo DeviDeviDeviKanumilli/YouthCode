@@ -65,6 +65,11 @@ Branch: `main`
   - Updated backend-backed screens/hooks to show calm retryable copy for 404, 422, 429, 5xx, and network failures.
   - Added unit coverage for user-safe error mapping.
 
+- Area-level Assistant Context existed in the backend but was not visible in mobile.
+  - Added a mobile client for `GET /assistant/context/region`.
+  - Added a grounded area context card on Explore with observation count, sampling-cell count, signal counts, sampling-gap counts, high-priority records, data sparsity warning, uncertainty notice, and data-source count.
+  - Added unit coverage for region assistant context summarization.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -84,7 +89,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 9 files, 22 tests.
+- `cd apps/mobile && npm test` passed: 9 files, 23 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -101,6 +106,7 @@ Branch: `main`
 - Saved sighting detail now surfaces grounded observation Assistant Context.
 - Explore now surfaces public Sampling Gap Layer context and absence cautions.
 - Backend error states now use user-safe mobile copy instead of raw response bodies.
+- Explore now surfaces grounded area-level Assistant Context.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

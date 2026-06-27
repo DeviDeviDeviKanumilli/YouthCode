@@ -193,6 +193,23 @@ Still to do:
 
 - Manually verify retry/error states in Android once a device or emulator is available.
 
+### 2026-06-27 - Grounded area assistant context in Explore
+
+Changed:
+
+- Added a mobile client and hook for `GET /assistant/context/region`.
+- Added an Explore grounded area context card with observation count, sampling-cell count, nearby signals, sampling gaps, priority records, sparsity warning, uncertainty notice, and data-source count.
+- Added unit coverage for region assistant context summarization.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 9 files, 23 tests.
+
+Still to do:
+
+- Manually verify the grounded area context card in Android once a device or emulator is available.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

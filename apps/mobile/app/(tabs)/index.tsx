@@ -1,85 +1,195 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
 import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import { MapBackdrop } from '@/components/layout/MapBackdrop';
 import { SectionHeading } from '@/components/layout/SectionHeading';
+import { StatusPanel } from '@/components/layout/StatusPanel';
+import { getWatchScreen } from '@/api/watch';
+import type { GoodPlaceToCheck, WatchItem, WatchScreenResponse } from '@/types/watch';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
-import { MaterialIcons } from '@expo/vector-icons';
+import { FALLBACK_RADIUS_KM, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
+import { goodPlaceImage, watchItemImage } from '@/lib/images';
+import { reportParamsForGoodPlace, reportParamsForWatchItem, watchItemActionHref, watchPlaceActionHref } from '@/lib/watch';
 
 export default function ExploreScreen() {
+  const router = useRouter();
+  const area = useLocalArea();
+  const coords = useBackendCoordinates();
+  const [response, setResponse] = useState<WatchScreenResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    setLoading(true);
+    getWatchScreen(coords.lat, coords.lon, FALLBACK_RADIUS_KM)
+      .then((data) => {
+        setResponse(data);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Unable to load local context.');
+      })
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coords.lat, coords.lon]);
+
+  const regionLabel = area.locationGranted ? area.label : response?.region.label ?? area.label;
+  const leadingPlace = response?.goodPlacesToCheck[0];
+  const leadingWatch = response?.watchedNearYou[0];
+
   return (
     <ScreenFrame
       eyebrow="Good afternoon"
       title="Explore"
-      regionLabel="Princeton, NJ"
-      subtitle="A field view for local signals, sampling gaps, and nearby context."
-      topContent={<MapBackdrop locationLabel="Princeton, NJ" demoLabel="Map preview" />}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SectionHeading title="Near you" subtitle="A few local signals worth noticing" />
-        <View style={styles.card}>
-          <View style={styles.cardTop}>
-            <View style={styles.cardBadge}>
-              <MaterialIcons name="eco" size={14} color={colors.mossDark} />
-              <Text style={styles.cardBadgeText}>Worth checking</Text>
-            </View>
-            <MaterialIcons name="more-horiz" size={20} color={colors.muted} />
-          </View>
-          <View style={styles.cardBody}>
-            <View style={styles.cardCopy}>
-              <Text style={styles.cardTitle}>Creek edges nearby are undersampled</Text>
-              <Text style={styles.cardSummary}>
-                A few clear photos from this area could help show what species are present.
-              </Text>
-            </View>
-            <View style={styles.cardImage}>
-              <MaterialIcons name="water" size={28} color={colors.moss} />
-            </View>
-          </View>
-        </View>
+      regionLabel={regionLabel}
+      showTargetButton={false}
+      topHeight={420}
+      topContent={<MapBackdrop locationLabel={regionLabel} onTargetPress={() => void area.refresh().then(load)} />}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading && response !== null} onRefresh={load} />}>
+        <SectionHeading
+          title="Near you"
+          subtitle={response ? `${response.watchedNearYou.length + response.goodPlacesToCheck.length} local signals worth noticing` : 'Loading nearby context'}
+        />
 
-        <View style={styles.card}>
-          <View style={styles.cardTop}>
-            <View style={[styles.cardBadge, { backgroundColor: colors.amberSoft }]}>
-              <MaterialIcons name="timeline" size={14} color="#934934" />
-              <Text style={[styles.cardBadgeText, { color: '#934934' }]}>Notice</Text>
-            </View>
-            <MaterialIcons name="more-horiz" size={20} color={colors.muted} />
+        {loading && !response ? (
+          <View style={styles.loadingCard}>
+            <View style={styles.loadingLine} />
+            <View style={[styles.loadingLine, { width: '68%' }]} />
           </View>
-          <View style={styles.cardBody}>
-            <View style={styles.cardCopy}>
-              <Text style={styles.cardTitle}>Spotted lanternfly sightings nearby</Text>
-              <Text style={styles.cardSummary}>
-                Multiple observations have been submitted within 2 miles this week.
-              </Text>
-            </View>
-            <View style={styles.cardImage}>
-              <MaterialIcons name="search" size={28} color={colors.amber} />
-            </View>
-          </View>
-        </View>
+        ) : null}
 
-        <SectionHeading title="Good places to check" subtitle="Static preview until map layers land" />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.placeRow}>
-          <PlaceTile icon="water" title="Creek edges" />
-          <PlaceTile icon="hiking" title="Trail entrances" />
-          <PlaceTile icon="park" title="Park boundaries" />
-          <PlaceTile icon="nature" title="Street trees" />
-        </ScrollView>
+        {error && !response ? (
+          <StatusPanel title="Could not load Explore" message={error} actionLabel="Retry" onActionPress={load} tone="error" />
+        ) : null}
+
+        {leadingPlace ? (
+          <ExploreSignalCard
+            label="Worth checking"
+            icon="water"
+            title={leadingPlace.title}
+            summary={leadingPlace.summary}
+            imageUrl={goodPlaceImage(leadingPlace)}
+            tone="place"
+            onPress={() => router.push(watchPlaceActionHref(leadingPlace))}
+            onReport={() => router.push({ pathname: '/report', params: reportParamsForGoodPlace(leadingPlace) })}
+          />
+        ) : null}
+
+        {leadingWatch ? (
+          <ExploreSignalCard
+            label="Notice"
+            icon="timeline"
+            title={leadingWatch.title}
+            summary={leadingWatch.summary}
+            imageUrl={watchItemImage(leadingWatch)}
+            tone="watch"
+            onPress={() => router.push(watchItemActionHref(leadingWatch))}
+            onReport={() => router.push({ pathname: '/report', params: reportParamsForWatchItem(leadingWatch) })}
+          />
+        ) : null}
+
+        <SectionHeading title="Good places to check" />
+        {response && response.goodPlacesToCheck.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.placeRow}>
+            {response.goodPlacesToCheck.map((place) => (
+              <PlaceTile
+                key={place.id}
+                place={place}
+                onPress={() => router.push(watchPlaceActionHref(place))}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
       </ScrollView>
     </ScreenFrame>
   );
 }
 
-function PlaceTile({ icon, title }: { icon: keyof typeof MaterialIcons.glyphMap; title: string }) {
+function ExploreSignalCard({
+  label,
+  icon,
+  title,
+  summary,
+  imageUrl,
+  tone,
+  onPress,
+  onReport,
+}: {
+  label: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  title: string;
+  summary: string;
+  imageUrl: string;
+  tone: 'place' | 'watch';
+  onPress: () => void;
+  onReport: () => void;
+}) {
+  const badgeStyle = tone === 'place' ? styles.cardBadge : [styles.cardBadge, styles.noticeBadge];
+  const badgeColor = tone === 'place' ? colors.mossDark : '#934934';
+
   return (
-    <View style={styles.placeTile}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      <View style={styles.cardTop}>
+        <View style={badgeStyle}>
+          <MaterialIcons name={icon} size={14} color={badgeColor} />
+          <Text style={[styles.cardBadgeText, { color: badgeColor }]}>{label}</Text>
+        </View>
+        <Pressable accessibilityRole="button" onPress={onReport} style={({ pressed }) => [styles.reportButton, pressed && styles.pressed]}>
+          <MaterialIcons name="add-a-photo" size={16} color={colors.white} />
+          <Text style={styles.reportText}>Report</Text>
+        </Pressable>
+      </View>
+      <View style={styles.cardBody}>
+        <View style={styles.cardCopy}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardSummary}>{summary}</Text>
+        </View>
+        <Image source={{ uri: imageUrl }} style={styles.cardImage} contentFit="cover" />
+      </View>
+    </Pressable>
+  );
+}
+
+function PlaceTile({ place, onPress }: { place: GoodPlaceToCheck; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.placeTile, pressed && styles.pressed]}>
+      <Image source={{ uri: goodPlaceImage(place) }} style={StyleSheet.absoluteFill} contentFit="cover" />
       <View style={styles.placeOverlay} />
       <View style={styles.placeBadge}>
-        <MaterialIcons name={icon} size={18} color={colors.ink} />
+        <MaterialIcons name={iconForPlace(place.type)} size={18} color={colors.ink} />
       </View>
-      <Text style={styles.placeTitle}>{title}</Text>
-    </View>
+      <Text style={styles.placeTitle}>{place.title}</Text>
+    </Pressable>
   );
+}
+
+function iconForPlace(type: GoodPlaceToCheck['type']) {
+  switch (type) {
+    case 'creek_edges':
+      return 'water';
+    case 'trail_entrances':
+      return 'hiking';
+    case 'park_boundaries':
+      return 'park';
+    case 'street_trees':
+      return 'nature';
+    case 'wetland_edges':
+      return 'waves';
+    case 'garden_edges':
+    default:
+      return 'yard';
+  }
 }
 
 const styles = StyleSheet.create({
@@ -87,6 +197,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 120,
     gap: 18,
+  },
+  loadingCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 18,
+    gap: 10,
+  },
+  loadingLine: {
+    width: '86%',
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.surfaceSoft,
   },
   card: {
     backgroundColor: colors.surface,
@@ -96,10 +220,15 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
   },
+  pressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.99 }],
+  },
   cardTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
   cardBadge: {
     flexDirection: 'row',
@@ -110,12 +239,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
+  noticeBadge: {
+    backgroundColor: colors.amberSoft,
+  },
   cardBadgeText: {
-    color: colors.mossDark,
     fontFamily: fonts.label,
     fontSize: 10,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
+  },
+  reportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.blue,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  reportText: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 12,
   },
   cardBody: {
     flexDirection: 'row',
@@ -138,20 +283,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   cardImage: {
-    width: 90,
-    height: 90,
+    width: 92,
+    height: 92,
     borderRadius: 16,
     backgroundColor: colors.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   placeRow: {
     gap: 12,
     paddingRight: 8,
   },
   placeTile: {
-    width: 160,
-    height: 160,
+    width: 168,
+    height: 168,
     borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: colors.surfaceDim,
@@ -160,7 +303,7 @@ const styles = StyleSheet.create({
   },
   placeOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.42)',
   },
   placeBadge: {
     position: 'absolute',

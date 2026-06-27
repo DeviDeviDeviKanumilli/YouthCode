@@ -19,6 +19,54 @@ This file is the running handoff log for mobile UI work on the `mobile-ui` branc
 
 ## Handoff Log
 
+### 2026-06-26 - Persistent user session and real Sightings feed
+
+Changed:
+
+- Added `expo-secure-store` and a `UserProvider` that creates or restores an anonymous backend user session on launch.
+- Wired Report submissions to include the persisted `user_id`, so new sightings belong to a stable backend user instead of a temporary session.
+- Replaced the Sightings placeholder with a backend-backed observation list from `GET /users/{user_id}/observations`.
+- Made each sighting card clickable and gave it an image-backed layout instead of the old text-only stub.
+- Replaced the remaining guessed image URLs with confirmed Wikimedia Commons file paths that return real images on device.
+
+Verified:
+
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
+- `curl -L -sS -o /dev/null -w '%{http_code}\n'` against the Commons fallback URLs returns `200` for the confirmed image paths used in the app.
+- Rebuilt and reinstalled the Android dev client on the connected physical Pixel after adding `expo-secure-store`.
+
+Still to do:
+
+- Verify the Sightings feed on the phone with actual stored observations once the user captures a new report.
+- Continue polishing the detail screens and any remaining copy that still feels placeholder-like.
+
+### 2026-06-26 - Location-aware UI and report capture flow
+
+Changed:
+
+- Added `expo-location` and `expo-camera` to the mobile app and configured native permission prompts in `app.json`.
+- Added a shared `LocationProvider` that requests location and camera permissions on app open, reverse-geocodes the current area, and exposes refreshable coordinates to app screens.
+- Fixed the bottom tab bar so the blue `+` report button is centered between Watch and Sightings instead of overlapping a tab.
+- Reworked Explore to use backend Watch data for clickable near-you cards and Good Places cards, removed the static Princeton copy, and filled the top area with the map-style visual.
+- Reworked Watch to use current-device coordinates when available, removed demo-ranking copy, and refreshed the map/header copy from location state.
+- Updated Watch item and Good Place cards/details to use real image fallbacks when backend image URLs are missing or point at placeholder storage.
+- Replaced the report placeholder with a staged camera flow: capture, confirm photo, add habitat clues, submit to the backend, run mock identification, and show the intelligence card result.
+
+Verified:
+
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
+- Rebuilt and installed the Android debug dev client on the connected physical Pixel 10 Pro XL (`59040DLCQ000QZ`) with `expo-camera` and `expo-location` linked.
+- Started Metro for the dev client at `exp+ecosentinel-mobile://expo-development-client/?url=http%3A%2F%2F10.0.0.142%3A8083` using `EXPO_PUBLIC_API_BASE_URL=http://10.0.0.142:8000`.
+- Opened the installed dev client on the phone from Expo CLI and confirmed the JS bundle compiled without Metro runtime errors.
+
+Still to do:
+
+- Manually confirm the permission prompts, camera preview, backend submission, and result card on the phone screen.
+- Review image fallback URLs in-device; if any Commons filename does not resolve, replace it with a confirmed URL.
+- Continue removing/deepening remaining Profile/Guide/Sightings placeholder behavior in a later pass.
+
 ### 2026-06-26 - Dev client setup for physical phones
 
 Changed:

@@ -14,7 +14,6 @@ import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
 import { GoodPlaceCard } from '@/components/cards/GoodPlaceCard';
 import { WatchItemCard } from '@/components/cards/WatchItemCard';
-import { DEMO_LOCATION } from '@/constants/location';
 import { getWatchScreen } from '@/api/watch';
 import type { GoodPlaceToCheck, WatchItem, WatchScreenResponse } from '@/types/watch';
 import {
@@ -26,9 +25,12 @@ import {
 } from '@/lib/watch';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
+import { FALLBACK_RADIUS_KM, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
 
 export default function WatchScreen() {
   const router = useRouter();
+  const area = useLocalArea();
+  const coords = useBackendCoordinates();
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,7 +42,7 @@ export default function WatchScreen() {
       setError(null);
     }
 
-    getWatchScreen(DEMO_LOCATION.lat, DEMO_LOCATION.lon, DEMO_LOCATION.radiusKm)
+    getWatchScreen(coords.lat, coords.lon, FALLBACK_RADIUS_KM)
       .then((data) => {
         setResponse(data);
         setError(null);
@@ -57,9 +59,9 @@ export default function WatchScreen() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [coords.lat, coords.lon]);
 
-  const regionLabel = response?.region.label ?? 'Princeton, NJ';
+  const regionLabel = area.locationGranted ? area.label : response?.region.label ?? area.label;
   const updatedAt = response ? formatUpdatedAt(response.updatedAt) : 'Updating local signals';
 
   return (
@@ -67,9 +69,9 @@ export default function WatchScreen() {
       eyebrow="Good afternoon"
       title="Watch"
       regionLabel={regionLabel}
-      subtitle="Using demo area until location permission is wired."
+      subtitle={area.locationGranted ? 'Things worth noticing nearby' : 'Enable location to rank signals around you.'}
       topHeight={300}
-      topContent={<MapBackdrop locationLabel={regionLabel} demoLabel="Using demo area" onTargetPress={load} />}>
+      topContent={<MapBackdrop locationLabel={regionLabel} onTargetPress={() => void area.refresh().then(load)} />}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -82,7 +84,7 @@ export default function WatchScreen() {
           </View>
           <View style={styles.metaBlock}>
             <Text style={styles.metaLabel}>Radius</Text>
-            <Text style={styles.metaValue}>{response?.region.radiusKm ?? DEMO_LOCATION.radiusKm} km</Text>
+            <Text style={styles.metaValue}>{response?.region.radiusKm ?? FALLBACK_RADIUS_KM} km</Text>
           </View>
           <View style={styles.metaBlock}>
             <Text style={styles.metaLabel}>Updated</Text>
@@ -123,7 +125,7 @@ export default function WatchScreen() {
 
         <SectionHeading
           title="Watched near you"
-          subtitle="Rendered from the backend ranking"
+          subtitle="Local signals from the backend"
           accessory={response ? `${response.watchedNearYou.length} items` : undefined}
         />
 

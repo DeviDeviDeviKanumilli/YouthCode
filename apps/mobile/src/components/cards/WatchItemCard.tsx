@@ -5,6 +5,7 @@ import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import type { WatchItem } from '@/types/watch';
 import { confidenceCopy, priorityCopy } from '@/lib/watch';
+import { watchItemImage } from '@/lib/images';
 
 type WatchItemCardProps = {
   item: WatchItem;
@@ -25,6 +26,15 @@ export function WatchItemCard({ item, onOpenDetail, onPrimaryAction }: WatchItem
       accessibilityRole="button"
       onPress={onOpenDetail}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      <View style={styles.imageWrap}>
+        <Image
+          source={{ uri: watchItemImage(item) }}
+          style={styles.image}
+          contentFit="cover"
+          accessibilityLabel={item.imageAlt ?? item.title}
+        />
+      </View>
+
       <View style={styles.content}>
         <View style={styles.topRow}>
           <View style={[styles.labelPill, { backgroundColor: chipBackgroundForType(item.type) }]}>
@@ -66,20 +76,6 @@ export function WatchItemCard({ item, onOpenDetail, onPrimaryAction }: WatchItem
         </View>
       </View>
 
-      <View style={styles.imageWrap}>
-        {item.imageUrl ? (
-          <Image
-            source={{ uri: item.imageUrl }}
-            style={styles.image}
-            contentFit="cover"
-            accessibilityLabel={item.imageAlt ?? item.title}
-          />
-        ) : (
-          <View style={styles.imageFallback}>
-            <MaterialIcons name="eco" size={26} color={colors.moss} />
-          </View>
-        )}
-      </View>
     </Pressable>
   );
 }
@@ -134,7 +130,6 @@ function chipTextForType(type: WatchItem['type']) {
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
     gap: 14,
     backgroundColor: colors.surface,
     borderRadius: 22,
@@ -165,17 +160,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 1,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
   labelText: {
+    flexShrink: 1,
     fontFamily: fonts.label,
     fontSize: 10,
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   priorityPill: {
+    flexShrink: 1,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 5,
@@ -250,22 +248,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   imageWrap: {
-    width: 96,
-    alignItems: 'stretch',
-  },
-  image: {
-    width: 96,
-    height: 96,
-    borderRadius: 14,
+    height: 150,
+    borderRadius: 18,
+    overflow: 'hidden',
     backgroundColor: colors.surfaceDim,
   },
-  imageFallback: {
-    width: 96,
-    height: 96,
-    borderRadius: 14,
-    backgroundColor: colors.surfaceSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+  image: {
+    width: '100%',
+    height: '100%',
   },
 });
-

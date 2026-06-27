@@ -36,10 +36,31 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-image"
+      "expo-image",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow EcoSentinel to use your location for nearby ecological context."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow EcoSentinel to use your camera to capture sightings.",
+          "microphonePermission": "Allow EcoSentinel to access your microphone.",
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "94ff12ad-fdfc-4483-b3ae-c5efb85325dd"
+      }
     }
   }
 }

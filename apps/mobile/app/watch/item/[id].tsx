@@ -10,6 +10,7 @@ import type { WatchItemDetail as WatchItemDetailType } from '@/types/watch';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { reportParamsForWatchItem, watchItemActionHref } from '@/lib/watch';
+import { watchItemImage } from '@/lib/images';
 
 export default function WatchItemDetailScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function WatchItemDetailScreen() {
     <DetailFrame
       title={item?.title ?? 'Watch item'}
       subtitle={item?.label ?? 'Loading details'}
-      imageUrl={item?.imageUrl}
+      imageUrl={item ? watchItemImage(item) : null}
       imageAlt={item?.title}
       onBack={() => router.back()}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -267,4 +268,3 @@ const styles = StyleSheet.create({
     opacity: 0.86,
   },
 });
-

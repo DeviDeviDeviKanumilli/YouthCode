@@ -43,6 +43,7 @@ export function ScreenFrame({
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.heroTexture} />
+        {topContent ? <View style={styles.heroVisual}>{topContent}</View> : null}
         <View style={[styles.heroInner, { paddingTop: insets.top + 20 }]}>
           <View style={styles.heroHeaderRow}>
             <View style={styles.heroCopy}>
@@ -61,7 +62,6 @@ export function ScreenFrame({
               </Pressable>
             ) : null}
           </View>
-          {topContent ? <View style={styles.heroVisual}>{topContent}</View> : null}
         </View>
       </View>
       <View style={[styles.sheet, { backgroundColor: sheetBackground }]}>
@@ -143,9 +143,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.97 }],
   },
   heroVisual: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 10,
+    ...StyleSheet.absoluteFill,
   },
   sheet: {
     flex: 1,

@@ -14,11 +14,18 @@ This plan describes how to add the EcoSentinel React Native consumer app to this
 ## Current Repo State
 
 - Backend exists under `apps/api`.
-- Mobile app does not exist yet.
+- Mobile app now exists under `apps/mobile` and is wired to the backend Watch endpoints.
 - `stitchDesignReference.txt` contains the HTML UI reference for Explore, Watch, Sightings, Guide/Profile-style screens, and Report flow screens.
 - `mobile-ui` is the working branch and tracks `origin/mobile-ui`.
 - Major changes should be committed and pushed to `origin/mobile-ui`.
 - `HANDOFF.md` should be updated after each semi-major change.
+
+## Implementation Status
+
+- `apps/mobile` has been scaffolded with Expo Router and TypeScript.
+- The Watch tab, Watch detail routes, and Report placeholder are implemented.
+- Mobile unit tests pass and TypeScript checks pass with the current codebase.
+- Emulator verification notes are recorded in `HANDOFF.md`.
 
 ## Environment And Local Wiring
 

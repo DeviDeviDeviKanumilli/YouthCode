@@ -1,5 +1,24 @@
-export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.0.2.2:8000';
+import { Platform } from 'react-native';
+
+const DEFAULT_PROD_API_BASE_URL = 'https://api.ecosentinel.app';
+
+export function resolveApiBaseUrl(): string {
+  const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (envUrl) {
+    return envUrl.replace(/\/$/, '');
+  }
+
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://127.0.0.1:8000';
+  }
+
+  return DEFAULT_PROD_API_BASE_URL;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export class ApiError extends Error {
   constructor(

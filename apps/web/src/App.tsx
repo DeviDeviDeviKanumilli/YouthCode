@@ -939,7 +939,7 @@ function MetricsGrid({ observations }: { observations: DashboardObservation[] })
   ).length;
 
   const metrics = [
-    ["Total observations", observations.length.toLocaleString(), "Delaware River Basin · Jun 2026"],
+    ["Total observations", observations.length.toLocaleString(), "Current dashboard filters"],
     ["Needs verification", needsVerification.toLocaleString(), "Unverified + needs more evidence"],
     ["Priority ecological signals", prioritySignals.toLocaleString(), "High-value or priority label · visible"],
     ["Under-sampled records", underSampled.toLocaleString(), "Records with sampling gap label · visible"],

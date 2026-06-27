@@ -1,455 +1,599 @@
-import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react';
 import {
-  BarChart3,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import {
+  AlertTriangle,
   Bell,
-  Check,
+  CheckCircle2,
   ChevronDown,
-  CircleHelp,
-  Columns3,
+  ClipboardList,
   Database,
   Download,
-  Eye,
-  FileDown,
   Flag,
-  Filter,
-  Grid3X3,
+  LayoutGrid,
   Leaf,
-  ListPlus,
+  ListChecks,
   Map,
-  MessageSquareText,
-  MoreHorizontal,
-  NotebookPen,
-  Send,
+  MessageSquare,
+  RefreshCw,
+  Save,
   Search,
+  Send,
   Settings,
-  ShieldCheck,
+  SlidersHorizontal,
   Table2,
-  TriangleAlert,
-  X,
-} from 'lucide-react';
-import { createResearchExport, demoDashboardData, loadDashboardData, submitVerification } from './api';
-import { type MapLayerState, ResearchMap } from './ResearchMap';
+  XCircle,
+} from "lucide-react";
+import {
+  ApiError,
+  askResearchAnalyst,
+  createExportRequest,
+  downloadExportRecord,
+  fetchExportRecord,
+  fetchVerificationHistory,
+  isApiModeConfigured,
+  loadDashboardData,
+  loadForecastResearch,
+  submitVerificationAction,
+  waitForExportCompletion,
+} from "./api";
+import {
+  buildAnalystAnswer,
+  buildDemoPayload,
+  delawareBasinBbox,
+  provenanceSources,
+} from "./data";
+import ResearchMap from "./ResearchMap";
 import type {
-  DashboardData,
+  DashboardFilters,
+  DashboardObservation,
+  DashboardPayload,
+  ExportFormat,
   ExportRecord,
   ExportRequest,
-  Observation,
+  ForecastPayload,
+  MapLayers,
+  ObservationActions,
+  ResearchRole,
   SamplingCell,
   ScreenId,
-  SignalLabel,
-  UserRole,
+  VerificationHistoryEvent,
   VerificationStatus,
-} from './types';
+} from "./types";
 
-const navItems: Array<{ id: ScreenId; label: string; icon: typeof Grid3X3; badge?: string }> = [
-  { id: 'overview', label: 'Overview', icon: Grid3X3 },
-  { id: 'verification', label: 'Verification Queue', icon: ShieldCheck, badge: '12' },
-  { id: 'observations', label: 'Observations', icon: Table2 },
-  { id: 'forecast', label: 'Forecast Map', icon: Map },
-  { id: 'sampling', label: 'Sampling Gaps', icon: BarChart3 },
-  { id: 'exports', label: 'Exports', icon: FileDown },
-  { id: 'analyst', label: 'AI Analyst', icon: MessageSquareText },
-  { id: 'settings', label: 'Settings', icon: Settings },
+const requesterId =
+  import.meta.env.VITE_REQUESTER_ID ?? "00000000-0000-0000-0000-000000000000";
+const hasApiToken = Boolean(import.meta.env.VITE_API_TOKEN);
+const apiConfigured = isApiModeConfigured();
+
+const defaultDashboardFilters: DashboardFilters = {
+  speciesId: "",
+  bbox: delawareBasinBbox,
+  regionCode: "",
+  fromDate: "2026-06-01",
+  toDate: "2026-06-30",
+  verificationStatus: "",
+  signalLabel: "high_value_verification_candidate",
+  needsReview: true,
+  hasMedia: false,
+};
+
+const screens: Array<{
+  id: ScreenId;
+  label: string;
+  icon: typeof LayoutGrid;
+  badge?: string;
+}> = [
+  { id: "overview", label: "Overview", icon: LayoutGrid },
+  { id: "verification", label: "Verification Queue", icon: ListChecks },
+  { id: "observations", label: "Observations", icon: Table2 },
+  { id: "forecast", label: "Forecast Map", icon: Map },
+  { id: "sampling", label: "Sampling Gaps", icon: Database },
+  { id: "exports", label: "Exports", icon: Download },
+  { id: "analyst", label: "AI Analyst", icon: MessageSquare },
+  { id: "settings", label: "Settings", icon: Settings },
 ];
 
-const screenTitles: Record<ScreenId, { title: string; subtitle: string }> = {
+function buildOverviewSubtitle(filters: DashboardFilters) {
+  const parts: string[] = [];
+  if (filters.bbox === delawareBasinBbox || !filters.bbox.trim()) {
+    parts.push("Delaware River Basin");
+  } else {
+    parts.push("Custom area");
+  }
+  if (filters.fromDate && filters.toDate) {
+    parts.push(`${filters.fromDate} to ${filters.toDate}`);
+  } else if (filters.fromDate) {
+    parts.push(`from ${filters.fromDate}`);
+  } else if (filters.toDate) {
+    parts.push(`to ${filters.toDate}`);
+  }
+  return `Filtered operational view for ${parts.join(", ")}.`;
+}
+
+const screenCopy: Record<ScreenId, { title: string; subtitle: string }> = {
   overview: {
-    title: 'Research overview',
-    subtitle: 'Filtered operational view for Delaware River Basin, May 2025.',
+    title: "Research overview",
+    subtitle: "",
   },
   verification: {
-    title: 'Verification queue',
-    subtitle: 'Review high-value verification candidates with evidence and uncertainty.',
+    title: "Verification queue",
+    subtitle: "Review high-value verification candidates with evidence and uncertainty.",
   },
   observations: {
-    title: 'Observations',
-    subtitle: 'Search and compare structured ecological records.',
+    title: "Observations",
+    subtitle: "Search and compare structured ecological records.",
   },
   forecast: {
-    title: 'Forecast map',
-    subtitle: 'Potential spread corridors, verified records, and sampling context.',
+    title: "Forecast map",
+    subtitle: "Potential spread corridors, verified records, and sampling context.",
   },
   sampling: {
-    title: 'Sampling gaps',
-    subtitle: 'Find weak, biased, or missing data before treating absence as absence.',
+    title: "Sampling gaps",
+    subtitle: "Find weak, biased, or missing data before treating absence as absence.",
   },
   exports: {
-    title: 'Export center',
-    subtitle: 'Create privacy-aware CSV and GeoJSON research exports.',
+    title: "Export center",
+    subtitle: "Create privacy-aware CSV and GeoJSON research exports.",
   },
   analyst: {
-    title: 'AI analyst',
-    subtitle: 'Grounded research answers with cited sources and uncertainty.',
+    title: "AI analyst",
+    subtitle: "Grounded research answers with cited sources and uncertainty.",
   },
   settings: {
-    title: 'Settings',
-    subtitle: 'Manage workspace defaults and research access preferences.',
+    title: "Settings",
+    subtitle: "Manage workspace defaults and research access preferences.",
   },
 };
 
 const storageKeys = {
-  analystSaves: 'ecosentinel.web.analystSaves',
-  flaggedRecords: 'ecosentinel.web.flaggedRecords',
-  observationViews: 'ecosentinel.web.observationViews',
-  role: 'ecosentinel.web.role',
-  samplingPlanRecords: 'ecosentinel.web.samplingPlanRecords',
-  selectedId: 'ecosentinel.web.selectedId',
-  taskRecords: 'ecosentinel.web.taskRecords',
-} as const;
-
-interface ObservationWorkbenchActions {
-  flagged: boolean;
-  inSamplingPlan: boolean;
-  hasTask: boolean;
-  onAddToSamplingPlan: () => void;
-  onCreateTask: () => void;
-  onExportRecord: () => void;
-  onOpenVerification: () => void;
-  onToggleFlag: () => void;
-  onViewOnMap: () => void;
-}
-
-function App() {
-  const [screen, setScreen] = useState<ScreenId>(() => readScreenFromHash());
-  const [dashboard, setDashboard] = useState<DashboardData>(() => demoDashboardData());
-  const [selectedId, setSelectedId] = useState(() => readStringStorage(storageKeys.selectedId, dashboard.observations[0].id));
-  const [query, setQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
-  const [role, setRole] = useState<UserRole>(() => readRoleStorage());
-  const [filtersActive, setFiltersActive] = useState(true);
-  const [flaggedRecords, setFlaggedRecords] = useState(() => readStringArrayStorage(storageKeys.flaggedRecords, []));
-  const [samplingPlanRecords, setSamplingPlanRecords] = useState(() => readStringArrayStorage(storageKeys.samplingPlanRecords, []));
-  const [taskRecords, setTaskRecords] = useState(() => readStringArrayStorage(storageKeys.taskRecords, []));
-  const [workbenchNotice, setWorkbenchNotice] = useState<string | null>(null);
-  const filteredObservations = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return dashboard.observations.filter((item) => {
-      const matchesQuery =
-        !needle ||
-        [item.id, item.commonName, item.scientificName, item.location, item.signalLabel, item.verificationStatus]
-          .join(' ')
-          .toLowerCase()
-          .includes(needle);
-      const matchesDemoFilters =
-        !filtersActive ||
-        (['Unverified', 'Needs more evidence'].includes(item.verificationStatus) &&
-          ['High-value verification candidate', 'Priority ecological signal'].includes(item.signalLabel));
-      return matchesQuery && matchesDemoFilters;
-    });
-  }, [dashboard.observations, filtersActive, query]);
-  const selected = filteredObservations.find((item) => item.id === selectedId) ?? filteredObservations[0] ?? null;
-
-  useEffect(() => {
-    if (filteredObservations.length > 0 && !filteredObservations.some((item) => item.id === selectedId)) {
-      setSelectedId(filteredObservations[0].id);
-    }
-  }, [filteredObservations, selectedId]);
-
-  useEffect(() => {
-    const onHashChange = () => setScreen(readScreenFromHash());
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
-  }, []);
-
-  useEffect(() => {
-    writeStorage(storageKeys.role, role);
-  }, [role]);
-
-  useEffect(() => {
-    writeStorage(storageKeys.selectedId, selectedId);
-  }, [selectedId]);
-
-  useEffect(() => {
-    writeJsonStorage(storageKeys.flaggedRecords, flaggedRecords);
-  }, [flaggedRecords]);
-
-  useEffect(() => {
-    writeJsonStorage(storageKeys.samplingPlanRecords, samplingPlanRecords);
-  }, [samplingPlanRecords]);
-
-  useEffect(() => {
-    writeJsonStorage(storageKeys.taskRecords, taskRecords);
-  }, [taskRecords]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function hydrate() {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const nextDashboard = await loadDashboardData();
-        if (!isMounted) {
-          return;
-        }
-        setDashboard(nextDashboard);
-        setSelectedId((current) =>
-          nextDashboard.observations.some((item) => item.id === current)
-            ? current
-            : nextDashboard.observations[0]?.id ?? current,
-        );
-      } catch (error) {
-        if (isMounted) {
-          setLoadError(error instanceof Error ? error.message : 'Unable to load dashboard data.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void hydrate();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  const changeScreen = (nextScreen: ScreenId) => {
-    setScreen(nextScreen);
-    window.history.replaceState(null, '', `#${nextScreen}`);
-  };
-
-  const updateStringSet = (setter: Dispatch<SetStateAction<string[]>>, id: string, mode: 'add' | 'toggle') => {
-    setter((current) => {
-      const exists = current.includes(id);
-      if (mode === 'toggle') {
-        return exists ? current.filter((item) => item !== id) : [id, ...current];
-      }
-      return exists ? current : [id, ...current];
-    });
-  };
-
-  const updateVerification = async (status: VerificationStatus, reviewerNote?: string) => {
-    if (!selected) {
-      setLoadError('No visible observation is selected for verification.');
-      return;
-    }
-
-    const defaultNotesByStatus: Record<VerificationStatus, string> = {
-      Unverified: '',
-      'Needs more evidence': 'Reviewer requested sharper habitat and close-up media evidence.',
-      'Expert verified': 'Confirmed from submitted media evidence and species context.',
-      'Field confirmed': 'Field confirmation recorded by authorized reviewer.',
-      Rejected: 'Rejected because the submitted evidence is insufficient for this possible species.',
-    };
-    const note = reviewerNote?.trim() || defaultNotesByStatus[status];
-
-    setPendingAction(status);
-    setLoadError(null);
-    try {
-      const nextStatus = await submitVerification({
-        observationId: selected.id,
-        status,
-        notes: note,
-        reviewerId: '00000000-0000-0000-0000-000000000000',
-      });
-      setDashboard((current) => ({
-        ...current,
-        observations: current.observations.map((item) =>
-          item.id === selected.id
-            ? {
-                ...item,
-                verificationStatus: nextStatus,
-                reviewerNotes: note,
-              }
-            : item,
-        ),
-        lastSyncedAt: new Date().toISOString(),
-      }));
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Verification action failed.');
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const createExport = async (request: ExportRequest) => {
-    setPendingAction('export');
-    setLoadError(null);
-    try {
-      const nextExport = await createResearchExport(request);
-      setDashboard((current) => ({
-        ...current,
-        exports: [nextExport, ...current.exports],
-        lastSyncedAt: new Date().toISOString(),
-      }));
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Export request failed.');
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
-  const retryExport = (row: ExportRecord) => {
-    const retryRecord: ExportRecord = {
-      ...row,
-      id: `EXP-RETRY-${Date.now()}`,
-      name: `${row.name} retry`,
-      status: 'Processing',
-      requested: new Date().toLocaleString(),
-    };
-
-    setDashboard((current) => ({
-      ...current,
-      exports: [retryRecord, ...current.exports],
-      lastSyncedAt: new Date().toISOString(),
-    }));
-  };
-
-  const selectedWorkbenchActions: ObservationWorkbenchActions | undefined = selected
-    ? {
-        flagged: flaggedRecords.includes(selected.id),
-        inSamplingPlan: samplingPlanRecords.includes(selected.id),
-        hasTask: taskRecords.includes(selected.id),
-        onAddToSamplingPlan: () => {
-          updateStringSet(setSamplingPlanRecords, selected.id, 'add');
-          setWorkbenchNotice(`${selected.commonName} added to the sampling plan worklist.`);
-        },
-        onCreateTask: () => {
-          updateStringSet(setTaskRecords, selected.id, 'add');
-          setWorkbenchNotice(`Follow-up task created for ${selected.commonName}.`);
-        },
-        onExportRecord: () => {
-          downloadExportRecord({
-            id: `SINGLE-${selected.id}`,
-            name: `${selected.commonName} observation`,
-            format: 'CSV',
-            filters: 1,
-            records: 1,
-            status: 'Completed',
-            requested: new Date().toLocaleString(),
-          });
-          setWorkbenchNotice(`${selected.commonName} single-record CSV downloaded with privacy notes.`);
-        },
-        onOpenVerification: () => {
-          setSelectedId(selected.id);
-          changeScreen('verification');
-          setWorkbenchNotice(`${selected.commonName} opened in the verification queue.`);
-        },
-        onToggleFlag: () => {
-          const wasFlagged = flaggedRecords.includes(selected.id);
-          updateStringSet(setFlaggedRecords, selected.id, 'toggle');
-          setWorkbenchNotice(`${selected.commonName} ${wasFlagged ? 'removed from' : 'added to'} flagged records.`);
-        },
-        onViewOnMap: () => {
-          setSelectedId(selected.id);
-          changeScreen('forecast');
-          setWorkbenchNotice(`${selected.commonName} opened on the Forecast Map.`);
-        },
-      }
-    : undefined;
-
-  return (
-    <div className="app-shell">
-      <Sidebar active={screen} onChange={changeScreen} role={role} onRoleChange={setRole} syncSource={dashboard.source} />
-      <main className="workspace">
-        <TopBar
-          pendingExports={dashboard.exports.filter((item) => item.status === 'Processing').length}
-          pendingReviews={filteredObservations.filter((item) => item.verificationStatus !== 'Expert verified').length}
-          query={query}
-          role={role}
-          onQueryChange={setQuery}
-        />
-        <PageHeader screen={screen} source={dashboard.source} />
-        {screen !== 'settings' && (
-          <FilterRail filtersActive={filtersActive} onFiltersActiveChange={setFiltersActive} screen={screen} />
-        )}
-        {isLoading && <StatusBanner tone="info" title="Loading research workspace" body="Fetching current research records and export history." />}
-        {loadError && <StatusBanner tone="warning" title="Dashboard notice" body={loadError} />}
-        {workbenchNotice && <StatusBanner tone="info" title="Workbench update" body={workbenchNotice} />}
-        {screen === 'overview' && (
-          <Overview actions={selectedWorkbenchActions} selected={selected} observations={filteredObservations} onSelect={setSelectedId} />
-        )}
-        {screen === 'verification' && (
-          <VerificationQueue
-            actions={selectedWorkbenchActions}
-            pendingAction={pendingAction}
-            role={role}
-            selected={selected}
-            observations={filteredObservations}
-            onSelect={setSelectedId}
-            onVerify={updateVerification}
-          />
-        )}
-        {screen === 'observations' && (
-          <Observations
-            actions={selectedWorkbenchActions}
-            isPending={pendingAction === 'export'}
-            query={query}
-            selected={selected}
-            observations={filteredObservations}
-            onCreateExport={createExport}
-            onSelect={setSelectedId}
-          />
-        )}
-        {screen === 'forecast' && (
-          <ForecastMap actions={selectedWorkbenchActions} selected={selected} observations={filteredObservations} onSelect={setSelectedId} />
-        )}
-        {screen === 'sampling' && (
-          <SamplingGaps cells={dashboard.samplingCells} observations={filteredObservations} selected={selected} onSelect={setSelectedId} />
-        )}
-        {screen === 'exports' && (
-          <ExportCenter
-            exports={dashboard.exports}
-            isPending={pendingAction === 'export'}
-            visibleRecordCount={filteredObservations.length}
-            onCreateExport={createExport}
-            onRetryExport={retryExport}
-          />
-        )}
-        {screen === 'analyst' && <Analyst observations={filteredObservations} />}
-        {screen === 'settings' && <SettingsScreen role={role} onRoleChange={setRole} />}
-      </main>
-    </div>
-  );
-}
+  analystSaves: "ecosentinel.web.analystSaves",
+  flaggedRecords: "ecosentinel.web.flaggedRecords",
+  observationViews: "ecosentinel.web.observationViews",
+  role: "ecosentinel.web.role",
+  samplingPlanRecords: "ecosentinel.web.samplingPlanRecords",
+  selectedId: "ecosentinel.web.selectedId",
+  taskRecords: "ecosentinel.web.taskRecords",
+};
 
 function readScreenFromHash(): ScreenId {
-  const value = window.location.hash.replace('#', '') as ScreenId;
-  return navItems.some((item) => item.id === value) ? value : 'overview';
+  const screen = window.location.hash.replace("#", "") as ScreenId;
+  return screens.some((item) => item.id === screen) ? screen : "overview";
 }
 
-function readStringStorage(key: string, fallback: string) {
+function readStorage(key: string, fallback: string) {
   try {
-    return window.localStorage.getItem(key) || fallback;
+    return window.localStorage.getItem(key) ?? fallback;
   } catch {
     return fallback;
   }
 }
 
-function readStringArrayStorage(key: string, fallback: string[]) {
+function readStringList(key: string, fallback: string[]) {
   try {
     const value = window.localStorage.getItem(key);
-    const parsed = value ? (JSON.parse(value) as unknown) : null;
-    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : fallback;
+    const parsed = value ? JSON.parse(value) : null;
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === "string")
+      ? parsed
+      : fallback;
   } catch {
     return fallback;
   }
-}
-
-function readRoleStorage(): UserRole {
-  const value = readStringStorage(storageKeys.role, 'reviewer');
-  return value === 'researcher' || value === 'reviewer' || value === 'admin' ? value : 'reviewer';
 }
 
 function writeStorage(key: string, value: string) {
   try {
     window.localStorage.setItem(key, value);
   } catch {
-    // Local persistence is progressive enhancement for demo and development workflows.
+    // Ignore storage failures in private browsing.
   }
 }
 
-function writeJsonStorage(key: string, value: string[]) {
+function writeStringList(key: string, value: string[]) {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // Local persistence is progressive enhancement for demo and development workflows.
+    // Ignore storage failures in private browsing.
   }
+}
+
+function readRole(): ResearchRole {
+  const role = readStorage(storageKeys.role, "reviewer");
+  return role === "researcher" || role === "reviewer" || role === "admin" ? role : "reviewer";
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/\s+/g, "-");
+}
+
+function getActiveFilterChips(filters: DashboardFilters) {
+  const chips: string[] = [];
+
+  if (filters.fromDate || filters.toDate) {
+    chips.push(
+      [filters.fromDate || "Any start", filters.toDate || "Any end"]
+        .filter(Boolean)
+        .join(" to "),
+    );
+  }
+  if (filters.bbox.trim()) {
+    chips.push(filters.bbox.trim() === delawareBasinBbox ? "Delaware River Basin" : "Custom bbox");
+  }
+  if (filters.regionCode) {
+    chips.push(`Region: ${filters.regionCode}`);
+  }
+  if (filters.verificationStatus) {
+    const label = filters.verificationStatus
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+    chips.push(label);
+  }
+  if (filters.signalLabel) {
+    const labelMap: Record<string, string> = {
+      low_signal: "Low signal",
+      moderate_signal: "Moderate signal",
+      high_value_verification_candidate: "High-value verification candidate",
+      priority_ecological_signal: "Priority ecological signal",
+      insufficient_evidence: "Insufficient evidence",
+    };
+    chips.push(labelMap[filters.signalLabel] ?? filters.signalLabel.replaceAll("_", " "));
+  }
+  if (filters.needsReview) {
+    chips.push("Needs review");
+  }
+  if (filters.hasMedia) {
+    chips.push("Has media");
+  }
+  if (filters.speciesId.trim()) {
+    chips.push("Species ID");
+  }
+
+  return chips;
+}
+
+function formatApiFallback(error: ApiError | null) {
+  if (!error) {
+    return null;
+  }
+  if (error.status === 401) {
+    return {
+      title: "API access required, showing demo fallback",
+      body:
+        "Set `VITE_REQUESTER_ID` or provide a bearer token before using research API mode. Demo fallback is still available.",
+    };
+  }
+  if (error.status === 403) {
+    return {
+      title: "API access denied, showing demo fallback",
+      body: error.message || "The configured identity does not have permission for this research workspace.",
+    };
+  }
+  return {
+    title: "API unavailable, showing demo fallback",
+    body: error.message || "The dashboard could not load API data, so it reverted to deterministic demo data.",
+  };
+}
+
+function formatActionError(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return "API access is required for this action. Provide a requester identity or bearer token.";
+    }
+    if (error.status === 403) {
+      return error.message || "You do not have permission for this action.";
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "The request failed.";
+}
+
+function PanelTitle({ title, meta }: { title: string; meta?: string }) {
+  return (
+    <div className="panel-title">
+      <h2>{title}</h2>
+      {meta ? <span>{meta}</span> : null}
+    </div>
+  );
+}
+
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="empty-state">
+      <strong>{title}</strong>
+      <span>{body}</span>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return <span className={`badge status ${slugify(status)}`}>{status}</span>;
+}
+
+function SignalBadge({ label }: { label: string }) {
+  return <span className={`badge signal ${slugify(label)}`}>{label}</span>;
+}
+
+function InfoGroup({ title, rows }: { title: string; rows: Array<[string, string]> }) {
+  return (
+    <section className="info-group">
+      <h3>{title}</h3>
+      <dl>
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function ProvenanceList() {
+  return (
+    <div className="source-list">
+      {provenanceSources.map(([name, role]) => (
+        <div key={name}>
+          <span>{name}</span>
+          <small>{role}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function VisualTile({ index, label }: { index: number; label: string }) {
+  return <span aria-label={label} className={`visual-tile tile-${index % 6}`} role="img" />;
+}
+
+function VisualHero({ label }: { label: string }) {
+  return (
+    <div aria-label={`${label} evidence image`} className="visual-hero" role="img">
+      <Leaf size={18} aria-hidden="true" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function Finding({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="finding">
+      <Save size={17} aria-hidden="true" />
+      <span>
+        <strong>{title}</strong>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function SettingRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="setting-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function StatusBanner({
+  tone,
+  title,
+  body,
+}: {
+  tone: "info" | "warning";
+  title: string;
+  body: string;
+}) {
+  return (
+    <section className={`status-banner ${tone}`} role={tone === "warning" ? "alert" : "status"}>
+      <strong>{title}</strong>
+      <span>{body}</span>
+    </section>
+  );
+}
+
+function RecordList({
+  rows,
+  selectedId,
+  onSelect,
+  compact = false,
+}: {
+  rows: DashboardObservation[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "record-list compact" : "record-list"}>
+      {rows.length === 0 && (
+        <EmptyState
+          title="No records in this queue"
+          body="The current search and filters do not match any observations."
+        />
+      )}
+      {rows.map((row, index) => (
+        <button
+          key={row.id}
+          className={row.id === selectedId ? "record-row active" : "record-row"}
+          onClick={() => onSelect(row.id)}
+          type="button"
+        >
+          <VisualTile index={index} label={row.commonName} />
+          <span>
+            <strong>{row.commonName}</strong>
+            <small className="scientific-name">{row.scientificName}</small>
+            <small>
+              {row.location} · {row.confidence}% confidence
+            </small>
+          </span>
+          <SignalBadge label={row.signalLabel} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ObservationDetail({
+  selected,
+  expanded = false,
+}: {
+  selected: DashboardObservation;
+  expanded?: boolean;
+}) {
+  const environmentalContextMissing =
+    selected.habitat.toLowerCase().includes("pending") || selected.distanceToWaterM === 0;
+
+  return (
+    <div className={expanded ? "observation-detail expanded" : "observation-detail"}>
+      <VisualHero label={selected.commonName} />
+      <div className="detail-main">
+        <div>
+          <span className="eyebrow">Possible species</span>
+          <h2>{selected.commonName}</h2>
+          <p className="scientific-name">{selected.scientificName}</p>
+        </div>
+        <dl>
+          <div>
+            <dt>Identity confidence</dt>
+            <dd>{selected.confidence}%</dd>
+          </div>
+          <div>
+            <dt>Verification status</dt>
+            <dd>
+              <StatusBadge status={selected.verificationStatus} />
+            </dd>
+          </div>
+          <div>
+            <dt>Ecological Signal Priority</dt>
+            <dd>
+              <SignalBadge label={selected.signalLabel} />
+            </dd>
+          </div>
+          <div>
+            <dt>Coordinate privacy</dt>
+            <dd>
+              {selected.privacy}, ±{selected.coordinateUncertaintyM} m
+            </dd>
+          </div>
+        </dl>
+        {selected.evidenceCount <= 0 ? (
+          <div className="inline-notice">Media evidence is not available for this observation yet.</div>
+        ) : null}
+        {environmentalContextMissing ? (
+          <div className="inline-notice">
+            Environmental context is not available for this observation yet.
+          </div>
+        ) : null}
+      </div>
+      <div className="detail-grid">
+        <InfoGroup
+          title="Habitat answers"
+          rows={[
+            ["Habitat", selected.habitat],
+            [
+              "Distance to water",
+              selected.distanceToWaterM > 0 ? `${selected.distanceToWaterM} m` : "Not available yet",
+            ],
+            ["Sampling label", selected.samplingLabel],
+          ]}
+        />
+        <InfoGroup
+          title="Context sources"
+          rows={[
+            ["Observation source", selected.source],
+            ["Land cover", "NLCD, forest edge"],
+            ["Nearby records", "12 verified, 7 unverified"],
+          ]}
+        />
+        {expanded ? (
+          <InfoGroup
+            title="Required review integrity"
+            rows={[
+              ["Expert verified", "Requires selected species"],
+              ["Needs more evidence", "Requires requested evidence type"],
+              ["Reject", "Requires reviewer notes"],
+            ]}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ObservationActionsBar({
+  actions,
+  compact = false,
+  mode = "default",
+}: {
+  actions: ObservationActions;
+  compact?: boolean;
+  mode?: "default" | "map" | "review";
+}) {
+  const primary =
+    mode === "map"
+      ? { label: "Open in queue", icon: ListChecks, onClick: actions.onOpenVerification }
+      : { label: "View on map", icon: Map, onClick: actions.onViewOnMap };
+  const secondary =
+    mode === "review" || mode === "map"
+      ? null
+      : { label: "Open in queue", icon: ListChecks, onClick: actions.onOpenVerification };
+  const PrimaryIcon = primary.icon;
+  const SecondaryIcon = secondary?.icon;
+
+  return (
+    <div
+      className={compact ? "observation-actions compact" : "observation-actions"}
+      aria-label="Selected observation actions"
+    >
+      <button className="plain-button" onClick={primary.onClick} type="button">
+        <PrimaryIcon size={16} aria-hidden="true" />
+        {primary.label}
+      </button>
+      {secondary && SecondaryIcon && !compact ? (
+        <button className="plain-button" onClick={secondary.onClick} type="button">
+          <SecondaryIcon size={16} aria-hidden="true" />
+          {secondary.label}
+        </button>
+      ) : null}
+      <button
+        className={actions.flagged ? "plain-button active-command" : "plain-button"}
+        onClick={actions.onToggleFlag}
+        type="button"
+      >
+        <Flag size={16} aria-hidden="true" />
+        {actions.flagged ? "Flagged" : "Flag"}
+      </button>
+      <button
+        className={actions.inSamplingPlan ? "plain-button active-command" : "plain-button"}
+        onClick={actions.onAddToSamplingPlan}
+        type="button"
+      >
+        <ClipboardList size={16} aria-hidden="true" />
+        {actions.inSamplingPlan ? "In sampling plan" : "Add to sampling plan"}
+      </button>
+      {!compact ? (
+        <button
+          className={actions.hasTask ? "plain-button active-command" : "plain-button"}
+          onClick={actions.onCreateTask}
+          type="button"
+        >
+          <CheckCircle2 size={16} aria-hidden="true" />
+          {actions.hasTask ? "Task created" : "Create follow-up task"}
+        </button>
+      ) : null}
+      <button className="plain-button" onClick={actions.onExportRecord} type="button">
+        <Download size={16} aria-hidden="true" />
+        Export record
+      </button>
+    </div>
+  );
 }
 
 function Sidebar({
@@ -458,69 +602,64 @@ function Sidebar({
   onRoleChange,
   role,
   syncSource,
+  queueCount,
 }: {
   active: ScreenId;
   onChange: (screen: ScreenId) => void;
-  onRoleChange: (role: UserRole) => void;
-  role: UserRole;
-  syncSource: DashboardData['source'];
+  onRoleChange: (role: ResearchRole) => void;
+  role: ResearchRole;
+  syncSource: DashboardPayload["source"];
+  queueCount: number;
 }) {
-  const [showGuideHint, setShowGuideHint] = useState(false);
   return (
     <aside className="sidebar">
       <div className="brand" aria-label="EcoSentinel Research">
         <div className="brand-mark">
-          <Leaf size={28} />
+          <Leaf size={22} />
         </div>
         <div>
           <strong>EcoSentinel</strong>
           <span>Research</span>
         </div>
       </div>
-
       <nav className="nav-list" aria-label="Primary navigation">
-        {navItems.map((item) => {
-          const Icon = item.icon;
+        {screens.map((screen) => {
+          const Icon = screen.icon;
           return (
             <button
-              className={active === item.id ? 'nav-item active' : 'nav-item'}
-              key={item.id}
-              onClick={() => onChange(item.id)}
+              key={screen.id}
+              className={active === screen.id ? "nav-item active" : "nav-item"}
+              onClick={() => onChange(screen.id)}
               type="button"
             >
-              <Icon size={20} aria-hidden="true" />
-              <span>{item.label}</span>
-              {item.badge && <span className="count-badge">{item.badge}</span>}
+              <Icon size={17} aria-hidden="true" />
+              <span>{screen.label}</span>
+              {screen.id === "verification" && queueCount > 0 ? (
+                <span className="count-badge">{queueCount}</span>
+              ) : null}
             </button>
           );
         })}
       </nav>
-
       <div className="sidebar-footer">
         <div className="sync-row">
           <span className="status-dot" />
-          <span>{syncSource === 'api' ? 'API data synced' : 'Demo data active'}</span>
+          <span>{syncSource === "api" ? "API data synced" : "Demo data active"}</span>
         </div>
-        <button className="plain-button" onClick={() => setShowGuideHint((current) => !current)} type="button">
-          <CircleHelp size={16} aria-hidden="true" />
-          Documentation
-        </button>
-        {showGuideHint && (
-          <div className="sidebar-hint">
-            Dashboard direction is tracked in <strong>Research_Dashboard_UI_Guide.md</strong>.
-          </div>
-        )}
         <div className="profile-row">
           <div className="avatar" aria-hidden="true" />
           <div>
             <strong>Dr. Alex Morgan</strong>
-            <select aria-label="Research role" onChange={(event) => onRoleChange(event.target.value as UserRole)} value={role}>
-              <option value="researcher">researcher</option>
-              <option value="reviewer">reviewer</option>
-              <option value="admin">admin</option>
+            <select
+              aria-label="Research role"
+              onChange={(event) => onRoleChange(event.target.value as ResearchRole)}
+              value={role}
+            >
+              <option value="researcher">Researcher</option>
+              <option value="reviewer">Reviewer</option>
+              <option value="admin">Admin</option>
             </select>
           </div>
-          <ChevronDown size={16} aria-hidden="true" />
         </div>
       </div>
     </aside>
@@ -531,16 +670,18 @@ function TopBar({
   pendingExports,
   pendingReviews,
   query,
+  requester,
   role,
   onQueryChange,
 }: {
   pendingExports: number;
   pendingReviews: number;
   query: string;
-  role: UserRole;
+  requester: string;
+  role: ResearchRole;
   onQueryChange: (value: string) => void;
 }) {
-  const [openUtility, setOpenUtility] = useState<'notifications' | 'menu' | null>(null);
+  const [popover, setPopover] = useState<"notifications" | "menu" | null>(null);
 
   return (
     <header className="topbar">
@@ -556,169 +697,258 @@ function TopBar({
       </div>
       <div className="top-actions">
         <button
-          aria-expanded={openUtility === 'notifications'}
+          aria-expanded={popover === "notifications"}
           aria-label="Notifications"
           className="icon-button"
-          onClick={() => setOpenUtility((current) => (current === 'notifications' ? null : 'notifications'))}
+          onClick={() => setPopover((current) => (current === "notifications" ? null : "notifications"))}
           type="button"
         >
           <Bell size={19} />
           <span className="notification-dot" />
         </button>
         <button
-          aria-expanded={openUtility === 'menu'}
+          aria-expanded={popover === "menu"}
           aria-label="Open app menu"
           className="icon-button"
-          onClick={() => setOpenUtility((current) => (current === 'menu' ? null : 'menu'))}
+          onClick={() => setPopover((current) => (current === "menu" ? null : "menu"))}
           type="button"
         >
-          <Grid3X3 size={18} />
+          <LayoutGrid size={18} />
         </button>
-        {openUtility === 'notifications' && (
+        {popover === "notifications" ? (
           <div className="utility-popover">
             <strong>Workspace notices</strong>
             <span>{pendingReviews} records need reviewer attention.</span>
-            <span>{pendingExports} export request{pendingExports === 1 ? '' : 's'} processing.</span>
+            <span>
+              {pendingExports} export request{pendingExports === 1 ? "" : "s"} processing.
+            </span>
           </div>
-        )}
-        {openUtility === 'menu' && (
+        ) : null}
+        {popover === "menu" ? (
           <div className="utility-popover app-menu">
             <strong>Research session</strong>
             <span>Role: {role}</span>
-            <span>Requester: local demo identity</span>
+            <span>Requester: {requester}</span>
+            <span>{hasApiToken ? "Bearer token configured" : "Local requester identity active"}</span>
             <span>Backend: API when configured, deterministic fallback otherwise</span>
           </div>
-        )}
+        ) : null}
       </div>
     </header>
   );
 }
 
-function PageHeader({ screen, source }: { screen: ScreenId; source: DashboardData['source'] }) {
+function PageHeading({
+  screen,
+  source,
+  subtitle,
+}: {
+  screen: ScreenId;
+  source: DashboardPayload["source"];
+  subtitle?: string;
+}) {
+  const copy = screenCopy[screen];
+  const displaySubtitle = subtitle ?? copy.subtitle;
   return (
     <section className="page-heading">
       <div>
-        <h1>{screenTitles[screen].title}</h1>
-        <p>{screenTitles[screen].subtitle}</p>
+        <h1>{copy.title}</h1>
+        {displaySubtitle ? <p>{displaySubtitle}</p> : null}
       </div>
-      <div className="scope-pill">
-        <Database size={16} aria-hidden="true" />
-        {source === 'api' ? 'Research mode' : 'Demo fallback'}
-      </div>
-    </section>
-  );
-}
-
-function StatusBanner({ tone, title, body }: { tone: 'info' | 'warning'; title: string; body: string }) {
-  return (
-    <section className={`status-banner ${tone}`} role={tone === 'warning' ? 'alert' : 'status'}>
-      <strong>{title}</strong>
-      <span>{body}</span>
+      <span className="scope-pill">
+        {source === "api" ? "Research mode" : "Demo fallback"}
+      </span>
     </section>
   );
 }
 
 function FilterRail({
-  filtersActive,
-  onFiltersActiveChange,
+  filters,
+  onChange,
   screen,
 }: {
-  filtersActive: boolean;
-  onFiltersActiveChange: (active: boolean) => void;
+  filters: DashboardFilters;
+  onChange: (next: DashboardFilters) => void;
   screen: ScreenId;
 }) {
-  const [filtersVisible, setFiltersVisible] = useState(true);
-  const scope = screen === 'forecast' ? 'Map' : screen === 'exports' ? 'Export' : screen === 'analyst' ? 'Analyst context' : 'Table';
+  const [expanded, setExpanded] = useState(false);
+  const activeChips = getActiveFilterChips(filters);
+  const scope =
+    screen === "forecast"
+      ? "Map"
+      : screen === "exports"
+        ? "Export"
+        : screen === "analyst"
+          ? "Analyst context"
+          : screen === "verification"
+            ? "Queue"
+            : "Table";
+
   return (
     <section className="filter-rail" aria-label={`${scope} filters`}>
-      <button className="filter-button" onClick={() => setFiltersVisible((current) => !current)} type="button">
-        <Filter size={17} aria-hidden="true" />
+      <button className="filter-button" onClick={() => setExpanded((open) => !open)} type="button">
+        <SlidersHorizontal size={15} aria-hidden="true" />
         {scope} filters
-        <ChevronDown size={16} aria-hidden="true" />
+        <ChevronDown size={14} style={{ transform: expanded ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} aria-hidden="true" />
       </button>
-      <span className="active-count">{filtersActive ? '5 filters active' : 'No filters active'}</span>
-      {filtersVisible && (
-        <div className="filter-chips" aria-label="Active filters">
-          {filtersActive ? (
-            <>
-              <span>May 1-May 31, 2025</span>
-              <span>Delaware River Basin</span>
-              <span>Unverified + needs review</span>
-              <span>High-value signals</span>
-              <button onClick={() => onFiltersActiveChange(false)} type="button">Clear all</button>
-            </>
-          ) : (
-            <button onClick={() => onFiltersActiveChange(true)} type="button">Restore demo filters</button>
-          )}
+      {activeChips.length > 0 ? (
+        <span className="active-count">{activeChips.length} filters active</span>
+      ) : null}
+      {!expanded && activeChips.length > 0 ? (
+        <div className="filter-chips" aria-label="Active filters" style={{ flex: 1 }}>
+          {activeChips.map((chip) => (
+            <span key={chip}>{chip}</span>
+          ))}
+          <button onClick={() => onChange({ ...defaultDashboardFilters, bbox: "" })} type="button">
+            Clear all
+          </button>
         </div>
-      )}
+      ) : null}
+      {expanded ? (
+        <div className="filter-stack">
+          <div className="filter-chips" aria-label="Active filters">
+            {activeChips.map((chip) => (
+              <span key={chip}>{chip}</span>
+            ))}
+            <button onClick={() => onChange({ ...defaultDashboardFilters, bbox: "" })} type="button">
+              Clear all
+            </button>
+            <button onClick={() => onChange(defaultDashboardFilters)} type="button">
+              Restore demo filters
+            </button>
+          </div>
+          <div className="filter-grid">
+            <label>
+              <span>From date</span>
+              <input
+                onChange={(event) => onChange({ ...filters, fromDate: event.target.value })}
+                type="date"
+                value={filters.fromDate}
+              />
+            </label>
+            <label>
+              <span>To date</span>
+              <input
+                onChange={(event) => onChange({ ...filters, toDate: event.target.value })}
+                type="date"
+                value={filters.toDate}
+              />
+            </label>
+            <label>
+              <span>Region code</span>
+              <select
+                onChange={(event) => onChange({ ...filters, regionCode: event.target.value })}
+                value={filters.regionCode}
+              >
+                <option value="">Any region</option>
+                <option value="NY">NY</option>
+                <option value="NJ">NJ</option>
+                <option value="PA">PA</option>
+              </select>
+            </label>
+            <label>
+              <span>Verification</span>
+              <select
+                onChange={(event) =>
+                  onChange({
+                    ...filters,
+                    verificationStatus: event.target.value as DashboardFilters["verificationStatus"],
+                  })
+                }
+                value={filters.verificationStatus}
+              >
+                <option value="">Any status</option>
+                <option value="unverified">Unverified</option>
+                <option value="needs_more_evidence">Needs more evidence</option>
+                <option value="expert_verified">Expert verified</option>
+                <option value="field_confirmed">Field confirmed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </label>
+            <label>
+              <span>Ecological Signal Priority</span>
+              <select
+                onChange={(event) =>
+                  onChange({
+                    ...filters,
+                    signalLabel: event.target.value as DashboardFilters["signalLabel"],
+                  })
+                }
+                value={filters.signalLabel}
+              >
+                <option value="">Any label</option>
+                <option value="high_value_verification_candidate">
+                  High-value verification candidate
+                </option>
+                <option value="priority_ecological_signal">Priority ecological signal</option>
+                <option value="moderate_signal">Moderate signal</option>
+                <option value="low_signal">Low signal</option>
+                <option value="insufficient_evidence">Insufficient evidence</option>
+              </select>
+            </label>
+            <label>
+              <span>Species ID</span>
+              <input
+                onChange={(event) => onChange({ ...filters, speciesId: event.target.value })}
+                placeholder="Optional UUID"
+                type="text"
+                value={filters.speciesId}
+              />
+            </label>
+            <label className="wide">
+              <span>Bounding box</span>
+              <input
+                onChange={(event) => onChange({ ...filters, bbox: event.target.value })}
+                placeholder="min_lon,min_lat,max_lon,max_lat"
+                type="text"
+                value={filters.bbox}
+              />
+            </label>
+            <label className="toggle-field">
+              <input
+                checked={filters.needsReview}
+                onChange={(event) => onChange({ ...filters, needsReview: event.target.checked })}
+                type="checkbox"
+              />
+              <span>Needs review</span>
+            </label>
+            <label className="toggle-field">
+              <input
+                checked={filters.hasMedia}
+                onChange={(event) => onChange({ ...filters, hasMedia: event.target.checked })}
+                type="checkbox"
+              />
+              <span>Has media</span>
+            </label>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function Overview({
-  actions,
-  observations: rows,
-  selected,
-  onSelect,
-}: {
-  actions?: ObservationWorkbenchActions;
-  observations: Observation[];
-  selected: Observation | null;
-  onSelect: (id: string) => void;
-}) {
-  return (
-    <div className="overview-grid">
-      <MetricGrid observations={rows} />
-      <section className="panel map-panel">
-        <PanelTitle title="Advanced forecast map" meta="Visible layers: records, potential corridors, sampling gaps" />
-        {selected ? (
-          <ResearchMap selected={selected} observations={rows} onSelect={onSelect} />
-        ) : (
-          <EmptyState title="No map records visible" body="Clear search or restore filters to show observations on the map." />
-        )}
-      </section>
-      <section className="panel priority-panel">
-        <PanelTitle title="Priority review stream" meta="12 assigned to you" />
-        <RecordList rows={rows.slice(0, 5)} selectedId={selected?.id ?? ''} onSelect={onSelect} compact />
-      </section>
-      <section className="panel detail-wide">
-        <PanelTitle title="Selected observation" meta={selected?.id ?? 'No visible record'} />
-        {selected ? (
-          <>
-            <ObservationDetail selected={selected} />
-            {actions && <ObservationActionBar actions={actions} compact />}
-          </>
-        ) : (
-          <EmptyState title="No observation selected" body="The current search and filters do not match any observations." />
-        )}
-      </section>
-      <section className="panel provenance-panel">
-        <PanelTitle title="Provenance and data sources" meta="Current selected record" />
-        <SourceList />
-      </section>
-    </div>
-  );
-}
+function MetricsGrid({ observations }: { observations: DashboardObservation[] }) {
+  const needsVerification = observations.filter((row) =>
+    ["Unverified", "Needs more evidence"].includes(row.verificationStatus),
+  ).length;
+  const prioritySignals = observations.filter((row) =>
+    ["High-value verification candidate", "Priority ecological signal"].includes(row.signalLabel),
+  ).length;
+  const underSampled = observations.filter((row) =>
+    row.samplingLabel.toLowerCase().includes("under-sampled"),
+  ).length;
 
-function MetricGrid({ observations: rows }: { observations: Observation[] }) {
-  const needsVerification = rows.filter((row) =>
-    ['Unverified', 'Needs more evidence'].includes(row.verificationStatus),
-  ).length;
-  const prioritySignals = rows.filter((row) =>
-    ['High-value verification candidate', 'Priority ecological signal'].includes(row.signalLabel),
-  ).length;
-  const underSampled = rows.filter((row) => row.samplingLabel.toLowerCase().includes('under-sampled')).length;
   const metrics = [
-    ['Visible observations', rows.length.toLocaleString(), 'Current dashboard filters'],
-    ['Needs verification', needsVerification.toLocaleString(), 'Visible pending records'],
-    ['Priority ecological signals', prioritySignals.toLocaleString(), 'High-value or priority labels'],
-    ['Under-sampled records', underSampled.toLocaleString(), 'Visible records with sampling gaps'],
-  ];
+    ["Total observations", observations.length.toLocaleString(), "Current dashboard filters"],
+    ["Needs verification", needsVerification.toLocaleString(), "Unverified + needs more evidence"],
+    ["Priority ecological signals", prioritySignals.toLocaleString(), "High-value or priority label · visible"],
+    ["Under-sampled records", underSampled.toLocaleString(), "Records with sampling gap label · visible"],
+  ] as const;
+
   return (
     <section className="metrics-grid">
       {metrics.map(([label, value, meta]) => (
-        <div className="metric" key={label}>
+        <div key={label} className="metric">
           <span>{label}</span>
           <strong>{value}</strong>
           <small>{meta}</small>
@@ -728,123 +958,229 @@ function MetricGrid({ observations: rows }: { observations: Observation[] }) {
   );
 }
 
-function VerificationQueue({
+function OverviewPage({
   actions,
-  observations: rows,
+  observations,
+  selected,
+  forecast,
+  onSelect,
+}: {
+  actions?: ObservationActions;
+  observations: DashboardObservation[];
+  selected: DashboardObservation | null;
+  forecast: ForecastPayload | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="overview-grid">
+      <MetricsGrid observations={observations} />
+      <section className="panel map-panel">
+        <PanelTitle
+          title="Forecast map"
+          meta="Records · potential corridors · sampling gaps"
+        />
+        {selected ? (
+          <ResearchMap
+            observations={observations}
+            selected={selected}
+            forecast={forecast}
+            onSelect={onSelect}
+          />
+        ) : (
+          <EmptyState
+            title="No map records visible"
+            body="Clear search or restore filters to show observations on the map."
+          />
+        )}
+      </section>
+      <section className="panel priority-panel">
+        <PanelTitle title="Priority review stream" meta={`${observations.length} visible in current filters`} />
+        <RecordList
+          rows={observations.slice(0, 5)}
+          selectedId={selected?.id ?? ""}
+          onSelect={onSelect}
+          compact
+        />
+      </section>
+      <section className="panel detail-wide">
+        <PanelTitle title="Selected observation" meta={selected?.id ?? "No visible record"} />
+        {selected ? (
+          <>
+            <ObservationDetail selected={selected} />
+            {actions ? <ObservationActionsBar actions={actions} compact /> : null}
+          </>
+        ) : (
+          <EmptyState
+            title="No observation selected"
+            body="The current search and filters do not match any observations."
+          />
+        )}
+      </section>
+      <section className="panel provenance-panel">
+        <PanelTitle title="Provenance and data sources" meta="Current selected record" />
+        <ProvenanceList />
+      </section>
+    </div>
+  );
+}
+
+function VerificationPage({
+  actions,
+  history,
+  historyError,
+  historyLoading,
+  observations,
   selected,
   onSelect,
   onVerify,
   pendingAction,
   role,
 }: {
-  actions?: ObservationWorkbenchActions;
-  observations: Observation[];
-  selected: Observation | null;
+  actions?: ObservationActions;
+  history: VerificationHistoryEvent[];
+  historyError: string | null;
+  historyLoading: boolean;
+  observations: DashboardObservation[];
+  selected: DashboardObservation | null;
   onSelect: (id: string) => void;
-  onVerify: (status: VerificationStatus, reviewerNote?: string) => Promise<void>;
+  onVerify: (status: VerificationStatus, notes: string) => void;
   pendingAction: string | null;
-  role: UserRole;
+  role: ResearchRole;
 }) {
-  const canReview = role === 'reviewer' || role === 'admin';
-  const [reviewerNote, setReviewerNote] = useState(selected?.reviewerNotes ?? '');
-  const [requestedEvidence, setRequestedEvidence] = useState('Close-up media and habitat context');
-  const noteIsReady = reviewerNote.trim().length >= 12;
+  const canVerify = role === "reviewer" || role === "admin";
+  const canFieldConfirm = role === "admin";
+  const [notes, setNotes] = useState(selected?.reviewerNotes ?? "");
+  const [evidenceType, setEvidenceType] = useState("Close-up media and habitat context");
+  const notesReady = notes.trim().length >= 12;
 
   useEffect(() => {
-    setReviewerNote(selected?.reviewerNotes ?? '');
-    setRequestedEvidence('Close-up media and habitat context');
+    setNotes(selected?.reviewerNotes ?? "");
+    setEvidenceType("Close-up media and habitat context");
   }, [selected?.id, selected?.reviewerNotes]);
 
-  const submitReview = (status: VerificationStatus) => {
-    const evidencePrefix =
-      status === 'Needs more evidence' ? `Requested evidence: ${requestedEvidence}. ` : '';
-    void onVerify(status, `${evidencePrefix}${reviewerNote}`.trim());
+  const handleVerify = (status: VerificationStatus) => {
+    const prefix =
+      status === "Needs more evidence" ? `Requested evidence: ${evidenceType}. ` : "";
+    onVerify(status, `${prefix}${notes}`.trim());
   };
 
   return (
     <div className="queue-layout">
       <section className="panel queue-list">
-        <PanelTitle title="Assigned queue" meta="Sorted by Ecological Signal Priority" />
-        <RecordList rows={rows} selectedId={selected?.id ?? ''} onSelect={onSelect} />
+        <PanelTitle title="Review queue" meta="Sorted by Ecological Signal Priority" />
+        <RecordList rows={observations} selectedId={selected?.id ?? ""} onSelect={onSelect} />
       </section>
       <section className="panel review-surface">
-        <PanelTitle title={selected ? `${selected.commonName} review` : 'No visible record'} meta={selected?.scientificName ?? 'Adjust filters'} />
+        <PanelTitle
+          title={selected ? `${selected.commonName} review` : "No visible record"}
+          meta={selected?.scientificName ?? "Adjust filters"}
+        />
         {selected ? (
           <>
             <ObservationDetail selected={selected} expanded />
-            {actions && <ObservationActionBar actions={actions} mode="review" />}
+            {actions ? <ObservationActionsBar actions={actions} mode="review" /> : null}
           </>
         ) : (
-          <EmptyState title="No record available for review" body="The current search and filters do not match the assigned queue." />
+          <EmptyState
+            title="No record available for review"
+            body="The current search and filters do not match the assigned queue."
+          />
         )}
-        {!canReview && (
+        {!canVerify ? (
           <div className="inline-notice">You need reviewer or admin access to verify observations.</div>
-        )}
-        {selected && <div className="review-support-grid">
-          <section>
-            <h3>Verification history</h3>
-            <div className="history-line">
-              <span className="status-dot" />
-              <p>
-                System queued this record for review because it is a {selected.signalLabel.toLowerCase()}.
-              </p>
-            </div>
-            {selected.reviewerNotes && (
-              <div className="history-line">
-                <span className="status-dot" />
-                <p>{selected.reviewerNotes}</p>
-              </div>
-            )}
-          </section>
-          <section>
-            <h3>Reviewer notes</h3>
-            <textarea
-              aria-label="Reviewer notes"
-              onChange={(event) => setReviewerNote(event.target.value)}
-              placeholder="Add the evidence basis, uncertainty, or requested evidence before taking action."
-              value={reviewerNote}
-            />
-            <label className="evidence-select">
-              <span>Evidence request type</span>
-              <select onChange={(event) => setRequestedEvidence(event.target.value)} value={requestedEvidence}>
-                <option>Close-up media and habitat context</option>
-                <option>Additional angle of possible species</option>
-                <option>Host plant or substrate confirmation</option>
-                <option>More precise but privacy-safe location context</option>
-              </select>
-            </label>
-            <small className="review-hint">
-              Notes are required for reject and needs-more-evidence decisions.
-            </small>
-          </section>
-        </div>}
+        ) : null}
+        {selected ? (
+          <div className="review-support-grid">
+            <section>
+              <h3>Verification history</h3>
+              {historyLoading ? (
+                <div className="history-line">
+                  <span className="status-dot" />
+                  <p>Loading verification history.</p>
+                </div>
+              ) : null}
+              {!historyLoading && history.length === 0 ? (
+                <div className="history-line">
+                  <span className="status-dot" />
+                  <p>
+                    System queued this record for review because it is a{" "}
+                    {selected.signalLabel.toLowerCase()}.
+                  </p>
+                </div>
+              ) : null}
+              {history.map((event) => (
+                <div key={event.id} className="history-line">
+                  <span className="status-dot" />
+                  <p>
+                    <strong>{event.newStatus}</strong> from {event.previousStatus} on{" "}
+                    {event.createdAt}.
+                    {event.notes ? ` ${event.notes}` : ""}
+                  </p>
+                </div>
+              ))}
+              {historyError ? <div className="inline-notice">{historyError}</div> : null}
+            </section>
+            <section>
+              <h3>Reviewer notes</h3>
+              <textarea
+                aria-label="Reviewer notes"
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Add the evidence basis, uncertainty, or requested evidence before taking action."
+                value={notes}
+              />
+              <label className="evidence-select">
+                <span>Evidence request type</span>
+                <select onChange={(event) => setEvidenceType(event.target.value)} value={evidenceType}>
+                  <option>Close-up media and habitat context</option>
+                  <option>Additional angle of possible species</option>
+                  <option>Host plant or substrate confirmation</option>
+                  <option>More precise but privacy-safe location context</option>
+                </select>
+              </label>
+              <small className="review-hint">
+                Notes are required for reject and needs-more-evidence decisions.
+              </small>
+            </section>
+          </div>
+        ) : null}
         <div className="review-actions" aria-label="Verification actions">
           <button
             className="primary-action"
-            disabled={!selected || !canReview || pendingAction !== null}
-            onClick={() => submitReview('Expert verified')}
+            disabled={!selected || !canVerify || pendingAction !== null}
+            onClick={() => handleVerify("Expert verified")}
             type="button"
           >
-            <Check size={18} aria-hidden="true" />
-            {pendingAction === 'Expert verified' ? 'Saving...' : 'Expert verified'}
+            <CheckCircle2 size={18} aria-hidden="true" />
+            {pendingAction === "Expert verified" ? "Saving..." : "Expert verified"}
           </button>
+          {canFieldConfirm ? (
+            <button
+              className="plain-button"
+              disabled={!selected || pendingAction !== null}
+              onClick={() => handleVerify("Field confirmed")}
+              type="button"
+            >
+              <CheckCircle2 size={18} aria-hidden="true" />
+              {pendingAction === "Field confirmed" ? "Saving..." : "Field confirmed"}
+            </button>
+          ) : null}
           <button
             className="warn-action"
-            disabled={!selected || !canReview || pendingAction !== null || !noteIsReady}
-            onClick={() => submitReview('Needs more evidence')}
+            disabled={!selected || !canVerify || pendingAction !== null || !notesReady}
+            onClick={() => handleVerify("Needs more evidence")}
             type="button"
           >
-            <TriangleAlert size={18} aria-hidden="true" />
-            {pendingAction === 'Needs more evidence' ? 'Saving...' : 'Needs more evidence'}
+            <AlertTriangle size={18} aria-hidden="true" />
+            {pendingAction === "Needs more evidence" ? "Saving..." : "Needs more evidence"}
           </button>
           <button
             className="danger-action"
-            disabled={!selected || !canReview || pendingAction !== null || !noteIsReady}
-            onClick={() => submitReview('Rejected')}
+            disabled={!selected || !canVerify || pendingAction !== null || !notesReady}
+            onClick={() => handleVerify("Rejected")}
             type="button"
           >
-            <X size={18} aria-hidden="true" />
-            {pendingAction === 'Rejected' ? 'Saving...' : 'Reject with notes'}
+            <XCircle size={18} aria-hidden="true" />
+            {pendingAction === "Rejected" ? "Saving..." : "Reject with notes"}
           </button>
         </div>
       </section>
@@ -852,57 +1188,61 @@ function VerificationQueue({
   );
 }
 
-function Observations({
+function ObservationsPage({
   actions,
-  observations: rows,
+  observations,
   selected,
   isPending,
   query,
   onCreateExport,
   onSelect,
 }: {
-  actions?: ObservationWorkbenchActions;
-  observations: Observation[];
-  selected: Observation | null;
+  actions?: ObservationActions;
+  observations: DashboardObservation[];
+  selected: DashboardObservation | null;
   isPending: boolean;
   query: string;
   onCreateExport: (request: ExportRequest) => Promise<void>;
   onSelect: (id: string) => void;
 }) {
-  const [showSourceColumn, setShowSourceColumn] = useState(false);
-  const [localNotice, setLocalNotice] = useState<string | null>(null);
-  const [savedViews, setSavedViews] = useState(() => readStringArrayStorage(storageKeys.observationViews, [
-    'Priority verification queue',
-    'Delaware Basin export set',
-  ]));
+  const [showSource, setShowSource] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [savedViews, setSavedViews] = useState(() =>
+    readStringList(storageKeys.observationViews, [
+      "Priority verification queue",
+      "Delaware Basin export set",
+    ]),
+  );
   const [activeView, setActiveView] = useState(savedViews[0]);
 
   useEffect(() => {
-    writeJsonStorage(storageKeys.observationViews, savedViews);
+    writeStringList(storageKeys.observationViews, savedViews);
   }, [savedViews]);
 
-  const saveCurrentView = () => {
-    const nextView = query.trim() ? `Search: ${query.trim()}` : `Visible records view ${savedViews.length + 1}`;
-    setSavedViews((current) => (current.includes(nextView) ? current : [nextView, ...current]));
-    setActiveView(nextView);
-    setLocalNotice(`${nextView} saved with filters, columns, sort, and selected record.`);
+  const saveView = () => {
+    const label = query.trim()
+      ? `Search: ${query.trim()}`
+      : `Visible records view ${savedViews.length + 1}`;
+    setSavedViews((current) => (current.includes(label) ? current : [label, ...current]));
+    setActiveView(label);
+    setMessage(`${label} saved with filters, columns, sort, and selected record.`);
   };
 
-  const exportVisibleRows = async () => {
-    setLocalNotice(null);
+  const exportView = async () => {
+    setMessage(null);
     await onCreateExport({
-      format: 'CSV',
+      format: "CSV",
       filters: {
-        source: 'observations_table',
-        visible_records: rows.length,
-        region_code: 'Delaware River Basin',
+        source: "observations_table",
+        visible_records: observations.length,
+        region_code: "Delaware River Basin",
       },
       includeMediaUrls: true,
       includeEnvironmentalContext: true,
       includeSignalScores: true,
       includeVerification: true,
     });
-    setLocalNotice('CSV export request created from the current observations table view.');
+    setMessage("CSV export request created from the current observations table view.");
   };
 
   return (
@@ -910,98 +1250,114 @@ function Observations({
       <section className="panel table-panel">
         <div className="table-toolbar">
           <span>
-            {rows.length} records visible · {activeView}{showSourceColumn ? ' · source column shown' : ''}
+            {observations.length} records visible · {activeView}
+            {showSource ? " · source column shown" : ""}
           </span>
           <div>
-            <button className="plain-button" onClick={saveCurrentView} type="button">
-              <Check size={16} aria-hidden="true" />
+            <button className="plain-button" onClick={saveView} type="button">
+              <Save size={16} aria-hidden="true" />
               Save view
             </button>
-            <button className="plain-button" onClick={() => setShowSourceColumn((current) => !current)} type="button">
-              <Columns3 size={16} aria-hidden="true" />
-              {showSourceColumn ? 'Hide source' : 'Show source'}
+            <button className="plain-button" onClick={() => setShowSource((open) => !open)} type="button">
+              <SlidersHorizontal size={16} aria-hidden="true" />
+              {showSource ? "Hide source" : "Show source"}
             </button>
-            <button className="plain-button" disabled={isPending || rows.length === 0} onClick={() => void exportVisibleRows()} type="button">
+            <button
+              className="plain-button"
+              disabled={isPending || observations.length === 0}
+              onClick={() => void exportView()}
+              type="button"
+            >
               <Download size={16} aria-hidden="true" />
-              {isPending ? 'Requesting...' : 'Export view'}
+              {isPending ? "Requesting..." : "Export view"}
             </button>
           </div>
         </div>
         <div className="saved-view-row" aria-label="Saved views">
           {savedViews.map((view) => (
-            <button className={activeView === view ? 'saved-view active' : 'saved-view'} key={view} onClick={() => setActiveView(view)} type="button">
+            <button
+              key={view}
+              className={activeView === view ? "saved-view active" : "saved-view"}
+              onClick={() => setActiveView(view)}
+              type="button"
+            >
               {view}
             </button>
           ))}
         </div>
-        {localNotice && <div className="inline-success">{localNotice}</div>}
-        {rows.length === 0 ? (
-          <EmptyState title="No observations match these filters" body="Adjust search or remove a filter to bring records back into view." />
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Observation ID</th>
-                <th>Possible species</th>
-                <th>Confidence</th>
-                <th>Verification</th>
-                <th>Ecological Signal Priority</th>
-                <th>Region</th>
-                {showSourceColumn && <th>Source</th>}
-                <th>Submitted</th>
+        {message ? <div className="inline-success">{message}</div> : null}
+        <table>
+          <thead>
+            <tr>
+              <th>Observation ID</th>
+              <th>Possible species</th>
+              <th>Confidence</th>
+              <th>Verification</th>
+              <th>Signal priority</th>
+              <th>Region</th>
+              <th>Submitted</th>
+              {showSource ? <th>Source</th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {observations.map((row) => (
+              <tr
+                key={row.id}
+                className={row.id === selected?.id ? "selected-row" : undefined}
+                onClick={() => onSelect(row.id)}
+              >
+                <td>{row.id}</td>
+                <td>
+                  {row.commonName}
+                  <span className="scientific-name">{row.scientificName}</span>
+                </td>
+                <td>{row.confidence}%</td>
+                <td>
+                  <StatusBadge status={row.verificationStatus} />
+                </td>
+                <td>
+                  <SignalBadge label={row.signalLabel} />
+                </td>
+                <td>{row.region}</td>
+                <td>{row.submittedAt}</td>
+                {showSource ? <td>{row.source}</td> : null}
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr className={row.id === selected?.id ? 'selected-row' : ''} key={row.id} onClick={() => onSelect(row.id)}>
-                  <td>{row.id}</td>
-                  <td>
-                    <strong>{row.commonName}</strong>
-                    <span>{row.scientificName}</span>
-                  </td>
-                  <td>{row.confidence}%</td>
-                  <td>
-                    <StatusBadge status={row.verificationStatus} />
-                  </td>
-                  <td>
-                    <SignalBadge label={row.signalLabel} />
-                  </td>
-                  <td>{row.region}</td>
-                  {showSourceColumn && <td>{row.source}</td>}
-                  <td>{row.submittedAt}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+            ))}
+          </tbody>
+        </table>
       </section>
       <aside className="panel detail-drawer">
-        <PanelTitle title="Record detail" meta={selected?.id ?? 'No visible record'} />
+        <PanelTitle title="Record detail" meta={selected?.id ?? "Select a row"} />
         {selected ? (
           <>
             <ObservationDetail selected={selected} />
-            {actions && <ObservationActionBar actions={actions} />}
+            {actions ? <ObservationActionsBar actions={actions} /> : null}
           </>
         ) : (
-          <EmptyState title="No record selected" body="Search and filter results are empty." />
+          <EmptyState
+            title="No observation selected"
+            body="Select a row to inspect evidence, uncertainty, and provenance."
+          />
         )}
       </aside>
     </div>
   );
 }
 
-function ForecastMap({
+function ForecastPage({
   actions,
+  observations,
   selected,
-  observations: rows,
+  forecast,
   onSelect,
 }: {
-  actions?: ObservationWorkbenchActions;
-  selected: Observation | null;
-  observations: Observation[];
+  actions?: ObservationActions;
+  observations: DashboardObservation[];
+  selected: DashboardObservation | null;
+  forecast: ForecastPayload | null;
   onSelect: (id: string) => void;
 }) {
-  const [layers, setLayers] = useState<MapLayerState>({
+  const [layers, setLayers] = useState<MapLayers>({
     verifiedRecords: true,
     unverifiedRecords: true,
     corridors: true,
@@ -1009,13 +1365,14 @@ function ForecastMap({
     waterways: true,
     roadsAndTrails: true,
   });
-  const controls: Array<[keyof MapLayerState, string]> = [
-    ['verifiedRecords', 'Verified records'],
-    ['unverifiedRecords', 'Unverified records'],
-    ['corridors', 'Potential spread corridors'],
-    ['samplingGaps', 'Sampling gaps'],
-    ['waterways', 'Waterways'],
-    ['roadsAndTrails', 'Roads and trails'],
+
+  const layerOptions: Array<[keyof MapLayers, string]> = [
+    ["verifiedRecords", "Verified records"],
+    ["unverifiedRecords", "Unverified records"],
+    ["corridors", "Potential spread corridors"],
+    ["samplingGaps", "Sampling gaps"],
+    ["waterways", "Waterways"],
+    ["roadsAndTrails", "Roads and trails"],
   ];
 
   return (
@@ -1023,57 +1380,106 @@ function ForecastMap({
       <section className="map-stage">
         <div className="map-control-panel">
           <PanelTitle title="Layers" meta="Visible layer controls" />
-          {controls.map(([key, label]) => (
-              <label className="toggle-row" key={key}>
-                <span>{label}</span>
-                <input
-                  checked={layers[key] ?? false}
-                  onChange={(event) => setLayers((current) => ({ ...current, [key]: event.target.checked }))}
-                  type="checkbox"
-                />
-              </label>
+          {layerOptions.map(([key, label]) => (
+            <label key={key} className="toggle-row">
+              <span>{label}</span>
+              <input
+                checked={layers[key]}
+                onChange={(event) =>
+                  setLayers((current) => ({ ...current, [key]: event.target.checked }))
+                }
+                type="checkbox"
+              />
+            </label>
           ))}
         </div>
         {selected ? (
-          <ResearchMap selected={selected} observations={rows} layers={layers} onSelect={onSelect} large />
+          <ResearchMap
+            observations={observations}
+            selected={selected}
+            layers={layers}
+            forecast={forecast}
+            onSelect={onSelect}
+            large
+          />
         ) : (
-          <EmptyState title="No map records visible" body="Clear search or restore filters to show research map records." />
+          <EmptyState
+            title="No map records visible"
+            body="Clear search or restore filters to show research map records."
+          />
         )}
       </section>
       <aside className="panel selected-map-record">
         <PanelTitle
           title="Selected record"
-          meta={selected ? (selected.privacy === 'obscured' ? 'Obscured coordinates' : 'Public coordinates') : 'No visible record'}
+          meta={
+            selected
+              ? selected.privacy === "obscured"
+                ? "Obscured coordinates"
+                : "Public coordinates"
+              : "No visible record"
+          }
         />
         {selected ? (
           <>
             <ObservationDetail selected={selected} />
-            {actions && <ObservationActionBar actions={actions} mode="map" />}
+            {actions ? <ObservationActionsBar actions={actions} mode="map" /> : null}
           </>
         ) : (
-          <EmptyState title="No record selected" body="The current map filters do not match any observations." />
+          <EmptyState
+            title="No record selected"
+            body="The current map filters do not match any observations."
+          />
         )}
       </aside>
     </div>
   );
 }
 
-function SamplingGaps({
+function SamplingSummary() {
+  const rows = [
+    ["Under-sampled zones", "612 cells"],
+    ["Road/trail-biased areas", "384 cells"],
+    ["Park/protected-area biased", "429 cells"],
+    ["Likely false absence areas", "563 cells"],
+    ["High-risk under-sampled", "221 cells"],
+  ] as const;
+
+  return (
+    <div className="gap-list">
+      {rows.map(([label, value]) => (
+        <div key={label}>
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </div>
+      ))}
+      <div className="notice">
+        No observations does not mean true absence. Verify sampling effort before concluding absence.
+      </div>
+    </div>
+  );
+}
+
+function SamplingPage({
   cells,
   observations,
   selected,
+  forecast,
   onSelect,
 }: {
   cells: SamplingCell[];
-  observations: Observation[];
-  selected: Observation | null;
+  observations: DashboardObservation[];
+  selected: DashboardObservation | null;
+  forecast: ForecastPayload | null;
   onSelect: (id: string) => void;
 }) {
-  const samplingLayers: MapLayerState = {
+  const layers = {
     verifiedRecords: false,
     unverifiedRecords: true,
     corridors: false,
     samplingGaps: true,
+    waterways: false,
+    roadsAndTrails: false,
   };
 
   return (
@@ -1082,20 +1488,24 @@ function SamplingGaps({
         <PanelTitle title="Sampling gap map" meta="Region: Delaware River Basin, grid: 5 km" />
         {selected ? (
           <ResearchMap
-            selected={selected}
             observations={observations}
-            layers={samplingLayers}
-            samplingFocus
+            selected={selected}
+            layers={layers}
+            forecast={forecast}
             onSelect={onSelect}
             large
+            samplingFocus
           />
         ) : (
-          <EmptyState title="No sampling records visible" body="Sampling gaps still exist, but no observations match the active table context." />
+          <EmptyState
+            title="No sampling records visible"
+            body="Sampling gaps still exist, but no observations match the active table context."
+          />
         )}
       </section>
       <aside className="panel">
         <PanelTitle title="Analysis summary" meta="No observations does not mean true absence" />
-        <GapSummary />
+        <SamplingSummary />
       </aside>
       <section className="panel sampling-table">
         <PanelTitle title="Grid cell summary" meta="1,209 cells" />
@@ -1132,38 +1542,123 @@ function SamplingGaps({
   );
 }
 
-function ExportCenter({
-  exports,
+function ExportHistoryTable({
+  rows,
+  onRefreshExport,
+  onRetryExport,
+}: {
+  rows: ExportRecord[];
+  onRefreshExport: (record: ExportRecord) => void;
+  onRetryExport: (record: ExportRecord) => void;
+}) {
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleAction = (record: ExportRecord) => {
+    if (record.status === "Completed") {
+      downloadExportRecord(record);
+      setMessage(`${record.name} is ready for download. Privacy rules remain applied.`);
+      return;
+    }
+    if (record.status === "Failed") {
+      onRetryExport(record);
+      setMessage(`${record.name} retry queued with the same filters.`);
+      return;
+    }
+    onRefreshExport(record);
+    setMessage(`${record.name} is still processing. Refreshing the latest export status.`);
+  };
+
+  return (
+    <>
+      {message ? <div className="inline-success">{message}</div> : null}
+      <table>
+        <thead>
+          <tr>
+            <th>Export name</th>
+            <th>Format</th>
+            <th>Filters</th>
+            <th>Records</th>
+            <th>Status</th>
+            <th>Requested</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((record) => (
+            <tr key={record.id}>
+              <td>{record.name}</td>
+              <td>{record.format}</td>
+              <td>{record.filters}</td>
+              <td>{record.records.toLocaleString()}</td>
+              <td>
+                <span className={`badge status ${record.status.toLowerCase()}`}>{record.status}</span>
+              </td>
+              <td>{record.requested}</td>
+              <td>
+                <button
+                  className="plain-button compact-action"
+                  onClick={() => handleAction(record)}
+                  type="button"
+                >
+                  {record.status === "Failed" ? (
+                    <RefreshCw size={16} />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  {record.status === "Failed"
+                    ? "Retry"
+                    : record.status === "Completed"
+                      ? "Download"
+                      : "Refresh"}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
+function ExportsPage({
+  exports: exportRows,
+  filters,
   isPending,
   visibleRecordCount,
   onCreateExport,
+  onRefreshExport,
   onRetryExport,
 }: {
   exports: ExportRecord[];
+  filters: DashboardFilters;
   isPending: boolean;
   visibleRecordCount: number;
   onCreateExport: (request: ExportRequest) => Promise<void>;
-  onRetryExport: (row: ExportRecord) => void;
+  onRefreshExport: (record: ExportRecord) => void;
+  onRetryExport: (record: ExportRecord) => void;
 }) {
-  const [format, setFormat] = useState<ExportRequest['format']>('CSV');
+  const [format, setFormat] = useState<ExportFormat>("CSV");
   const [fields, setFields] = useState({
     environmentalContext: true,
     mediaUrls: true,
     signalScores: true,
     verificationFields: true,
   });
-  const includedFieldCount =
+
+  const fieldCount =
     12 +
     (fields.mediaUrls ? 2 : 0) +
     (fields.environmentalContext ? 6 : 0) +
     (fields.signalScores ? 4 : 0) +
     (fields.verificationFields ? 6 : 0);
-  const estimatedSizeMb = format === 'GeoJSON' ? (includedFieldCount / 30) * 3.6 : (includedFieldCount / 30) * 1.8;
-  const fieldRows: Array<[keyof typeof fields, string]> = [
-    ['mediaUrls', 'Media URLs'],
-    ['environmentalContext', 'Environmental context'],
-    ['signalScores', 'Signal scores'],
-    ['verificationFields', 'Verification fields'],
+  const estimatedSizeMb =
+    format === "GeoJSON" ? (fieldCount / 30) * 3.6 : (fieldCount / 30) * 1.8;
+
+  const fieldOptions: Array<[keyof typeof fields, string]> = [
+    ["mediaUrls", "Media URLs"],
+    ["environmentalContext", "Environmental context"],
+    ["signalScores", "Signal scores"],
+    ["verificationFields", "Verification fields"],
   ];
 
   return (
@@ -1172,17 +1667,17 @@ function ExportCenter({
         <PanelTitle title="Configure export" meta="Step 1 of 2" />
         <div className="format-grid">
           <button
-            className={format === 'CSV' ? 'format-option selected' : 'format-option'}
-            onClick={() => setFormat('CSV')}
+            className={format === "CSV" ? "format-option selected" : "format-option"}
+            onClick={() => setFormat("CSV")}
             type="button"
           >
-            <FileDown size={24} aria-hidden="true" />
+            <Download size={24} aria-hidden="true" />
             <strong>CSV</strong>
             <span>Tabular records for analysis in spreadsheets and statistical software.</span>
           </button>
           <button
-            className={format === 'GeoJSON' ? 'format-option selected' : 'format-option'}
-            onClick={() => setFormat('GeoJSON')}
+            className={format === "GeoJSON" ? "format-option selected" : "format-option"}
+            onClick={() => setFormat("GeoJSON")}
             type="button"
           >
             <Map size={24} aria-hidden="true" />
@@ -1191,12 +1686,14 @@ function ExportCenter({
           </button>
         </div>
         <div className="field-list">
-          {fieldRows.map(([key, label]) => (
-            <label className="toggle-row" key={key}>
+          {fieldOptions.map(([key, label]) => (
+            <label key={key} className="toggle-row">
               <span>{label}</span>
               <input
                 checked={fields[key]}
-                onChange={(event) => setFields((current) => ({ ...current, [key]: event.target.checked }))}
+                onChange={(event) =>
+                  setFields((current) => ({ ...current, [key]: event.target.checked }))
+                }
                 type="checkbox"
               />
             </label>
@@ -1208,11 +1705,11 @@ function ExportCenter({
         </div>
       </section>
       <aside className="panel">
-        <PanelTitle title="Review and create" meta="Previewing up to 100 records" />
+        <PanelTitle title="Review and create" meta="Step 2 of 2" />
         <div className="preview-numbers">
           <div>
             <span>Records</span>
-            <strong>{visibleRecordCount.toLocaleString()}</strong>
+            <strong>{visibleRecordCount > 0 ? visibleRecordCount.toLocaleString() : "0"}</strong>
           </div>
           <div>
             <span>Species</span>
@@ -1220,15 +1717,16 @@ function ExportCenter({
           </div>
           <div>
             <span>Fields</span>
-            <strong>{includedFieldCount}</strong>
+            <strong>{fieldCount}</strong>
           </div>
         </div>
         <div className="export-field-summary">
           <span>Estimated file size</span>
-          <strong>~ {estimatedSizeMb.toFixed(1)} MB</strong>
+          <strong>~{estimatedSizeMb.toFixed(1)} MB</strong>
         </div>
         <div className="notice">
-          Sensitive or obscured records are generalized according to export permissions. Private records require admin access.
+          Sensitive or obscured records are generalized according to export permissions. Private
+          records require admin access.
         </div>
         <button
           className="primary-action full-width"
@@ -1237,10 +1735,13 @@ function ExportCenter({
             void onCreateExport({
               format,
               filters: {
-                region_code: 'Delaware River Basin',
-                date_range: 'May 1-May 31, 2025',
+                region_code: filters.bbox === delawareBasinBbox ? "Delaware River Basin" : filters.bbox || "Delaware River Basin",
+                from_date: filters.fromDate || undefined,
+                to_date: filters.toDate || undefined,
+                needs_review: filters.needsReview || undefined,
+                signal_label: filters.signalLabel || undefined,
+                verification_status: filters.verificationStatus || undefined,
                 visible_records: visibleRecordCount,
-                signal_label: 'high_value_verification_candidate',
               },
               includeMediaUrls: fields.mediaUrls,
               includeEnvironmentalContext: fields.environmentalContext,
@@ -1250,40 +1751,69 @@ function ExportCenter({
           }
           type="button"
         >
-          <Download size={18} aria-hidden="true" />
-          {isPending ? 'Creating export...' : `Create ${format} export`}
+          {isPending ? "Creating..." : `Create ${format} export`}
         </button>
       </aside>
       <section className="panel export-history">
         <PanelTitle title="Export history" meta="Downloads expire after 7 days" />
-        <ExportHistory rows={exports} onRetryExport={onRetryExport} />
+        <ExportHistoryTable
+          rows={exportRows}
+          onRefreshExport={onRefreshExport}
+          onRetryExport={onRetryExport}
+        />
       </section>
     </div>
   );
 }
 
-function Analyst({ observations }: { observations: Observation[] }) {
-  const defaultQuestion = 'What are the key emerging ecological signals in the Delaware River Basin this month?';
-  const [draftQuestion, setDraftQuestion] = useState('');
-  const [activeQuestion, setActiveQuestion] = useState(defaultQuestion);
-  const [savedAnalyses, setSavedAnalyses] = useState<string[]>(() =>
-    readStringArrayStorage(storageKeys.analystSaves, ['May priority signal summary']),
+function AnalystPage({
+  observations,
+  apiSource,
+  filtersActive,
+}: {
+  observations: DashboardObservation[];
+  apiSource: DashboardPayload["source"];
+  filtersActive: boolean;
+}) {
+  const defaultQuestion =
+    "What are the key emerging ecological signals in the Delaware River Basin this month?";
+  const [draft, setDraft] = useState("");
+  const [question, setQuestion] = useState(defaultQuestion);
+  const [apiAnswer, setApiAnswer] = useState<ReturnType<typeof buildAnalystAnswer> | null>(null);
+  const [analystPending, setAnalystPending] = useState(false);
+  const [savedAnalyses, setSavedAnalyses] = useState(() =>
+    readStringList(storageKeys.analystSaves, ["May priority signal summary"]),
   );
+  const localAnswer = useMemo(() => buildAnalystAnswer(question, observations), [question, observations]);
+  const answer = apiAnswer ?? localAnswer;
 
-  const answer = useMemo(() => buildAnalystAnswer(activeQuestion, observations), [activeQuestion, observations]);
   useEffect(() => {
-    writeJsonStorage(storageKeys.analystSaves, savedAnalyses);
+    writeStringList(storageKeys.analystSaves, savedAnalyses);
   }, [savedAnalyses]);
-  const askQuestion = () => {
-    const nextQuestion = draftQuestion.trim();
-    if (!nextQuestion) {
+
+  const ask = async () => {
+    const next = draft.trim();
+    if (!next) {
       return;
     }
-    setActiveQuestion(nextQuestion);
-    setDraftQuestion('');
+    setQuestion(next);
+    setDraft("");
+    setApiAnswer(null);
+
+    if (apiSource === "api") {
+      setAnalystPending(true);
+      const response = await askResearchAnalyst(next, {
+        needs_review: filtersActive ? true : undefined,
+        signal_label: filtersActive ? "high_value_verification_candidate" : undefined,
+        visible_records: observations.length,
+      });
+      setApiAnswer(response);
+      setAnalystPending(false);
+    }
   };
+
   const saveAnalysis = () => {
-    const label = activeQuestion.length > 48 ? `${activeQuestion.slice(0, 45)}...` : activeQuestion;
+    const label = question.length > 48 ? `${question.slice(0, 45)}...` : question;
     setSavedAnalyses((current) => (current.includes(label) ? current : [label, ...current]));
   };
 
@@ -1291,37 +1821,35 @@ function Analyst({ observations }: { observations: Observation[] }) {
     <div className="analyst-layout">
       <section className="panel analyst-chat">
         <PanelTitle title="Question" meta="Verified context, model EcoSentinel-1.3" />
-        <div className="question-card">
-          {activeQuestion}
-        </div>
+        <div className="question-card">{question}</div>
         <label className="ask-box">
           <span>Ask a research question</span>
           <textarea
-            onChange={(event) => setDraftQuestion(event.target.value)}
+            onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-                askQuestion();
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                ask();
               }
             }}
             placeholder="Ask about signals, sampling gaps, verification status, or exportable records..."
-            value={draftQuestion}
+            value={draft}
           />
         </label>
         <div className="analyst-actions">
-          <button className="primary-action" disabled={!draftQuestion.trim()} onClick={askQuestion} type="button">
+          <button className="primary-action" disabled={!draft.trim() || analystPending} onClick={() => void ask()} type="button">
             <Send size={16} aria-hidden="true" />
-            Ask analyst
+            {analystPending ? "Asking..." : "Ask analyst"}
           </button>
           <button className="plain-button" onClick={saveAnalysis} type="button">
-            <Check size={16} aria-hidden="true" />
+            <Save size={16} aria-hidden="true" />
             Save analysis
           </button>
         </div>
         <div className="saved-analyses">
           <h3>Saved analyses</h3>
-          {savedAnalyses.map((analysis) => (
-            <button key={analysis} onClick={() => setActiveQuestion(analysis)} type="button">
-              {analysis}
+          {savedAnalyses.map((item) => (
+            <button key={item} onClick={() => setQuestion(item)} type="button">
+              {item}
             </button>
           ))}
         </div>
@@ -1343,21 +1871,31 @@ function Analyst({ observations }: { observations: Observation[] }) {
         </div>
         <div className="method-list">
           <h3>Method</h3>
-          <span>Filtered observations</span>
-          <span>Checked verification status</span>
-          <span>Compared sampling context</span>
-          <span>Summarized uncertainty factors</span>
+          {[
+            "Filtered observations",
+            "Compared against previous period",
+            "Checked verification status",
+            "Summarized uncertainty factors",
+          ].map((step) => (
+            <span key={step}>{step}</span>
+          ))}
         </div>
       </section>
       <aside className="panel">
-        <PanelTitle title="Cited data sources" meta="Current answer" />
-        <SourceList />
+        <PanelTitle title="Cited data sources" meta="Grounded platform context" />
+        <ProvenanceList />
       </aside>
     </div>
   );
 }
 
-function SettingsScreen({ role, onRoleChange }: { role: UserRole; onRoleChange: (role: UserRole) => void }) {
+function SettingsPage({
+  role,
+  onRoleChange,
+}: {
+  role: ResearchRole;
+  onRoleChange: (role: ResearchRole) => void;
+}) {
   return (
     <div className="settings-layout">
       <section className="panel settings-panel">
@@ -1365,9 +1903,17 @@ function SettingsScreen({ role, onRoleChange }: { role: UserRole; onRoleChange: 
         <div className="settings-grid">
           <SettingRow label="Default region" value="Delaware River Basin" />
           <SettingRow label="Default map payload" value="Research mode" />
+          <SettingRow
+            label="Requester identity"
+            value={hasApiToken ? "Bearer token configured" : requesterId}
+          />
           <div className="setting-row">
             <span>Verification role</span>
-            <select aria-label="Settings verification role" onChange={(event) => onRoleChange(event.target.value as UserRole)} value={role}>
+            <select
+              aria-label="Settings verification role"
+              onChange={(event) => onRoleChange(event.target.value as ResearchRole)}
+              value={role}
+            >
               <option value="researcher">Researcher</option>
               <option value="reviewer">Reviewer</option>
               <option value="admin">Admin</option>
@@ -1398,465 +1944,476 @@ function SettingsScreen({ role, onRoleChange }: { role: UserRole; onRoleChange: 
   );
 }
 
-function RecordList({
-  rows,
-  selectedId,
-  onSelect,
-  compact = false,
-}: {
-  rows: Observation[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-  compact?: boolean;
-}) {
-  return (
-    <div className={compact ? 'record-list compact' : 'record-list'}>
-      {rows.length === 0 && (
-        <EmptyState title="No records in this queue" body="The current search and filters do not match any observations." />
-      )}
-      {rows.map((row, index) => (
-        <button className={row.id === selectedId ? 'record-row active' : 'record-row'} key={row.id} onClick={() => onSelect(row.id)} type="button">
-          <VisualTile index={index} label={row.commonName} />
-          <span>
-            <strong>{row.commonName}</strong>
-            <small>{row.scientificName}</small>
-            <small>{row.location} · {row.confidence}% confidence</small>
-          </span>
-          <SignalBadge label={row.signalLabel} />
-        </button>
-      ))}
-    </div>
+export default function App() {
+  const [screen, setScreen] = useState<ScreenId>(() => readScreenFromHash());
+  const [payload, setPayload] = useState<DashboardPayload>(() => buildDemoPayload());
+  const [selectedId, setSelectedId] = useState(() =>
+    readStorage(storageKeys.selectedId, buildDemoPayload().observations[0].id),
   );
-}
-
-function ObservationDetail({ selected, expanded = false }: { selected: Observation; expanded?: boolean }) {
-  return (
-    <div className={expanded ? 'observation-detail expanded' : 'observation-detail'}>
-      <VisualHero label={selected.commonName} />
-      <div className="detail-main">
-        <div>
-          <span className="eyebrow">Possible species</span>
-          <h2>{selected.commonName}</h2>
-          <p className="scientific-name">{selected.scientificName}</p>
-        </div>
-        <dl>
-          <div>
-            <dt>Identity confidence</dt>
-            <dd>{selected.confidence}%</dd>
-          </div>
-          <div>
-            <dt>Verification status</dt>
-            <dd>
-              <StatusBadge status={selected.verificationStatus} />
-            </dd>
-          </div>
-          <div>
-            <dt>Ecological Signal Priority</dt>
-            <dd>
-              <SignalBadge label={selected.signalLabel} />
-            </dd>
-          </div>
-          <div>
-            <dt>Coordinate privacy</dt>
-            <dd>{selected.privacy}, ±{selected.coordinateUncertaintyM} m</dd>
-          </div>
-        </dl>
-      </div>
-      <div className="detail-grid">
-        <InfoGroup
-          title="Habitat answers"
-          rows={[
-            ['Habitat', selected.habitat],
-            ['Distance to water', `${selected.distanceToWaterM} m`],
-            ['Sampling label', selected.samplingLabel],
-          ]}
-        />
-        <InfoGroup
-          title="Context sources"
-          rows={[
-            ['Observation source', selected.source],
-            ['Land cover', 'NLCD, forest edge'],
-            ['Nearby records', '12 verified, 7 unverified'],
-          ]}
-        />
-        {expanded && (
-          <InfoGroup
-            title="Required review integrity"
-            rows={[
-              ['Expert verified', 'Requires selected species'],
-              ['Needs more evidence', 'Requires requested evidence type'],
-              ['Reject', 'Requires reviewer notes'],
-            ]}
-          />
-        )}
-      </div>
-    </div>
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState<{ title: string; body: string } | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [role, setRole] = useState<ResearchRole>(() => readRole());
+  const [filters, setFilters] = useState<DashboardFilters>(defaultDashboardFilters);
+  const [flaggedRecords, setFlaggedRecords] = useState(() => readStringList(storageKeys.flaggedRecords, []));
+  const [samplingPlanRecords, setSamplingPlanRecords] = useState(() =>
+    readStringList(storageKeys.samplingPlanRecords, []),
   );
-}
+  const [taskRecords, setTaskRecords] = useState(() => readStringList(storageKeys.taskRecords, []));
+  const [workbenchMessage, setWorkbenchMessage] = useState<string | null>(null);
+  const [forecast, setForecast] = useState<ForecastPayload | null>(null);
+  const [apiFallbackError, setApiFallbackError] = useState<ApiError | null>(null);
+  const [verificationHistory, setVerificationHistory] = useState<VerificationHistoryEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
-function ObservationActionBar({
-  actions,
-  compact = false,
-  mode = 'default',
-}: {
-  actions: ObservationWorkbenchActions;
-  compact?: boolean;
-  mode?: 'default' | 'map' | 'review';
-}) {
-  const primaryNavigation =
-    mode === 'map'
-      ? {
-          label: 'Open in queue',
-          icon: ShieldCheck,
-          onClick: actions.onOpenVerification,
+  const visibleObservations = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return payload.observations.filter((row) => {
+      return (
+        !normalized ||
+        [
+          row.id,
+          row.commonName,
+          row.scientificName,
+          row.location,
+          row.signalLabel,
+          row.verificationStatus,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalized)
+      );
+    });
+  }, [payload.observations, query]);
+
+  const selected =
+    visibleObservations.find((row) => row.id === selectedId) ?? visibleObservations[0] ?? null;
+
+  const apiFallbackBanner = formatApiFallback(apiFallbackError);
+
+  const refreshDashboard = useCallback(async () => {
+    setLoading(true);
+    setNotice(null);
+    try {
+      const result = await loadDashboardData(filters);
+      setPayload(result.payload);
+      setApiFallbackError(result.apiError);
+      setSelectedId((current) =>
+        result.payload.observations.some((row) => row.id === current)
+          ? current
+          : (result.payload.observations[0]?.id ?? current),
+      );
+
+      if (result.payload.source === "api") {
+        const forecastPayload = await loadForecastResearch(filters);
+        setForecast(forecastPayload);
+      } else {
+        setForecast(null);
+      }
+    } catch (error) {
+      setNotice({
+        title: "Dashboard request failed",
+        body: formatActionError(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
+
+  useEffect(() => {
+    if (visibleObservations.length > 0 && !visibleObservations.some((row) => row.id === selectedId)) {
+      setSelectedId(visibleObservations[0].id);
+    }
+  }, [selectedId, visibleObservations]);
+
+  useEffect(() => {
+    const onHashChange = () => setScreen(readScreenFromHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  useEffect(() => {
+    writeStorage(storageKeys.role, role);
+  }, [role]);
+
+  useEffect(() => {
+    writeStorage(storageKeys.selectedId, selectedId);
+  }, [selectedId]);
+
+  useEffect(() => {
+    writeStringList(storageKeys.flaggedRecords, flaggedRecords);
+  }, [flaggedRecords]);
+
+  useEffect(() => {
+    writeStringList(storageKeys.samplingPlanRecords, samplingPlanRecords);
+  }, [samplingPlanRecords]);
+
+  useEffect(() => {
+    writeStringList(storageKeys.taskRecords, taskRecords);
+  }, [taskRecords]);
+
+  useEffect(() => {
+    void refreshDashboard();
+  }, [refreshDashboard]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadHistory() {
+      if (screen !== "verification" || !selected || payload.source !== "api") {
+        setVerificationHistory([]);
+        setHistoryLoading(false);
+        setHistoryError(null);
+        return;
+      }
+
+      setHistoryLoading(true);
+      setHistoryError(null);
+      try {
+        const next = await fetchVerificationHistory(selected.id);
+        if (active) {
+          setVerificationHistory(next);
         }
-      : {
-          label: mode === 'review' ? 'View on map' : 'View on map',
-          icon: Map,
-          onClick: actions.onViewOnMap,
-        };
-  const secondaryNavigation =
-    mode === 'review'
-      ? null
-      : {
-          label: 'Open in queue',
-          icon: ShieldCheck,
-          onClick: actions.onOpenVerification,
-        };
-  const PrimaryIcon = primaryNavigation.icon;
-  const SecondaryIcon = secondaryNavigation?.icon;
+      } catch (error) {
+        if (active) {
+          setHistoryError(formatActionError(error));
+        }
+      } finally {
+        if (active) {
+          setHistoryLoading(false);
+        }
+      }
+    }
 
-  return (
-    <div className={compact ? 'observation-actions compact' : 'observation-actions'} aria-label="Selected observation actions">
-      <button className="plain-button" onClick={primaryNavigation.onClick} type="button">
-        <PrimaryIcon size={16} aria-hidden="true" />
-        {primaryNavigation.label}
-      </button>
-      {secondaryNavigation && SecondaryIcon && !compact && (
-        <button className="plain-button" onClick={secondaryNavigation.onClick} type="button">
-          <SecondaryIcon size={16} aria-hidden="true" />
-          {secondaryNavigation.label}
-        </button>
-      )}
-      <button className={actions.flagged ? 'plain-button active-command' : 'plain-button'} onClick={actions.onToggleFlag} type="button">
-        <Flag size={16} aria-hidden="true" />
-        {actions.flagged ? 'Flagged' : 'Flag'}
-      </button>
-      <button
-        className={actions.inSamplingPlan ? 'plain-button active-command' : 'plain-button'}
-        onClick={actions.onAddToSamplingPlan}
-        type="button"
-      >
-        <ListPlus size={16} aria-hidden="true" />
-        {actions.inSamplingPlan ? 'In sampling plan' : 'Add to sampling plan'}
-      </button>
-      {!compact && (
-        <button className={actions.hasTask ? 'plain-button active-command' : 'plain-button'} onClick={actions.onCreateTask} type="button">
-          <NotebookPen size={16} aria-hidden="true" />
-          {actions.hasTask ? 'Task created' : 'Create follow-up task'}
-        </button>
-      )}
-      <button className="plain-button" onClick={actions.onExportRecord} type="button">
-        <Download size={16} aria-hidden="true" />
-        Export record
-      </button>
-    </div>
-  );
-}
-
-function PanelTitle({ title, meta }: { title: string; meta?: string }) {
-  return (
-    <div className="panel-title">
-      <h2>{title}</h2>
-      {meta && <span>{meta}</span>}
-    </div>
-  );
-}
-
-function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="empty-state">
-      <strong>{title}</strong>
-      <span>{body}</span>
-    </div>
-  );
-}
-
-function StatusBadge({ status }: { status: VerificationStatus }) {
-  return <span className={`badge status ${statusSlug(status)}`}>{status}</span>;
-}
-
-function SignalBadge({ label }: { label: SignalLabel }) {
-  return <span className={`badge signal ${statusSlug(label)}`}>{label}</span>;
-}
-
-function statusSlug(value: string) {
-  return value.toLowerCase().replaceAll(' ', '-');
-}
-
-function InfoGroup({ title, rows }: { title: string; rows: Array<[string, string]> }) {
-  return (
-    <section className="info-group">
-      <h3>{title}</h3>
-      <dl>
-        {rows.map(([label, value]) => (
-          <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
-  );
-}
-
-function SourceList() {
-  const sources = [
-    ['iNaturalist', 'Community observation'],
-    ['GBIF', 'Historical occurrence context'],
-    ['USGS 3DHP', 'Hydrology layer'],
-    ['NLCD', 'Land cover and canopy'],
-  ];
-  return (
-    <div className="source-list">
-      {sources.map(([name, role]) => (
-        <div key={name}>
-          <span>{name}</span>
-          <small>{role}</small>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function buildAnalystAnswer(question: string, observations: Observation[]) {
-  const normalized = question.toLowerCase();
-  const pendingCount = observations.filter((item) => item.verificationStatus !== 'Expert verified').length;
-  const underSampledCount = observations.filter((item) => item.samplingLabel.toLowerCase().includes('under-sampled')).length;
-  const priorityRecords = observations.filter((item) =>
-    ['High-value verification candidate', 'Priority ecological signal'].includes(item.signalLabel),
-  );
-  const topRecord = priorityRecords[0] ?? observations[0];
-
-  if (observations.length === 0) {
-    return {
-      summary:
-        'Insufficient evidence. The current filters do not return observations, so EcoSentinel cannot summarize ecological signals from this dashboard context.',
-      findings: [
-        { title: 'Insufficient evidence', text: 'No visible records are available under the current filters.' },
-        { title: 'Next step', text: 'Clear filters or expand the date range before interpreting absence.' },
-      ],
-      confidence: 18,
-      confidenceLabel: 'Low confidence',
-      uncertainty: 'Uncertainty is high because the visible dataset is empty.',
+    void loadHistory();
+    return () => {
+      active = false;
     };
-  }
+  }, [payload.source, screen, selected]);
 
-  if (normalized.includes('export')) {
-    return {
-      summary:
-        `The current context has ${observations.length} visible records, including ${priorityRecords.length} high-value or priority signal records. CSV is best for tabular review, while GeoJSON is best for GIS workflows and map layers.`,
-      findings: [
-        { title: 'Export readiness', text: `${pendingCount} records still need verification before final research use.` },
-        { title: 'Privacy handling', text: 'Obscured records should remain generalized unless an admin grants private export access.' },
-        { title: 'Recommended format', text: 'Use GeoJSON when corridor or sampling-gap context must travel with the record set.' },
-      ],
-      confidence: 84,
-      confidenceLabel: 'High confidence, with export caveats',
-      uncertainty: 'Export confidence depends on verification status and location privacy permissions.',
-    };
-  }
-
-  if (normalized.includes('sampling') || normalized.includes('absence')) {
-    return {
-      summary:
-        `Sampling context is uneven. ${underSampledCount} visible records are associated with under-sampled areas, so absence should not be treated as true absence without checking effort and bias.`,
-      findings: [
-        { title: 'Sampling gap signal', text: 'High-risk under-sampled cells should be prioritized for structured surveys.' },
-        { title: 'Bias warning', text: 'Road/trail-biased records can overrepresent accessible habitats.' },
-        { title: 'Interpretation rule', text: 'Use insufficient evidence language when sampling effort is low.' },
-      ],
-      confidence: 79,
-      confidenceLabel: 'Moderate confidence',
-      uncertainty: 'Uncertainty comes from uneven sampling effort and unverified visible records.',
-    };
-  }
-
-  return {
-    summary:
-      `In May 2025, the Delaware River Basin shows several notable ecological signals. ${topRecord.commonName} is the top visible possible species by Ecological Signal Priority, while ${pendingCount} records still need verification before stronger claims are appropriate.`,
-    findings: [
-      {
-        title: topRecord.commonName,
-        text: `Current visible context marks this as a ${topRecord.signalLabel.toLowerCase()} with ${topRecord.confidence}% identity confidence.`,
-      },
-      { title: 'Verification need', text: `${pendingCount} visible records remain unverified or need more evidence.` },
-      {
-        title: 'Sampling uncertainty',
-        text: `${underSampledCount} visible records have under-sampled context, so absence should not be treated as true absence.`,
-      },
-    ],
-    confidence: 82,
-    confidenceLabel: 'High confidence, with caveats',
-    uncertainty: 'Uncertainty comes from under-sampled zones, early-season variability, and unverified records.',
+  const navigate = (next: ScreenId) => {
+    setScreen(next);
+    window.history.replaceState(null, "", `#${next}`);
   };
-}
 
-function GapSummary() {
-  const rows = [
-    ['Under-sampled zones', '612 cells'],
-    ['Road/trail-biased areas', '384 cells'],
-    ['Park/protected-area biased', '429 cells'],
-    ['Likely false absence areas', '563 cells'],
-    ['High-risk under-sampled', '221 cells'],
-  ];
-  return (
-    <div className="gap-list">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <span>{label}</span>
-          <strong>{value}</strong>
-        </div>
-      ))}
-      <div className="notice">No observations does not mean true absence. Verify sampling effort before concluding absence.</div>
-    </div>
-  );
-}
+  const toggleListItem = (
+    setter: Dispatch<SetStateAction<string[]>>,
+    id: string,
+    mode: "add" | "toggle",
+  ) => {
+    setter((current) => {
+      const exists = current.includes(id);
+      if (mode === "toggle") {
+        return exists ? current.filter((item) => item !== id) : [id, ...current];
+      }
+      return exists ? current : [id, ...current];
+    });
+  };
 
-function ExportHistory({
-  rows,
-  onRetryExport,
-}: {
-  rows: ExportRecord[];
-  onRetryExport: (row: ExportRecord) => void;
-}) {
-  const [message, setMessage] = useState<string | null>(null);
-
-  const handleAction = (row: ExportRecord) => {
-    if (row.status === 'Completed') {
-      downloadExportRecord(row);
-      setMessage(`${row.name} is ready for download. Privacy rules remain applied.`);
+  const handleVerify = async (status: VerificationStatus, notes: string) => {
+    if (!selected) {
+      setNotice({
+        title: "Verification unavailable",
+        body: "No visible observation is selected for verification.",
+      });
       return;
     }
 
-    if (row.status === 'Failed') {
-      onRetryExport(row);
-      setMessage(`${row.name} retry queued with the same filters.`);
+    const defaults: Record<VerificationStatus, string> = {
+      Unverified: "",
+      "Needs more evidence": "Reviewer requested sharper habitat and close-up media evidence.",
+      "Expert verified": "Confirmed from submitted media evidence and species context.",
+      "Field confirmed": "Field confirmation recorded by authorized reviewer.",
+      Rejected: "Rejected because the submitted evidence is insufficient for this possible species.",
+    };
+
+    setPendingAction(status);
+    setNotice(null);
+    try {
+      const nextStatus = await submitVerificationAction({
+        observationId: selected.id,
+        status,
+        notes: notes.trim() || defaults[status],
+        reviewerId: requesterId,
+        verifiedSpeciesId: selected.speciesId,
+      });
+      setWorkbenchMessage(`${selected.commonName} updated to ${nextStatus}.`);
+      await refreshDashboard();
+      if (payload.source === "api") {
+        setVerificationHistory(await fetchVerificationHistory(selected.id));
+      }
+    } catch (error) {
+      setNotice({
+        title:
+          error instanceof ApiError && error.status === 403
+            ? "Unauthorized reviewer action"
+            : "Verification action failed",
+        body: formatActionError(error),
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const handleCreateExport = async (request: ExportRequest) => {
+    setPendingAction("export");
+    setNotice(null);
+    try {
+      const created = await createExportRequest(request);
+      const latest =
+        payload.source === "api" ? await waitForExportCompletion(created.id) : created;
+
+      setPayload((current) => ({
+        ...current,
+        exports: [
+          latest,
+          ...current.exports.filter((record) => record.id !== latest.id),
+        ],
+        lastSyncedAt: new Date().toISOString(),
+      }));
+      setWorkbenchMessage(
+        latest.status === "Completed"
+          ? `${latest.name} is ready for download.`
+          : latest.status === "Failed"
+            ? `${latest.name} failed. Review the export status and retry if needed.`
+            : `${latest.name} is processing. Refresh export status for the latest result.`,
+      );
+    } catch (error) {
+      setNotice({
+        title:
+          error instanceof ApiError && error.status === 403 ? "Export permission required" : "Export request failed",
+        body: formatActionError(error),
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const refreshExport = async (record: ExportRecord) => {
+    if (payload.source !== "api") {
+      setWorkbenchMessage(`${record.name} is using demo export state.`);
       return;
     }
 
-    setMessage(`${row.name} is ${row.status.toLowerCase()}; downloads unlock when processing completes.`);
+    try {
+      const latest = await fetchExportRecord(record.id);
+      setPayload((current) => ({
+        ...current,
+        exports: current.exports.map((item) => (item.id === latest.id ? latest : item)),
+        lastSyncedAt: new Date().toISOString(),
+      }));
+      setWorkbenchMessage(
+        latest.status === "Completed"
+          ? `${latest.name} is ready for download.`
+          : latest.status === "Failed"
+            ? `${latest.name} failed to generate.`
+            : `${latest.name} is still processing.`,
+      );
+    } catch (error) {
+      setNotice({
+        title: "Export refresh failed",
+        body: formatActionError(error),
+      });
+    }
   };
 
-  return (
-    <>
-      {message && <div className="inline-success">{message}</div>}
-      <table>
-        <thead>
-          <tr>
-            <th>Export name</th>
-            <th>Format</th>
-            <th>Filters</th>
-            <th>Records</th>
-            <th>Status</th>
-            <th>Requested</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td>{row.name}</td>
-              <td>{row.format}</td>
-              <td>{row.filters}</td>
-              <td>{row.records.toLocaleString()}</td>
-              <td>
-                <span className={`badge status ${row.status.toLowerCase()}`}>{row.status}</span>
-              </td>
-              <td>{row.requested}</td>
-              <td>
-                <button className="plain-button compact-action" onClick={() => handleAction(row)} type="button">
-                  {row.status === 'Completed' ? <Download size={16} /> : <MoreHorizontal size={16} />}
-                  {row.status === 'Failed' ? 'Retry' : row.status === 'Completed' ? 'Download' : 'Details'}
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
+  const retryExport = async (record: ExportRecord) => {
+    if (!record.filterValues) {
+      setNotice({
+        title: "Export retry unavailable",
+        body: "The original filter set is not available for this export record.",
+      });
+      return;
+    }
+
+    await handleCreateExport({
+      format: record.format,
+      filters: record.filterValues,
+      includeMediaUrls: Boolean(record.filterValues.include_media_urls),
+      includeEnvironmentalContext:
+        record.filterValues.include_environmental_context !== false,
+      includeSignalScores: record.filterValues.include_signal_scores !== false,
+      includeVerification: record.filterValues.include_verification !== false,
+    });
+  };
+
+  const actions: ObservationActions | undefined = selected
+    ? {
+        flagged: flaggedRecords.includes(selected.id),
+        inSamplingPlan: samplingPlanRecords.includes(selected.id),
+        hasTask: taskRecords.includes(selected.id),
+        onAddToSamplingPlan: () => {
+          toggleListItem(setSamplingPlanRecords, selected.id, "add");
+          setWorkbenchMessage(`${selected.commonName} added to the sampling plan worklist.`);
+        },
+        onCreateTask: () => {
+          toggleListItem(setTaskRecords, selected.id, "add");
+          setWorkbenchMessage(`Follow-up task created for ${selected.commonName}.`);
+        },
+        onExportRecord: () => {
+          downloadExportRecord({
+            id: `SINGLE-${selected.id}`,
+            name: `${selected.commonName} observation`,
+            format: "CSV",
+            filters: 1,
+            filterValues: { observation_id: selected.id },
+            records: 1,
+            status: "Completed",
+            requested: new Date().toLocaleString(),
+          });
+          setWorkbenchMessage(
+            `${selected.commonName} single-record CSV downloaded with privacy notes.`,
+          );
+        },
+        onOpenVerification: () => {
+          setSelectedId(selected.id);
+          navigate("verification");
+          setWorkbenchMessage(`${selected.commonName} opened in the verification queue.`);
+        },
+        onToggleFlag: () => {
+          const flagged = flaggedRecords.includes(selected.id);
+          toggleListItem(setFlaggedRecords, selected.id, "toggle");
+          setWorkbenchMessage(
+            `${selected.commonName} ${flagged ? "removed from" : "added to"} flagged records.`,
+          );
+        },
+        onViewOnMap: () => {
+          setSelectedId(selected.id);
+          navigate("forecast");
+          setWorkbenchMessage(`${selected.commonName} opened on the Forecast Map.`);
+        },
+      }
+    : undefined;
+
+  const queueCount = useMemo(
+    () =>
+      visibleObservations.filter((row) =>
+        ["Unverified", "Needs more evidence"].includes(row.verificationStatus),
+      ).length,
+    [visibleObservations],
   );
-}
 
-function downloadExportRecord(row: ExportRecord) {
-  const safeName = row.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  const extension = row.format === 'GeoJSON' ? 'geojson' : 'csv';
-  const mimeType = row.format === 'GeoJSON' ? 'application/geo+json' : 'text/csv';
-  const content =
-    row.format === 'GeoJSON'
-      ? JSON.stringify(
-          {
-            type: 'FeatureCollection',
-            name: row.name,
-            metadata: {
-              exportId: row.id,
-              filters: row.filters,
-              records: row.records,
-              requested: row.requested,
-              privacy: 'Sensitive and obscured records remain generalized.',
-            },
-            features: [],
-          },
-          null,
-          2,
-        )
-      : [
-          'export_id,export_name,format,filters,records,status,requested,privacy_note',
-          `${row.id},"${row.name.replaceAll('"', '""')}",${row.format},${row.filters},${row.records},${row.status},"${row.requested}","Sensitive and obscured records remain generalized."`,
-        ].join('\n');
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${safeName}.${extension}`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-function VisualTile({ index, label }: { index: number; label: string }) {
-  return <span aria-label={label} className={`visual-tile tile-${index % 6}`} role="img" />;
-}
-
-function VisualHero({ label }: { label: string }) {
   return (
-    <div aria-label={`${label} evidence image`} className="visual-hero" role="img">
-      <Eye size={18} aria-hidden="true" />
-      <span>{label}</span>
+    <div className="app-shell">
+      <Sidebar
+        active={screen}
+        onChange={navigate}
+        onRoleChange={setRole}
+        role={role}
+        syncSource={payload.source}
+        queueCount={queueCount}
+      />
+      <main className="workspace">
+        <TopBar
+          pendingExports={payload.exports.filter((row) => row.status === "Processing").length}
+          pendingReviews={
+            visibleObservations.filter((row) => row.verificationStatus !== "Expert verified").length
+          }
+          query={query}
+          requester={hasApiToken ? "Bearer token" : requesterId}
+          role={role}
+          onQueryChange={setQuery}
+        />
+        <PageHeading
+          screen={screen}
+          source={payload.source}
+          subtitle={screen === "overview" ? buildOverviewSubtitle(filters) : undefined}
+        />
+        {screen !== "settings" ? (
+          <FilterRail
+            filters={filters}
+            onChange={setFilters}
+            screen={screen}
+          />
+        ) : null}
+        {loading ? (
+          <StatusBanner
+            tone="info"
+            title="Loading research workspace"
+            body="Fetching current research records and export history."
+          />
+        ) : null}
+        {apiConfigured && apiFallbackBanner ? (
+          <StatusBanner tone="warning" title={apiFallbackBanner.title} body={apiFallbackBanner.body} />
+        ) : null}
+        {notice ? <StatusBanner tone="warning" title={notice.title} body={notice.body} /> : null}
+        {workbenchMessage ? (
+          <StatusBanner tone="info" title="Workbench update" body={workbenchMessage} />
+        ) : null}
+        {screen === "overview" ? (
+          <OverviewPage
+            actions={actions}
+            observations={visibleObservations}
+            selected={selected}
+            forecast={forecast}
+            onSelect={setSelectedId}
+          />
+        ) : null}
+        {screen === "verification" ? (
+          <VerificationPage
+            actions={actions}
+            history={verificationHistory}
+            historyError={historyError}
+            historyLoading={historyLoading}
+            pendingAction={pendingAction}
+            role={role}
+            selected={selected}
+            observations={visibleObservations}
+            onSelect={setSelectedId}
+            onVerify={(status, notes) => void handleVerify(status, notes)}
+          />
+        ) : null}
+        {screen === "observations" ? (
+          <ObservationsPage
+            actions={actions}
+            isPending={pendingAction === "export"}
+            query={query}
+            selected={selected}
+            observations={visibleObservations}
+            onCreateExport={handleCreateExport}
+            onSelect={setSelectedId}
+          />
+        ) : null}
+        {screen === "forecast" ? (
+          <ForecastPage
+            actions={actions}
+            selected={selected}
+            observations={visibleObservations}
+            forecast={forecast}
+            onSelect={setSelectedId}
+          />
+        ) : null}
+        {screen === "sampling" ? (
+          <SamplingPage
+            cells={payload.samplingCells}
+            observations={visibleObservations}
+            selected={selected}
+            forecast={forecast}
+            onSelect={setSelectedId}
+          />
+        ) : null}
+        {screen === "exports" ? (
+          <ExportsPage
+            exports={payload.exports}
+            filters={filters}
+            isPending={pendingAction === "export"}
+            visibleRecordCount={visibleObservations.length}
+            onCreateExport={handleCreateExport}
+            onRefreshExport={(record) => void refreshExport(record)}
+            onRetryExport={retryExport}
+          />
+        ) : null}
+        {screen === "analyst" ? (
+          <AnalystPage
+            observations={visibleObservations}
+            apiSource={payload.source}
+            filtersActive={getActiveFilterChips(filters).length > 0}
+          />
+        ) : null}
+        {screen === "settings" ? <SettingsPage role={role} onRoleChange={setRole} /> : null}
+      </main>
     </div>
   );
 }
-
-function Finding({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="finding">
-      <Check size={17} aria-hidden="true" />
-      <span>
-        <strong>{title}</strong>
-        {text}
-      </span>
-    </div>
-  );
-}
-
-function SettingRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="setting-row">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-export default App;

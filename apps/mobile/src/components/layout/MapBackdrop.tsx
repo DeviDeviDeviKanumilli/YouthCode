@@ -19,7 +19,13 @@ export function MapBackdrop({ locationLabel, demoLabel, onTargetPress }: MapBack
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.grid} />
+      <View style={styles.mapLines}>
+        <View style={[styles.road, styles.roadOne]} />
+        <View style={[styles.road, styles.roadTwo]} />
+        <View style={[styles.road, styles.roadThree]} />
+        <View style={[styles.creek, styles.creekOne]} />
+      </View>
+      <View style={styles.dimTop} />
       <View style={styles.header}>
         <View>
           {demoLabel ? <Text style={styles.eyebrow}>{demoLabel}</Text> : null}
@@ -38,6 +44,9 @@ export function MapBackdrop({ locationLabel, demoLabel, onTargetPress }: MapBack
         </Pressable>
       </View>
       <View style={styles.markers}>
+        <View style={styles.userPulse} />
+        <View style={styles.userRing} />
+        <View style={styles.userDot} />
         <View style={[styles.markerRing, { top: '18%', left: '12%' }]} />
         <View style={[styles.markerDot, { top: '22%', left: '16%', backgroundColor: colors.moss }]} />
         <View style={[styles.markerRing, { top: '42%', left: '54%', borderColor: 'rgba(212,137,67,0.34)' }]} />
@@ -54,10 +63,49 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
-  grid: {
+  mapLines: {
     ...StyleSheet.absoluteFill,
-    opacity: 0.12,
-    backgroundColor: 'transparent',
+    opacity: 0.3,
+  },
+  road: {
+    position: 'absolute',
+    height: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(244,241,232,0.18)',
+  },
+  roadOne: {
+    width: 380,
+    left: -60,
+    top: 150,
+    transform: [{ rotate: '-28deg' }],
+  },
+  roadTwo: {
+    width: 420,
+    right: -80,
+    top: 255,
+    transform: [{ rotate: '18deg' }],
+  },
+  roadThree: {
+    width: 260,
+    left: 70,
+    bottom: 72,
+    transform: [{ rotate: '-8deg' }],
+  },
+  creek: {
+    position: 'absolute',
+    width: 360,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(110,148,214,0.2)',
+  },
+  creekOne: {
+    left: -20,
+    top: 214,
+    transform: [{ rotate: '-16deg' }],
+  },
+  dimTop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(7,17,13,0.2)',
   },
   header: {
     position: 'absolute',
@@ -108,6 +156,43 @@ const styles = StyleSheet.create({
   },
   markers: {
     ...StyleSheet.absoluteFill,
+  },
+  userPulse: {
+    position: 'absolute',
+    top: '38%',
+    left: '48%',
+    width: 84,
+    height: 84,
+    marginLeft: -42,
+    marginTop: -42,
+    borderRadius: 42,
+    backgroundColor: 'rgba(91,126,181,0.18)',
+  },
+  userRing: {
+    position: 'absolute',
+    top: '38%',
+    left: '48%',
+    width: 52,
+    height: 52,
+    marginLeft: -26,
+    marginTop: -26,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(166,192,250,0.4)',
+    backgroundColor: 'rgba(91,126,181,0.16)',
+  },
+  userDot: {
+    position: 'absolute',
+    top: '38%',
+    left: '48%',
+    width: 16,
+    height: 16,
+    marginLeft: -8,
+    marginTop: -8,
+    borderRadius: 8,
+    borderWidth: 3,
+    borderColor: colors.white,
+    backgroundColor: colors.blue,
   },
   markerRing: {
     position: 'absolute',

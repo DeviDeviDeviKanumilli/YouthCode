@@ -5,6 +5,7 @@ import type { GoodPlaceToCheck } from '@/types/watch';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { priorityCopy } from '@/lib/watch';
+import { goodPlaceImage } from '@/lib/images';
 
 type GoodPlaceCardProps = {
   place: GoodPlaceToCheck;
@@ -18,16 +19,12 @@ export function GoodPlaceCard({ place, onOpenDetail, onPrimaryAction }: GoodPlac
       accessibilityRole="button"
       onPress={onOpenDetail}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      {place.imageUrl ? (
-        <Image
-          source={{ uri: place.imageUrl }}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          accessibilityLabel={place.imageAlt ?? place.title}
-        />
-      ) : (
-        <View style={styles.placeholder} />
-      )}
+      <Image
+        source={{ uri: goodPlaceImage(place) }}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        accessibilityLabel={place.imageAlt ?? place.title}
+      />
       <View style={styles.overlay} />
       <View style={styles.topBadge}>
         <MaterialIcons name={iconForPlace(place.type)} size={16} color={colors.ink} />
@@ -78,8 +75,8 @@ function iconForPlace(type: GoodPlaceToCheck['type']) {
 
 const styles = StyleSheet.create({
   card: {
-    width: 164,
-    height: 164,
+    width: 242,
+    height: 236,
     borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: colors.surfaceDim,
@@ -88,13 +85,9 @@ const styles = StyleSheet.create({
     opacity: 0.94,
     transform: [{ scale: 0.99 }],
   },
-  placeholder: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: colors.surfaceDim,
-  },
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.42)',
+    backgroundColor: 'rgba(0,0,0,0.48)',
   },
   topBadge: {
     position: 'absolute',
@@ -110,7 +103,7 @@ const styles = StyleSheet.create({
   bottomCopy: {
     flex: 1,
     justifyContent: 'flex-end',
-    padding: 12,
+    padding: 14,
     gap: 8,
   },
   topLine: {
@@ -119,8 +112,8 @@ const styles = StyleSheet.create({
   title: {
     color: colors.white,
     fontFamily: fonts.display,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 20,
+    lineHeight: 24,
   },
   priority: {
     color: 'rgba(255,255,255,0.76)',
@@ -132,8 +125,8 @@ const styles = StyleSheet.create({
   summary: {
     color: 'rgba(255,255,255,0.86)',
     fontFamily: fonts.body,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
   },
   chips: {
     flexDirection: 'row',
@@ -149,7 +142,7 @@ const styles = StyleSheet.create({
   chipText: {
     color: colors.white,
     fontFamily: fonts.label,
-    fontSize: 10,
+    fontSize: 9,
   },
   actionButton: {
     alignSelf: 'flex-start',

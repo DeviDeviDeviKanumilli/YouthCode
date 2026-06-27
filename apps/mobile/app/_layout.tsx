@@ -17,6 +17,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono';
 import { colors } from '@/theme/colors';
+import { LocationProvider } from '@/location/LocationProvider';
 
 export {
   ErrorBoundary,
@@ -55,7 +56,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <LocationProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -66,6 +67,6 @@ export default function RootLayout() {
         <Stack.Screen name="watch/item/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="watch/place/[id]" options={{ headerShown: false }} />
       </Stack>
-    </>
+    </LocationProvider>
   );
 }

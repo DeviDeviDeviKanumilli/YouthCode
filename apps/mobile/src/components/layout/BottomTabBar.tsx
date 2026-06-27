@@ -31,45 +31,48 @@ const labelByRoute: Record<string, string> = {
 export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const routes = state.routes.filter((route) => route.name !== 'report');
+  const firstRoutes = routes.slice(0, 2);
+  const lastRoutes = routes.slice(2);
+
+  function renderRoute(route: { key: string; name: string }) {
+    const routeStateIndex = state.routes.findIndex((candidate) => candidate.key === route.key);
+    const focused = state.index === routeStateIndex;
+    const color = focused ? colors.moss : '#8A8C90';
+    const routeName = route.name;
+
+    return (
+      <View key={route.key} style={styles.routeSlot}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={focused ? { selected: true } : {}}
+          onPress={() => navigation.navigate(route.name as never)}
+          style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
+          <MaterialIcons
+            name={iconByRoute[routeName] ?? 'help-outline'}
+            size={24}
+            color={color}
+          />
+          <Text style={[styles.label, { color, fontFamily: focused ? fonts.bodySemibold : fonts.label }]}>
+            {labelByRoute[routeName] ?? routeName}
+          </Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.shell, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {routes.map((route, index) => {
-        const routeStateIndex = state.routes.findIndex((candidate) => candidate.key === route.key);
-        const focused = state.index === routeStateIndex;
-        const color = focused ? colors.moss : '#8A8C90';
-        const routeName = route.name;
-
-        return (
-          <View key={route.key} style={styles.routeSlot}>
-            {index === 2 ? (
-              <View style={styles.fabSpacer}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="New sighting"
-                  onPress={() => navigation.navigate('report' as never)}
-                  style={({ pressed }) => [styles.fab, pressed && styles.pressed]}>
-                  <MaterialIcons name="add" size={30} color={colors.white} />
-                </Pressable>
-              </View>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={focused ? { selected: true } : {}}
-              onPress={() => navigation.navigate(route.name as never)}
-              style={({ pressed }) => [styles.tab, pressed && styles.pressed]}>
-              <MaterialIcons
-                name={iconByRoute[routeName] ?? 'help-outline'}
-                size={24}
-                color={color}
-              />
-              <Text style={[styles.label, { color, fontFamily: focused ? fonts.bodySemibold : fonts.label }]}>
-                {labelByRoute[routeName] ?? routeName}
-              </Text>
-            </Pressable>
-          </View>
-        );
-      })}
+      {firstRoutes.map(renderRoute)}
+      <View style={styles.routeSlot}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="New sighting"
+          onPress={() => navigation.navigate('report' as never)}
+          style={({ pressed }) => [styles.fab, pressed && styles.pressed]}>
+          <MaterialIcons name="add" size={30} color={colors.white} />
+        </Pressable>
+      </View>
+      {lastRoutes.map(renderRoute)}
     </View>
   );
 }
@@ -108,16 +111,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  fabSpacer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 62,
-  },
   routeSlot: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    minHeight: 66,
   },
   fab: {
     width: 64,

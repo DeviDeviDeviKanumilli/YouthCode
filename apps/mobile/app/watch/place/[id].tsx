@@ -10,6 +10,7 @@ import type { GoodPlaceDetail as GoodPlaceDetailType } from '@/types/watch';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { reportParamsForGoodPlace, watchPlaceActionHref } from '@/lib/watch';
+import { goodPlaceImage } from '@/lib/images';
 
 export default function WatchPlaceDetailScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function WatchPlaceDetailScreen() {
     <DetailFrame
       title={place?.title ?? 'Good place'}
       subtitle={place?.summary ?? 'Loading details'}
-      imageUrl={place?.imageUrl}
+      imageUrl={place ? goodPlaceImage(place) : null}
       imageAlt={place?.title}
       onBack={() => router.back()}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

@@ -97,6 +97,13 @@ Branch: `main`
   - Added a private option for sensitive sightings.
   - Added unit coverage for privacy defaults and copy.
 
+- Report result did not surface the backend pipeline status endpoint.
+  - Added a mobile client for `GET /observations/{observation_id}/pipeline-status`.
+  - Added a processing status card after Report submission when pipeline status is available.
+  - Shows completed steps, failed steps, and the backend's next available user action.
+  - Keeps the Sighting Intelligence Card visible if the optional pipeline-status call fails.
+  - Added unit coverage for pipeline status titles, step labels, and next-action copy.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -116,7 +123,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 13 files, 33 tests.
+- `cd apps/mobile && npm test` passed: 14 files, 35 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -138,6 +145,7 @@ Branch: `main`
 - Explore now surfaces deterministic demo scenarios and can frame the Forecast Map with scenario bbox context.
 - Report now submits backend-friendly habitat clue values and habitat type context.
 - Report now lets users choose public, obscured, or private location privacy while defaulting to obscured.
+- Report result now surfaces backend pipeline status when available.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

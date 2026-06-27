@@ -6,10 +6,16 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { messageForError } from '@/api/client';
-import { createObservation, getIntelligenceCard, identifyObservation, uploadObservationMedia } from '@/api/observations';
+import {
+  createObservation,
+  getIntelligenceCard,
+  getPipelineStatus,
+  identifyObservation,
+  uploadObservationMedia,
+} from '@/api/observations';
 import { FALLBACK_COORDS, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
 import { useLocalUser } from '@/user/UserProvider';
-import type { SightingIntelligenceCard } from '@/types/report';
+import type { PipelineStatusResponse, SightingIntelligenceCard } from '@/types/report';
 import {
   buildRawNoteFromContext,
   buildReportContext,
@@ -32,6 +38,11 @@ import {
   privacyTitle,
   type ObservationPrivacyLevel,
 } from '@/lib/privacy';
+import {
+  nextPipelineActionLabel,
+  pipelineStatusTitle,
+  pipelineStepLabel,
+} from '@/lib/pipelineStatus';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
@@ -65,6 +76,7 @@ export default function ReportScreen() {
   });
   const [privacyLevel, setPrivacyLevel] = useState<ObservationPrivacyLevel>(DEFAULT_OBSERVATION_PRIVACY);
   const [result, setResult] = useState<SightingIntelligenceCard | null>(null);
+  const [pipelineStatus, setPipelineStatus] = useState<PipelineStatusResponse | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   async function capture() {
@@ -107,6 +119,14 @@ export default function ReportScreen() {
 
       const card = await getIntelligenceCard(observation.observation_id);
       setResult(card);
+
+      try {
+        const status = await getPipelineStatus(observation.observation_id);
+        setPipelineStatus(status);
+      } catch {
+        setPipelineStatus(null);
+      }
+
       setStage('result');
     } catch (err) {
       setSubmitError(messageForError(err, 'Unable to submit this sighting.'));
@@ -260,6 +280,7 @@ export default function ReportScreen() {
           <ResultBlock title="Local context" text={result.known_nearby_records_summary} />
           <ResultBlock title="Habitat clues" text={result.habitat_match_summary} />
           <ResultBlock title="What happens next" text={result.uncertainty_notice} />
+          {pipelineStatus ? <PipelineStatusCard status={pipelineStatus} /> : null}
           <Pressable accessibilityRole="button" onPress={() => router.replace('/sightings')} style={styles.primaryButton}>
             <Text style={styles.primaryText}>Done</Text>
           </Pressable>
@@ -379,6 +400,53 @@ function HabitatTypeQuestion({
           );
         })}
       </View>
+    </View>
+  );
+}
+
+function PipelineStatusCard({ status }: { status: PipelineStatusResponse }) {
+  return (
+    <View style={styles.pipelineCard}>
+      <View style={styles.pipelineHeader}>
+        <View style={styles.pipelineIcon}>
+          <MaterialIcons
+            name={status.current_status === 'failed' ? 'error-outline' : 'sync'}
+            size={20}
+            color={status.current_status === 'failed' ? colors.red : colors.mossDark}
+          />
+        </View>
+        <View style={styles.pipelineCopy}>
+          <Text style={styles.pipelineEyebrow}>Processing status</Text>
+          <Text style={styles.pipelineTitle}>{pipelineStatusTitle(status)}</Text>
+        </View>
+      </View>
+
+      {status.completed_steps.length > 0 ? (
+        <View style={styles.pipelineStepStack}>
+          {status.completed_steps.map((step) => (
+            <View key={step} style={styles.pipelineStepRow}>
+              <MaterialIcons name="check-circle" size={16} color={colors.moss} />
+              <Text style={styles.pipelineStepText}>{pipelineStepLabel(step)}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {status.failed_steps.length > 0 ? (
+        <View style={styles.pipelineStepStack}>
+          {status.failed_steps.map((step) => (
+            <View key={step.name} style={styles.pipelineStepRow}>
+              <MaterialIcons name="error-outline" size={16} color={colors.red} />
+              <Text style={styles.pipelineStepText}>
+                {pipelineStepLabel(step.name)}
+                {step.error ? `: ${step.error}` : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <Text style={styles.pipelineNext}>{nextPipelineActionLabel(status.next_available_user_action)}</Text>
     </View>
   );
 }
@@ -1009,6 +1077,65 @@ const styles = StyleSheet.create({
     borderTopColor: colors.outline,
     paddingTop: 12,
     gap: 4,
+  },
+  pipelineCard: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 14,
+    gap: 12,
+  },
+  pipelineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pipelineIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.mossSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pipelineCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  pipelineEyebrow: {
+    color: colors.mossDark,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  pipelineTitle: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 15,
+  },
+  pipelineStepStack: {
+    gap: 8,
+  },
+  pipelineStepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pipelineStepText: {
+    flex: 1,
+    color: colors.ink,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    lineHeight: 18,
+    textTransform: 'capitalize',
+  },
+  pipelineNext: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 19,
   },
   resultBlockTitle: {
     color: colors.mossDark,

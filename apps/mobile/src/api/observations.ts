@@ -6,6 +6,7 @@ import type {
   MediaRead,
   ObservationCreatePayload,
   ObservationCreateResponse,
+  PipelineStatusResponse,
   SightingIntelligenceCard,
 } from '@/types/report';
 
@@ -49,4 +50,8 @@ export function identifyObservation(observationId: string, payload: Identificati
 
 export function getIntelligenceCard(observationId: string) {
   return apiGet<SightingIntelligenceCard>(`/observations/${observationId}/intelligence-card`);
+}
+
+export function getPipelineStatus(observationId: string) {
+  return apiGet<PipelineStatusResponse>(`/observations/${observationId}/pipeline-status`);
 }

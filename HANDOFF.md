@@ -19,6 +19,28 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Report pipeline status
+
+Changed:
+
+- Added mobile types and API client support for `GET /observations/{observation_id}/pipeline-status`.
+- Added pipeline status copy helpers for status titles, backend step labels, and next-action messages.
+- Updated the Report result screen to show a processing status card when pipeline status is available.
+- The pipeline-status call is non-blocking, so users still see the Sighting Intelligence Card if the optional status fetch fails.
+- Added helper coverage for complete and failed pipeline status summaries.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 14 files, 35 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
+
 ### 2026-06-27 - Report location privacy selector
 
 Changed:

@@ -52,6 +52,17 @@ export type IdentificationResponse = {
   needs_verification: boolean;
 };
 
+export type PipelineStatusResponse = {
+  observation_id: string;
+  current_status: 'pending' | 'running' | 'complete' | 'failed';
+  completed_steps: string[];
+  failed_steps: Array<{
+    name: string;
+    error?: string | null;
+  }>;
+  next_available_user_action: string;
+};
+
 export type SightingIntelligenceCard = {
   observation_id: string;
   possible_species?: {

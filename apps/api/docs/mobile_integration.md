@@ -134,3 +134,17 @@ GET /demo/scenarios
 
 Use `map_query.bbox` from each scenario to frame the map. Display only scenario text
 approved by product; `assertions` are for internal reliability checks.
+
+## Mobile Client Environment
+
+Set the API base URL with `EXPO_PUBLIC_API_BASE_URL`:
+
+| Target | Example value |
+| --- | --- |
+| Android emulator | `http://10.0.2.2:8000` |
+| iOS simulator | `http://127.0.0.1:8000` |
+| LAN device testing | `http://<your-lan-ip>:8000` |
+| Production EAS build | `https://api.ecosentinel.app` |
+
+The mobile client falls back to emulator/simulator defaults in `__DEV__` when the env var is unset.
+EAS profiles in `apps/mobile/eas.json` inject the appropriate value per build channel.

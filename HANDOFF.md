@@ -559,3 +559,40 @@ Next:
 - Implement shared theme tokens from the stitch reference.
 - Implement the tab shell and Watch backend integration first.
 - Update this file after the scaffold and after the first working Watch screen.
+
+### 2026-06-27 - Mobile UI full integration (Phases B–E)
+
+Changed:
+
+- **Phase B — Stitch fidelity:** Added draggable/snapping bottom sheet on Explore and Watch, deduplicated map vs shell headers via `mapHeaderMode`, and polished Profile/Sightings field-guide styling.
+- **Phase A follow-up (already on main):** Interactive geospatial forecast map with tappable observation pins.
+- **Phase C — Intelligence card parity:** Shared `ObservationAssistantContextPanel` on saved detail and Report result screens.
+- **Phase D — Mobile resilience:** Local report draft persistence (photo, clues, privacy), centralized API base URL resolution, and EAS env profiles for dev/preview/prod.
+- **Phase E — Demo hardening:** Added judge demo QA checklist below.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passed.
+- `cd apps/mobile && npm test` passed: 20 files, 51 tests.
+- Backend health: `GET /health`, `GET /demo/scenarios` available when API is running on `:8000`.
+
+## Mobile Judge Demo QA Checklist
+
+Run with API + Postgres seeded, Android emulator or device, and `EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8000`.
+
+1. **Explore map:** App opens to forecast map; pan/zoom works; layer pills show signal/gap counts.
+2. **Draggable sheet:** Explore/Watch bottom sheet drags between snap points and scrolls independently.
+3. **Observation tap:** Tap an observation pin → opens Sighting Intelligence Card detail.
+4. **Demo scenarios:** Select a seeded demo scenario → map reframes; Open card reaches intelligence detail.
+5. **Report flow:** Capture photo → clues → analyze → result shows intelligence card + grounded assistant context.
+6. **Draft resume:** Force-close app mid-report → reopen Report → resume draft banner works; clear discards draft.
+7. **Sightings:** Submitted observations list loads; cards open intelligence detail with assistant context.
+8. **Watch:** Watched items and good places load from backend; map refresh works.
+9. **Profile:** API/session/location status cards reflect live backend state.
+10. **Uncertainty copy:** No confirmed invasion language; uses possible/needs verification framing.
+
+Known constraints:
+
+- Conversational assistant chat UI is out of scope (no chat backend).
+- Production API host `https://api.ecosentinel.app` is a placeholder until deployed.
+- Native rebuild required after adding `react-native-maps` / gesture-handler (`npx expo run:android`).

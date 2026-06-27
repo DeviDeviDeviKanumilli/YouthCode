@@ -183,3 +183,33 @@ Branch: `main`
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.
+
+## 2026-06-27 Full Integration Pass
+
+Fixed / added:
+
+- Explore and Watch now use a draggable bottom sheet with deduplicated map headers (`mapHeaderMode`).
+- Profile and Sightings received field-guide / field-notes visual polish (hero gradients, verification pills).
+- Report result screen now shows grounded assistant context parity with saved sighting detail.
+- Local report drafts persist photo, habitat clues, and privacy selection via AsyncStorage with resume/clear flows.
+- API client resolves `EXPO_PUBLIC_API_BASE_URL` with dev emulator/simulator fallbacks and production default.
+- EAS build profiles set API URLs for development, preview, and production.
+
+## Verification Run (2026-06-27 integration)
+
+- `cd apps/mobile && npm run typecheck` passed.
+- `cd apps/mobile && npm test` passed: 20 files, 51 tests.
+
+## Judge Demo Script (abbreviated)
+
+1. Open Explore → drag sheet → tap observation pin.
+2. Select demo scenario → Open card.
+3. Report → photo → clues → analyze → verify intelligence + assistant context on result.
+4. Sightings → open saved card → verify assistant panel.
+5. Profile → confirm API health/session cards.
+
+## Remaining Gaps
+
+- Adaptive habitat question sets (backend-driven) not implemented.
+- Conversational AI panel not implemented (no backend chat API).
+- Device QA on physical hardware still recommended before judge demo.

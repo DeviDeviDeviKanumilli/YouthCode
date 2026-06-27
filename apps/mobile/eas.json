@@ -11,12 +11,18 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://staging-api.ecosentinel.app"
+      },
+      "ios": {
+        "simulator": true
       }
     },
     "production": {

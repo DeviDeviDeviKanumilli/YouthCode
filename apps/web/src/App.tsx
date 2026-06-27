@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import {
   AlertTriangle,
   Bell,
@@ -24,20 +31,27 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  ApiError,
   askResearchAnalyst,
   createExportRequest,
   downloadExportRecord,
+  fetchExportRecord,
+  fetchVerificationHistory,
+  isApiModeConfigured,
   loadDashboardData,
   loadForecastResearch,
   submitVerificationAction,
+  waitForExportCompletion,
 } from "./api";
 import {
   buildAnalystAnswer,
   buildDemoPayload,
+  delawareBasinBbox,
   provenanceSources,
 } from "./data";
 import ResearchMap from "./ResearchMap";
 import type {
+  DashboardFilters,
   DashboardObservation,
   DashboardPayload,
   ExportFormat,
@@ -49,11 +63,26 @@ import type {
   ResearchRole,
   SamplingCell,
   ScreenId,
+  VerificationHistoryEvent,
   VerificationStatus,
 } from "./types";
 
 const requesterId =
   import.meta.env.VITE_REQUESTER_ID ?? "00000000-0000-0000-0000-000000000000";
+const hasApiToken = Boolean(import.meta.env.VITE_API_TOKEN);
+const apiConfigured = isApiModeConfigured();
+
+const defaultDashboardFilters: DashboardFilters = {
+  speciesId: "",
+  bbox: delawareBasinBbox,
+  regionCode: "",
+  fromDate: "2026-06-01",
+  toDate: "2026-06-30",
+  verificationStatus: "",
+  signalLabel: "high_value_verification_candidate",
+  needsReview: true,
+  hasMedia: false,
+};
 
 const screens: Array<{
   id: ScreenId;
@@ -164,6 +193,77 @@ function readRole(): ResearchRole {
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/\s+/g, "-");
+}
+
+function getActiveFilterChips(filters: DashboardFilters) {
+  const chips: string[] = [];
+
+  if (filters.fromDate || filters.toDate) {
+    chips.push(
+      [filters.fromDate || "Any start", filters.toDate || "Any end"]
+        .filter(Boolean)
+        .join(" to "),
+    );
+  }
+  if (filters.bbox.trim()) {
+    chips.push(filters.bbox.trim() === delawareBasinBbox ? "Delaware River Basin" : "Custom bbox");
+  }
+  if (filters.regionCode) {
+    chips.push(`Region: ${filters.regionCode}`);
+  }
+  if (filters.verificationStatus) {
+    chips.push(filters.verificationStatus.replaceAll("_", " "));
+  }
+  if (filters.signalLabel) {
+    chips.push(filters.signalLabel.replaceAll("_", " "));
+  }
+  if (filters.needsReview) {
+    chips.push("Needs review");
+  }
+  if (filters.hasMedia) {
+    chips.push("Has media");
+  }
+  if (filters.speciesId.trim()) {
+    chips.push("Species ID");
+  }
+
+  return chips;
+}
+
+function formatApiFallback(error: ApiError | null) {
+  if (!error) {
+    return null;
+  }
+  if (error.status === 401) {
+    return {
+      title: "API access required, showing demo fallback",
+      body:
+        "Set `VITE_REQUESTER_ID` or provide a bearer token before using research API mode. Demo fallback is still available.",
+    };
+  }
+  if (error.status === 403) {
+    return {
+      title: "API access denied, showing demo fallback",
+      body: error.message || "The configured identity does not have permission for this research workspace.",
+    };
+  }
+  return {
+    title: "API unavailable, showing demo fallback",
+    body: error.message || "The dashboard could not load API data, so it reverted to deterministic demo data.",
+  };
+}
+
+function formatActionError(error: unknown) {
+  if (error instanceof ApiError) {
+    if (error.status === 401) {
+      return "API access is required for this action. Provide a requester identity or bearer token.";
+    }
+    if (error.status === 403) {
+      return error.message || "You do not have permission for this action.";
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "The request failed.";
 }
 
 function PanelTitle({ title, meta }: { title: string; meta?: string }) {
@@ -320,6 +420,9 @@ function ObservationDetail({
   selected: DashboardObservation;
   expanded?: boolean;
 }) {
+  const environmentalContextMissing =
+    selected.habitat.toLowerCase().includes("pending") || selected.distanceToWaterM === 0;
+
   return (
     <div className={expanded ? "observation-detail expanded" : "observation-detail"}>
       <VisualHero label={selected.commonName} />
@@ -353,13 +456,24 @@ function ObservationDetail({
             </dd>
           </div>
         </dl>
+        {selected.evidenceCount <= 0 ? (
+          <div className="inline-notice">Media evidence is not available for this observation yet.</div>
+        ) : null}
+        {environmentalContextMissing ? (
+          <div className="inline-notice">
+            Environmental context is not available for this observation yet.
+          </div>
+        ) : null}
       </div>
       <div className="detail-grid">
         <InfoGroup
           title="Habitat answers"
           rows={[
             ["Habitat", selected.habitat],
-            ["Distance to water", `${selected.distanceToWaterM} m`],
+            [
+              "Distance to water",
+              selected.distanceToWaterM > 0 ? `${selected.distanceToWaterM} m` : "Not available yet",
+            ],
             ["Sampling label", selected.samplingLabel],
           ]}
         />
@@ -541,12 +655,14 @@ function TopBar({
   pendingExports,
   pendingReviews,
   query,
+  requester,
   role,
   onQueryChange,
 }: {
   pendingExports: number;
   pendingReviews: number;
   query: string;
+  requester: string;
   role: ResearchRole;
   onQueryChange: (value: string) => void;
 }) {
@@ -597,7 +713,8 @@ function TopBar({
           <div className="utility-popover app-menu">
             <strong>Research session</strong>
             <span>Role: {role}</span>
-            <span>Requester: local demo identity</span>
+            <span>Requester: {requester}</span>
+            <span>{hasApiToken ? "Bearer token configured" : "Local requester identity active"}</span>
             <span>Backend: API when configured, deterministic fallback otherwise</span>
           </div>
         ) : null}
@@ -628,15 +745,16 @@ function PageHeading({
 }
 
 function FilterRail({
-  filtersActive,
-  onFiltersActiveChange,
+  filters,
+  onChange,
   screen,
 }: {
-  filtersActive: boolean;
-  onFiltersActiveChange: (active: boolean) => void;
+  filters: DashboardFilters;
+  onChange: (next: DashboardFilters) => void;
   screen: ScreenId;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const activeChips = getActiveFilterChips(filters);
   const scope =
     screen === "forecast"
       ? "Map"
@@ -644,7 +762,9 @@ function FilterRail({
         ? "Export"
         : screen === "analyst"
           ? "Analyst context"
-          : "Table";
+          : screen === "verification"
+            ? "Queue"
+            : "Table";
 
   return (
     <section className="filter-rail" aria-label={`${scope} filters`}>
@@ -654,25 +774,125 @@ function FilterRail({
         <ChevronDown size={16} aria-hidden="true" />
       </button>
       <span className="active-count">
-        {filtersActive ? "5 filters active" : "No filters active"}
+        {activeChips.length > 0 ? `${activeChips.length} filters active` : "No filters active"}
       </span>
       {expanded ? (
-        <div className="filter-chips" aria-label="Active filters">
-          {filtersActive ? (
-            <>
-              <span>May 1–May 31, 2025</span>
-              <span>Delaware River Basin</span>
-              <span>Unverified + needs review</span>
-              <span>High-value signals</span>
-              <button onClick={() => onFiltersActiveChange(false)} type="button">
-                Clear all
-              </button>
-            </>
-          ) : (
-            <button onClick={() => onFiltersActiveChange(true)} type="button">
+        <div className="filter-stack">
+          <div className="filter-chips" aria-label="Active filters">
+            {activeChips.map((chip) => (
+              <span key={chip}>{chip}</span>
+            ))}
+            <button onClick={() => onChange({ ...defaultDashboardFilters, bbox: "" })} type="button">
+              Clear all
+            </button>
+            <button onClick={() => onChange(defaultDashboardFilters)} type="button">
               Restore demo filters
             </button>
-          )}
+          </div>
+          <div className="filter-grid">
+            <label>
+              <span>From date</span>
+              <input
+                onChange={(event) => onChange({ ...filters, fromDate: event.target.value })}
+                type="date"
+                value={filters.fromDate}
+              />
+            </label>
+            <label>
+              <span>To date</span>
+              <input
+                onChange={(event) => onChange({ ...filters, toDate: event.target.value })}
+                type="date"
+                value={filters.toDate}
+              />
+            </label>
+            <label>
+              <span>Region code</span>
+              <select
+                onChange={(event) => onChange({ ...filters, regionCode: event.target.value })}
+                value={filters.regionCode}
+              >
+                <option value="">Any region</option>
+                <option value="NY">NY</option>
+                <option value="NJ">NJ</option>
+                <option value="PA">PA</option>
+              </select>
+            </label>
+            <label>
+              <span>Verification</span>
+              <select
+                onChange={(event) =>
+                  onChange({
+                    ...filters,
+                    verificationStatus: event.target.value as DashboardFilters["verificationStatus"],
+                  })
+                }
+                value={filters.verificationStatus}
+              >
+                <option value="">Any status</option>
+                <option value="unverified">Unverified</option>
+                <option value="needs_more_evidence">Needs more evidence</option>
+                <option value="expert_verified">Expert verified</option>
+                <option value="field_confirmed">Field confirmed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </label>
+            <label>
+              <span>Ecological Signal Priority</span>
+              <select
+                onChange={(event) =>
+                  onChange({
+                    ...filters,
+                    signalLabel: event.target.value as DashboardFilters["signalLabel"],
+                  })
+                }
+                value={filters.signalLabel}
+              >
+                <option value="">Any label</option>
+                <option value="high_value_verification_candidate">
+                  High-value verification candidate
+                </option>
+                <option value="priority_ecological_signal">Priority ecological signal</option>
+                <option value="moderate_signal">Moderate signal</option>
+                <option value="low_signal">Low signal</option>
+                <option value="insufficient_evidence">Insufficient evidence</option>
+              </select>
+            </label>
+            <label>
+              <span>Species ID</span>
+              <input
+                onChange={(event) => onChange({ ...filters, speciesId: event.target.value })}
+                placeholder="Optional UUID"
+                type="text"
+                value={filters.speciesId}
+              />
+            </label>
+            <label className="wide">
+              <span>Bounding box</span>
+              <input
+                onChange={(event) => onChange({ ...filters, bbox: event.target.value })}
+                placeholder="min_lon,min_lat,max_lon,max_lat"
+                type="text"
+                value={filters.bbox}
+              />
+            </label>
+            <label className="toggle-field">
+              <input
+                checked={filters.needsReview}
+                onChange={(event) => onChange({ ...filters, needsReview: event.target.checked })}
+                type="checkbox"
+              />
+              <span>Needs review</span>
+            </label>
+            <label className="toggle-field">
+              <input
+                checked={filters.hasMedia}
+                onChange={(event) => onChange({ ...filters, hasMedia: event.target.checked })}
+                type="checkbox"
+              />
+              <span>Has media</span>
+            </label>
+          </div>
         </div>
       ) : null}
     </section>
@@ -778,6 +998,9 @@ function OverviewPage({
 
 function VerificationPage({
   actions,
+  history,
+  historyError,
+  historyLoading,
   observations,
   selected,
   onSelect,
@@ -786,6 +1009,9 @@ function VerificationPage({
   role,
 }: {
   actions?: ObservationActions;
+  history: VerificationHistoryEvent[];
+  historyError: string | null;
+  historyLoading: boolean;
   observations: DashboardObservation[];
   selected: DashboardObservation | null;
   onSelect: (id: string) => void;
@@ -839,19 +1065,32 @@ function VerificationPage({
           <div className="review-support-grid">
             <section>
               <h3>Verification history</h3>
-              <div className="history-line">
-                <span className="status-dot" />
-                <p>
-                  System queued this record for review because it is a{" "}
-                  {selected.signalLabel.toLowerCase()}.
-                </p>
-              </div>
-              {selected.reviewerNotes ? (
+              {historyLoading ? (
                 <div className="history-line">
                   <span className="status-dot" />
-                  <p>{selected.reviewerNotes}</p>
+                  <p>Loading verification history.</p>
                 </div>
               ) : null}
+              {!historyLoading && history.length === 0 ? (
+                <div className="history-line">
+                  <span className="status-dot" />
+                  <p>
+                    System queued this record for review because it is a{" "}
+                    {selected.signalLabel.toLowerCase()}.
+                  </p>
+                </div>
+              ) : null}
+              {history.map((event) => (
+                <div key={event.id} className="history-line">
+                  <span className="status-dot" />
+                  <p>
+                    <strong>{event.newStatus}</strong> from {event.previousStatus} on{" "}
+                    {event.createdAt}.
+                    {event.notes ? ` ${event.notes}` : ""}
+                  </p>
+                </div>
+              ))}
+              {historyError ? <div className="inline-notice">{historyError}</div> : null}
             </section>
             <section>
               <h3>Reviewer notes</h3>
@@ -1277,9 +1516,11 @@ function SamplingPage({
 
 function ExportHistoryTable({
   rows,
+  onRefreshExport,
   onRetryExport,
 }: {
   rows: ExportRecord[];
+  onRefreshExport: (record: ExportRecord) => void;
   onRetryExport: (record: ExportRecord) => void;
 }) {
   const [message, setMessage] = useState<string | null>(null);
@@ -1295,7 +1536,8 @@ function ExportHistoryTable({
       setMessage(`${record.name} retry queued with the same filters.`);
       return;
     }
-    setMessage(`${record.name} is ${record.status.toLowerCase()}; downloads unlock when processing completes.`);
+    onRefreshExport(record);
+    setMessage(`${record.name} is still processing. Refreshing the latest export status.`);
   };
 
   return (
@@ -1339,7 +1581,7 @@ function ExportHistoryTable({
                     ? "Retry"
                     : record.status === "Completed"
                       ? "Download"
-                      : "Details"}
+                      : "Refresh"}
                 </button>
               </td>
             </tr>
@@ -1355,12 +1597,14 @@ function ExportsPage({
   isPending,
   visibleRecordCount,
   onCreateExport,
+  onRefreshExport,
   onRetryExport,
 }: {
   exports: ExportRecord[];
   isPending: boolean;
   visibleRecordCount: number;
   onCreateExport: (request: ExportRequest) => Promise<void>;
+  onRefreshExport: (record: ExportRecord) => void;
   onRetryExport: (record: ExportRecord) => void;
 }) {
   const [format, setFormat] = useState<ExportFormat>("CSV");
@@ -1481,7 +1725,11 @@ function ExportsPage({
       </aside>
       <section className="panel export-history">
         <PanelTitle title="Export history" meta="Downloads expire after 7 days" />
-        <ExportHistoryTable rows={exportRows} onRetryExport={onRetryExport} />
+        <ExportHistoryTable
+          rows={exportRows}
+          onRefreshExport={onRefreshExport}
+          onRetryExport={onRetryExport}
+        />
       </section>
     </div>
   );
@@ -1624,6 +1872,10 @@ function SettingsPage({
         <div className="settings-grid">
           <SettingRow label="Default region" value="Delaware River Basin" />
           <SettingRow label="Default map payload" value="Research mode" />
+          <SettingRow
+            label="Requester identity"
+            value={hasApiToken ? "Bearer token configured" : requesterId}
+          />
           <div className="setting-row">
             <span>Verification role</span>
             <select
@@ -1669,10 +1921,10 @@ export default function App() {
   );
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ title: string; body: string } | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [role, setRole] = useState<ResearchRole>(() => readRole());
-  const [filtersActive, setFiltersActive] = useState(true);
+  const [filters, setFilters] = useState<DashboardFilters>(defaultDashboardFilters);
   const [flaggedRecords, setFlaggedRecords] = useState(() => readStringList(storageKeys.flaggedRecords, []));
   const [samplingPlanRecords, setSamplingPlanRecords] = useState(() =>
     readStringList(storageKeys.samplingPlanRecords, []),
@@ -1680,11 +1932,15 @@ export default function App() {
   const [taskRecords, setTaskRecords] = useState(() => readStringList(storageKeys.taskRecords, []));
   const [workbenchMessage, setWorkbenchMessage] = useState<string | null>(null);
   const [forecast, setForecast] = useState<ForecastPayload | null>(null);
+  const [apiFallbackError, setApiFallbackError] = useState<ApiError | null>(null);
+  const [verificationHistory, setVerificationHistory] = useState<VerificationHistoryEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const visibleObservations = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return payload.observations.filter((row) => {
-      const matchesSearch =
+      return (
         !normalized ||
         [
           row.id,
@@ -1696,19 +1952,44 @@ export default function App() {
         ]
           .join(" ")
           .toLowerCase()
-          .includes(normalized);
-      const matchesFilters =
-        !filtersActive ||
-        (["Unverified", "Needs more evidence"].includes(row.verificationStatus) &&
-          ["High-value verification candidate", "Priority ecological signal"].includes(
-            row.signalLabel,
-          ));
-      return matchesSearch && matchesFilters;
+          .includes(normalized)
+      );
     });
-  }, [filtersActive, payload.observations, query]);
+  }, [payload.observations, query]);
 
   const selected =
     visibleObservations.find((row) => row.id === selectedId) ?? visibleObservations[0] ?? null;
+
+  const apiFallbackBanner = formatApiFallback(apiFallbackError);
+
+  const refreshDashboard = useCallback(async () => {
+    setLoading(true);
+    setNotice(null);
+    try {
+      const result = await loadDashboardData(filters);
+      setPayload(result.payload);
+      setApiFallbackError(result.apiError);
+      setSelectedId((current) =>
+        result.payload.observations.some((row) => row.id === current)
+          ? current
+          : (result.payload.observations[0]?.id ?? current),
+      );
+
+      if (result.payload.source === "api") {
+        const forecastPayload = await loadForecastResearch(filters);
+        setForecast(forecastPayload);
+      } else {
+        setForecast(null);
+      }
+    } catch (error) {
+      setNotice({
+        title: "Dashboard request failed",
+        body: formatActionError(error),
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [filters]);
 
   useEffect(() => {
     if (visibleObservations.length > 0 && !visibleObservations.some((row) => row.id === selectedId)) {
@@ -1743,44 +2024,43 @@ export default function App() {
   }, [taskRecords]);
 
   useEffect(() => {
+    void refreshDashboard();
+  }, [refreshDashboard]);
+
+  useEffect(() => {
     let active = true;
-    async function bootstrap() {
-      setLoading(true);
-      setNotice(null);
+
+    async function loadHistory() {
+      if (screen !== "verification" || !selected || payload.source !== "api") {
+        setVerificationHistory([]);
+        setHistoryLoading(false);
+        setHistoryError(null);
+        return;
+      }
+
+      setHistoryLoading(true);
+      setHistoryError(null);
       try {
-        const next = await loadDashboardData();
-        if (!active) {
-          return;
-        }
-        setPayload(next);
-        setSelectedId((current) =>
-          next.observations.some((row) => row.id === current)
-            ? current
-            : (next.observations[0]?.id ?? current),
-        );
-        if (next.source === "api") {
-          const forecastPayload = await loadForecastResearch();
-          if (active) {
-            setForecast(forecastPayload);
-          }
-        } else {
-          setForecast(null);
+        const next = await fetchVerificationHistory(selected.id);
+        if (active) {
+          setVerificationHistory(next);
         }
       } catch (error) {
         if (active) {
-          setNotice(error instanceof Error ? error.message : "Unable to load dashboard data.");
+          setHistoryError(formatActionError(error));
         }
       } finally {
         if (active) {
-          setLoading(false);
+          setHistoryLoading(false);
         }
       }
     }
-    void bootstrap();
+
+    void loadHistory();
     return () => {
       active = false;
     };
-  }, []);
+  }, [payload.source, screen, selected]);
 
   const navigate = (next: ScreenId) => {
     setScreen(next);
@@ -1803,7 +2083,10 @@ export default function App() {
 
   const handleVerify = async (status: VerificationStatus, notes: string) => {
     if (!selected) {
-      setNotice("No visible observation is selected for verification.");
+      setNotice({
+        title: "Verification unavailable",
+        body: "No visible observation is selected for verification.",
+      });
       return;
     }
 
@@ -1825,17 +2108,19 @@ export default function App() {
         reviewerId: requesterId,
         verifiedSpeciesId: selected.speciesId,
       });
-      setPayload((current) => ({
-        ...current,
-        observations: current.observations.map((row) =>
-          row.id === selected.id
-            ? { ...row, verificationStatus: nextStatus, reviewerNotes: notes.trim() || defaults[status] }
-            : row,
-        ),
-        lastSyncedAt: new Date().toISOString(),
-      }));
+      setWorkbenchMessage(`${selected.commonName} updated to ${nextStatus}.`);
+      await refreshDashboard();
+      if (payload.source === "api") {
+        setVerificationHistory(await fetchVerificationHistory(selected.id));
+      }
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Verification action failed.");
+      setNotice({
+        title:
+          error instanceof ApiError && error.status === 403
+            ? "Unauthorized reviewer action"
+            : "Verification action failed",
+        body: formatActionError(error),
+      });
     } finally {
       setPendingAction(null);
     }
@@ -1846,31 +2131,81 @@ export default function App() {
     setNotice(null);
     try {
       const created = await createExportRequest(request);
+      const latest =
+        payload.source === "api" ? await waitForExportCompletion(created.id) : created;
+
       setPayload((current) => ({
         ...current,
-        exports: [created, ...current.exports],
+        exports: [
+          latest,
+          ...current.exports.filter((record) => record.id !== latest.id),
+        ],
         lastSyncedAt: new Date().toISOString(),
       }));
+      setWorkbenchMessage(
+        latest.status === "Completed"
+          ? `${latest.name} is ready for download.`
+          : latest.status === "Failed"
+            ? `${latest.name} failed. Review the export status and retry if needed.`
+            : `${latest.name} is processing. Refresh export status for the latest result.`,
+      );
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Export request failed.");
+      setNotice({
+        title:
+          error instanceof ApiError && error.status === 403 ? "Export permission required" : "Export request failed",
+        body: formatActionError(error),
+      });
     } finally {
       setPendingAction(null);
     }
   };
 
-  const retryExport = (record: ExportRecord) => {
-    const retry: ExportRecord = {
-      ...record,
-      id: `EXP-RETRY-${Date.now()}`,
-      name: `${record.name} retry`,
-      status: "Processing",
-      requested: new Date().toLocaleString(),
-    };
-    setPayload((current) => ({
-      ...current,
-      exports: [retry, ...current.exports],
-      lastSyncedAt: new Date().toISOString(),
-    }));
+  const refreshExport = async (record: ExportRecord) => {
+    if (payload.source !== "api") {
+      setWorkbenchMessage(`${record.name} is using demo export state.`);
+      return;
+    }
+
+    try {
+      const latest = await fetchExportRecord(record.id);
+      setPayload((current) => ({
+        ...current,
+        exports: current.exports.map((item) => (item.id === latest.id ? latest : item)),
+        lastSyncedAt: new Date().toISOString(),
+      }));
+      setWorkbenchMessage(
+        latest.status === "Completed"
+          ? `${latest.name} is ready for download.`
+          : latest.status === "Failed"
+            ? `${latest.name} failed to generate.`
+            : `${latest.name} is still processing.`,
+      );
+    } catch (error) {
+      setNotice({
+        title: "Export refresh failed",
+        body: formatActionError(error),
+      });
+    }
+  };
+
+  const retryExport = async (record: ExportRecord) => {
+    if (!record.filterValues) {
+      setNotice({
+        title: "Export retry unavailable",
+        body: "The original filter set is not available for this export record.",
+      });
+      return;
+    }
+
+    await handleCreateExport({
+      format: record.format,
+      filters: record.filterValues,
+      includeMediaUrls: Boolean(record.filterValues.include_media_urls),
+      includeEnvironmentalContext:
+        record.filterValues.include_environmental_context !== false,
+      includeSignalScores: record.filterValues.include_signal_scores !== false,
+      includeVerification: record.filterValues.include_verification !== false,
+    });
   };
 
   const actions: ObservationActions | undefined = selected
@@ -1892,6 +2227,7 @@ export default function App() {
             name: `${selected.commonName} observation`,
             format: "CSV",
             filters: 1,
+            filterValues: { observation_id: selected.id },
             records: 1,
             status: "Completed",
             requested: new Date().toLocaleString(),
@@ -1945,14 +2281,15 @@ export default function App() {
             visibleObservations.filter((row) => row.verificationStatus !== "Expert verified").length
           }
           query={query}
+          requester={hasApiToken ? "Bearer token" : requesterId}
           role={role}
           onQueryChange={setQuery}
         />
         <PageHeading screen={screen} source={payload.source} />
         {screen !== "settings" ? (
           <FilterRail
-            filtersActive={filtersActive}
-            onFiltersActiveChange={setFiltersActive}
+            filters={filters}
+            onChange={setFilters}
             screen={screen}
           />
         ) : null}
@@ -1963,7 +2300,10 @@ export default function App() {
             body="Fetching current research records and export history."
           />
         ) : null}
-        {notice ? <StatusBanner tone="warning" title="Dashboard notice" body={notice} /> : null}
+        {apiConfigured && apiFallbackBanner ? (
+          <StatusBanner tone="warning" title={apiFallbackBanner.title} body={apiFallbackBanner.body} />
+        ) : null}
+        {notice ? <StatusBanner tone="warning" title={notice.title} body={notice.body} /> : null}
         {workbenchMessage ? (
           <StatusBanner tone="info" title="Workbench update" body={workbenchMessage} />
         ) : null}
@@ -1979,6 +2319,9 @@ export default function App() {
         {screen === "verification" ? (
           <VerificationPage
             actions={actions}
+            history={verificationHistory}
+            historyError={historyError}
+            historyLoading={historyLoading}
             pendingAction={pendingAction}
             role={role}
             selected={selected}
@@ -2022,6 +2365,7 @@ export default function App() {
             isPending={pendingAction === "export"}
             visibleRecordCount={visibleObservations.length}
             onCreateExport={handleCreateExport}
+            onRefreshExport={(record) => void refreshExport(record)}
             onRetryExport={retryExport}
           />
         ) : null}
@@ -2029,7 +2373,7 @@ export default function App() {
           <AnalystPage
             observations={visibleObservations}
             apiSource={payload.source}
-            filtersActive={filtersActive}
+            filtersActive={getActiveFilterChips(filters).length > 0}
           />
         ) : null}
         {screen === "settings" ? <SettingsPage role={role} onRoleChange={setRole} /> : null}

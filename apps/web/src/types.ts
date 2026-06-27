@@ -28,6 +28,34 @@ export type ExportFormat = "CSV" | "GeoJSON";
 
 export type ExportStatus = "Completed" | "Processing" | "Failed";
 
+export type FilterVerificationStatus =
+  | ""
+  | "unverified"
+  | "needs_more_evidence"
+  | "expert_verified"
+  | "field_confirmed"
+  | "rejected";
+
+export type FilterSignalLabel =
+  | ""
+  | "low_signal"
+  | "moderate_signal"
+  | "high_value_verification_candidate"
+  | "priority_ecological_signal"
+  | "insufficient_evidence";
+
+export interface DashboardFilters {
+  speciesId: string;
+  bbox: string;
+  regionCode: string;
+  fromDate: string;
+  toDate: string;
+  verificationStatus: FilterVerificationStatus;
+  signalLabel: FilterSignalLabel;
+  needsReview: boolean;
+  hasMedia: boolean;
+}
+
 export interface DashboardObservation {
   id: string;
   speciesId?: string;
@@ -67,10 +95,21 @@ export interface ExportRecord {
   name: string;
   format: ExportFormat;
   filters: number;
+  filterValues?: Record<string, unknown>;
   records: number;
   status: ExportStatus;
   requested: string;
   downloadUrl?: string | null;
+}
+
+export interface VerificationHistoryEvent {
+  id: string;
+  observationId: string;
+  previousStatus: VerificationStatus;
+  newStatus: VerificationStatus;
+  reviewerId: string;
+  notes?: string | null;
+  createdAt: string;
 }
 
 export interface ForecastFeature {

@@ -4,7 +4,7 @@
  * from the backend demo script. Requires Postgres + migrated API.
  */
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,8 +23,11 @@ function checkHealth(baseUrl) {
 }
 
 function runDemo() {
+  const pythonBin = existsSync(path.join(apiRoot, ".venv/bin/python"))
+    ? path.join(apiRoot, ".venv/bin/python")
+    : "python3";
   const output = execFileSync(
-    "python3",
+    pythonBin,
     ["-m", "app.scripts.demo"],
     { cwd: apiRoot, encoding: "utf8" },
   );

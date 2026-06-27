@@ -310,6 +310,7 @@ export function buildExportRecord(request: {
     name: `${request.format} export - current filters`,
     format: request.format,
     filters: Object.keys(request.filters).length,
+    filterValues: request.filters,
     records: 1246,
     status: "Processing",
     requested: new Date().toLocaleString(),
@@ -336,6 +337,8 @@ function mapSignalLabel(label: string | null | undefined): DashboardObservation[
 
 function mapVerificationStatus(status: string): DashboardObservation["verificationStatus"] {
   const mapping: Record<string, DashboardObservation["verificationStatus"]> = {
+    raw: "Unverified",
+    ai_suggested: "Unverified",
     unverified: "Unverified",
     needs_more_evidence: "Needs more evidence",
     expert_verified: "Expert verified",
@@ -422,7 +425,7 @@ export function enrichObservationFromQueue(
     distanceToWaterM: context?.distance_to_water_m
       ? Number(context.distance_to_water_m)
       : observation.distanceToWaterM,
-    evidenceCount: queueItem.media?.length ?? observation.evidenceCount,
+    evidenceCount: queueItem.media?.length ?? observation.evidenceCount ?? 0,
     signalLabel: queueItem.signal_score?.label
       ? mapSignalLabel(queueItem.signal_score.label)
       : observation.signalLabel,
@@ -512,6 +515,7 @@ function normalizeConfidence(value: string | number | null | undefined): number 
 
 export function mapApiObservation(item: {
   observation_id: string;
+  photo_thumbnail_url?: string | null;
   candidate_species?: string | null;
   confidence?: string | null;
   verification_status: string;
@@ -552,10 +556,10 @@ export function mapApiObservation(item: {
     source: "API record",
     privacy: item.location_summary.privacy_level,
     coordinateUncertaintyM: 100,
-    habitat: "Habitat context pending",
+    habitat: "Environmental context pending",
     distanceToWaterM: 0,
     samplingLabel: mapSamplingLabel(item.sampling_label),
-    evidenceCount: 1,
+    evidenceCount: item.photo_thumbnail_url ? 1 : 0,
   };
 }
 

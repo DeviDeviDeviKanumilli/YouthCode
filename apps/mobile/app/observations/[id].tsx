@@ -12,7 +12,7 @@ import {
   getObservationMedia,
   getObservationPipelineStatus,
 } from '@/api/observations';
-import type { MediaRead, ObservationPipelineStatus, ObservationRead, SightingIntelligenceCard } from '@/types/report';
+import type { MediaRead, ObservationRead, PipelineStatusResponse, SightingIntelligenceCard } from '@/types/report';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
@@ -22,7 +22,7 @@ export default function ObservationDetailScreen() {
   const [observation, setObservation] = useState<ObservationRead | null>(null);
   const [media, setMedia] = useState<MediaRead[]>([]);
   const [card, setCard] = useState<SightingIntelligenceCard | null>(null);
-  const [pipeline, setPipeline] = useState<ObservationPipelineStatus | null>(null);
+  const [pipeline, setPipeline] = useState<PipelineStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -159,7 +159,7 @@ export default function ObservationDetailScreen() {
                     label="Failed steps"
                     value={
                       pipeline.failed_steps.length > 0
-                        ? pipeline.failed_steps.map((step) => `${step.step}${step.message ? `: ${step.message}` : ''}`).join(' • ')
+                        ? pipeline.failed_steps.map((step) => `${step.name}${step.error ? `: ${step.error}` : ''}`).join(' • ')
                         : 'None'
                     }
                   />

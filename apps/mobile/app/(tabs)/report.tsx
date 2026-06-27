@@ -19,11 +19,17 @@ import {
   sourceLabel,
   type ReportContext,
 } from '@/lib/reportContext';
+import {
+  buildReportHabitatAnswers,
+  initialHabitatType,
+  type HabitatTypeAnswer,
+  type ReportAnswer,
+  type ReportAnswerState,
+} from '@/lib/reportAnswers';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
 type Stage = 'camera' | 'confirm' | 'clues' | 'analyzing' | 'result';
-type Answer = 'yes' | 'no' | 'not_sure' | 'alone' | 'patch';
 
 export default function ReportScreen() {
   const router = useRouter();
@@ -45,10 +51,11 @@ export default function ReportScreen() {
 
   const [stage, setStage] = useState<Stage>('camera');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, Answer>>({
+  const [answers, setAnswers] = useState<ReportAnswerState>({
     near_water: readRouteParam(params.habitatHint) === 'near_water' ? 'yes' : 'not_sure',
     near_road_or_trail: 'not_sure',
     growth_pattern: 'not_sure',
+    habitat_type: initialHabitatType(reportContext),
   });
   const [result, setResult] = useState<SightingIntelligenceCard | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -81,19 +88,7 @@ export default function ReportScreen() {
         timestamp: new Date().toISOString(),
         privacy_level: 'obscured',
         raw_note: buildRawNoteFromContext(reportContext),
-        habitat_answers: {
-          source: reportContext.source,
-          watch_item_id: reportContext.watchItemId,
-          suggested_species_id: reportContext.suggestedSpeciesId,
-          suggested_species_name: reportContext.suggestedSpeciesName,
-          place_id: reportContext.placeId,
-          place_type: reportContext.placeType,
-          habitat_hint: reportContext.habitatHint,
-          follow_up_observation_id: reportContext.observationId,
-          near_water: answers.near_water,
-          near_road_or_trail: answers.near_road_or_trail,
-          growth_pattern: answers.growth_pattern,
-        },
+        habitat_answers: buildReportHabitatAnswers(reportContext, answers),
       });
 
       const media = await uploadObservationMedia(observation.observation_id, photoUri);
@@ -206,6 +201,10 @@ export default function ReportScreen() {
             options={['alone', 'patch', 'not_sure']}
             onChange={(value) => setAnswers((current) => ({ ...current, growth_pattern: value }))}
           />
+          <HabitatTypeQuestion
+            value={answers.habitat_type}
+            onChange={(value) => setAnswers((current) => ({ ...current, habitat_type: value }))}
+          />
           <Pressable accessibilityRole="button" onPress={analyze} style={styles.primaryButton}>
             <Text style={styles.primaryText}>Analyze sighting</Text>
           </Pressable>
@@ -302,9 +301,9 @@ function Question({
 }: {
   icon: keyof typeof MaterialIcons.glyphMap;
   title: string;
-  value: Answer;
-  options: Answer[];
-  onChange: (value: Answer) => void;
+  value: ReportAnswer;
+  options: ReportAnswer[];
+  onChange: (value: ReportAnswer) => void;
 }) {
   return (
     <View style={styles.questionCard}>
@@ -325,6 +324,49 @@ function Question({
               onPress={() => onChange(option)}
               style={[styles.answerButton, selected && styles.answerSelected]}>
               <Text style={[styles.answerText, selected && styles.answerSelectedText]}>{labelForAnswer(option)}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function HabitatTypeQuestion({
+  value,
+  onChange,
+}: {
+  value: HabitatTypeAnswer;
+  onChange: (value: HabitatTypeAnswer) => void;
+}) {
+  const options: HabitatTypeAnswer[] = [
+    'garden',
+    'park',
+    'forest',
+    'roadside',
+    'wetland',
+    'unknown',
+  ];
+
+  return (
+    <View style={styles.questionCard}>
+      <View style={styles.questionTitleRow}>
+        <View style={styles.questionIcon}>
+          <MaterialIcons name="terrain" size={20} color={colors.moss} />
+        </View>
+        <Text style={styles.questionTitle}>What kind of place was it?</Text>
+      </View>
+      <View style={styles.habitatGrid}>
+        {options.map((option) => {
+          const selected = value === option;
+          return (
+            <Pressable
+              key={option}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              onPress={() => onChange(option)}
+              style={[styles.habitatButton, selected && styles.answerSelected]}>
+              <Text style={[styles.answerText, selected && styles.answerSelectedText]}>{labelForHabitatType(option)}</Text>
             </Pressable>
           );
         })}
@@ -383,7 +425,7 @@ function IconButton({ icon, onPress }: { icon: keyof typeof MaterialIcons.glyphM
   );
 }
 
-function labelForAnswer(answer: Answer) {
+function labelForAnswer(answer: ReportAnswer) {
   switch (answer) {
     case 'yes':
       return 'Yes';
@@ -396,6 +438,17 @@ function labelForAnswer(answer: Answer) {
     case 'not_sure':
     default:
       return 'Not sure';
+  }
+}
+
+function labelForHabitatType(answer: HabitatTypeAnswer) {
+  switch (answer) {
+    case 'vacant_lot':
+      return 'Vacant lot';
+    case 'unknown':
+      return 'Not sure';
+    default:
+      return answer.charAt(0).toUpperCase() + answer.slice(1);
   }
 }
 
@@ -713,6 +766,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  habitatGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   answerButton: {
     flex: 1,
     alignItems: 'center',
@@ -721,6 +779,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.outline,
     backgroundColor: colors.surface,
+    paddingVertical: 9,
+  },
+  habitatButton: {
+    minWidth: '30%',
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 10,
     paddingVertical: 9,
   },
   answerSelected: {

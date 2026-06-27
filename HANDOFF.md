@@ -19,6 +19,29 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Report habitat answer alignment
+
+Changed:
+
+- Added shared mobile helpers for Report answer normalization and habitat answer payload construction.
+- Normalized user-facing `Not sure` answers to backend-friendly `unknown` values before observation submission.
+- Added an editable habitat type question to the Report clue step.
+- Inferred the initial habitat type from Watch/Good Place context, such as creek edges mapping to wetland and street trees mapping to roadside.
+- Preserved provenance keys in `habitat_answers` without adding `organism_type`, avoiding strict adaptive-validation conflicts with extra provenance fields.
+- Added helper coverage for normalization, habitat inference, and submitted payload shape.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 12 files, 30 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
+
 ### 2026-06-27 - Demo scenarios in mobile Explore
 
 Changed:

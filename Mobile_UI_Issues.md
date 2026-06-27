@@ -83,6 +83,13 @@ Branch: `main`
   - Added an action to open the seeded observation's backend Sighting Intelligence Card.
   - Added unit coverage for demo scenario summary copy and deterministic check counts.
 
+- Report habitat clues used mobile-only `not_sure` values and did not collect habitat type.
+  - Normalized uncertain answers to backend-friendly `unknown` values before submission.
+  - Added a habitat type question to improve backend enrichment/scoring context.
+  - Inferred initial habitat type from Watch/Good Place context while keeping the answer editable.
+  - Preserved report provenance in `habitat_answers` without triggering strict adaptive validation conflicts.
+  - Added unit coverage for answer normalization, habitat inference, and submitted payload shape.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -102,7 +109,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 11 files, 27 tests.
+- `cd apps/mobile && npm test` passed: 12 files, 30 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -122,6 +129,7 @@ Branch: `main`
 - Explore now surfaces grounded area-level Assistant Context.
 - App startup now checks backend health/version and surfaces a degraded-backend banner across the main mobile shell.
 - Explore now surfaces deterministic demo scenarios and can frame the Forecast Map with scenario bbox context.
+- Report now submits backend-friendly habitat clue values and habitat type context.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

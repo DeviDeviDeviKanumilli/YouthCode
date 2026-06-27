@@ -189,6 +189,9 @@ npm run sync-api && npm run dev   # API mode after backend + demo seed
 
 Run with API seeded, Android emulator or device, `EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8000`.
 
+**Automated first:** `cd apps/mobile && npm run judge-qa` (typecheck, unit tests, Watch/forecast/intelligence API checks).
+
+Manual (device/emulator):
 1. **Explore map:** Forecast map loads; pan/zoom; layer pills show signal/gap counts.
 2. **Draggable sheet:** Explore/Watch sheet snaps and scrolls independently.
 3. **Observation tap:** Pin opens Sighting Intelligence Card detail.
@@ -204,13 +207,38 @@ Run with API seeded, Android emulator or device, `EXPO_PUBLIC_API_BASE_URL=http:
 
 1. **Demo mode:** `npm run dev` — observations visible in Overview, Queue, Observations.
 2. **API mode:** `npm run sync-api` — live queue, verify action, export download URL.
-3. **Smoke:** `npm run build && npm run preview` then `npm run smoke` (if port 4173 is busy, set `SMOKE_BASE_URL` to the preview URL shown).
-4. **Screens:** All 8 nav items render without console errors.
-5. **Rework surfaces:** Overview 7 KPIs + donut; Verification 3-column layout; Forecast sectioned layers + bottom legend bar; Analyst 3-column + bottom ask bar.
+3. **API-mode automation:** `npm run qa-api` — hits research observations, queue, verification, export, forecast, sampling, analyst endpoints.
+4. **Smoke UI:** `npm run build && npm run preview` then `npm run smoke` (if port 4173 is busy, set `SMOKE_BASE_URL` to the preview URL shown).
+5. **Screens:** All 8 nav items render without console errors.
+6. **Rework surfaces:** Overview 7 KPIs + donut; Verification 3-column layout; Forecast sectioned layers + bottom legend bar; Analyst 3-column + bottom ask bar.
+
+## E2E & Demo QA (automated)
+
+Scripts and latest run results: **`E2E_QA_LOG.md`**.
+
+```bash
+# Full vertical slice (upload → verify → export)
+node scripts/e2e-mvp-qa.mjs
+
+# Web dashboard API mode
+cd apps/web && npm run sync-api && npm run qa-api
+
+# Mobile automated + manual checklist
+cd apps/mobile && npm run judge-qa
+```
+
+**2026-06-27:** E2E 14/14 pass, web API-mode 10/10 pass, mobile automated 6/6 pass (emulator manual checklist still pending).
 
 ## Handoff Log (condensed)
 
 Detailed mobile issue history lives in `Mobile_UI_Issues.md`. Web dashboard iteration history lives in `Web_Dashboard_UI_Handoff.md`.
+
+### 2026-06-27 — E2E & demo QA automation
+
+- Added `scripts/e2e-mvp-qa.mjs` (full vertical slice against live API).
+- Added `apps/web/scripts/qa-api-mode.mjs` (`npm run qa-api`).
+- Added `apps/mobile/scripts/judge-qa-checklist.mjs` (`npm run judge-qa`).
+- Latest automated runs: E2E 14/14, web API-mode 10/10, mobile 6/6 — see `E2E_QA_LOG.md`.
 
 ### 2026-06-27 — Research dashboard UI rework (`d58f692`)
 

@@ -33,10 +33,20 @@ All eight screens are implemented on `main` with a **full reference-layout UI re
 | Error states (401/403, API fallback, missing context) | Done |
 | CI build (`.github/workflows/web-dashboard.yml`) | Done |
 | Reference-layout UI rework (all 8 screens + map chrome) | Done (`d58f692`) |
+| API-mode QA script (`npm run qa-api`) | Done |
 | Auth sign-in UI | Not built (`POST /auth/token` route missing) |
 | Save view / flag / sampling plan stubs | localStorage only |
 
 ## Handoff Log
+
+### 2026-06-27 - API-mode QA script
+
+Added:
+
+- `scripts/qa-api-mode.mjs` — `npm run qa-api`
+- Exercises research observations page, verification queue/history/actions, export lifecycle, forecast, sampling gaps, and analyst context against live API.
+
+Verified: 10/10 checks on 2026-06-27.
 
 ### 2026-06-27 - Full reference-layout UI rework (`d58f692`)
 
@@ -140,4 +150,5 @@ Smoke screenshots:
 ```bash
 npm run build && npm run preview   # terminal 1 — note the port shown
 npm run smoke                      # terminal 2; use SMOKE_BASE_URL if not 4173
+npm run qa-api                     # API endpoint checks (requires live backend)
 ```

@@ -49,7 +49,8 @@
     "web": "expo start --web",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "judge-qa": "node scripts/judge-qa-checklist.mjs"
   },
   "private": true
 }

@@ -122,6 +122,12 @@ Branch: `main`
   - Keeps the Intelligence Card available if the optional observation metadata request fails.
   - Added unit coverage for observation date, privacy, coordinate precision, and habitat answer summaries.
 
+- Explore loaded the demo scenario list but did not use the detail endpoint for selected demos.
+  - Selecting a demo scenario now fetches `GET /demo/scenarios/{scenario_id}`.
+  - Explore uses the selected detail response for scenario map framing and seeded observation navigation when available.
+  - Keeps the list-card fallback while selected detail is loading or unavailable.
+  - Added unit coverage for selecting detailed scenario data over list fallback.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -141,7 +147,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 17 files, 42 tests.
+- `cd apps/mobile && npm test` passed: 17 files, 43 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -163,7 +169,7 @@ Branch: `main`
 - Explore now surfaces grounded area-level Assistant Context.
 - App startup now checks backend health/version and surfaces a degraded-backend banner across the main mobile shell.
 - Profile now surfaces backend user role/privacy settings from `GET /users/{user_id}`.
-- Explore now surfaces deterministic demo scenarios and can frame the Forecast Map with scenario bbox context.
+- Explore now surfaces deterministic demo scenarios and uses selected demo detail responses to frame the Forecast Map with scenario bbox context.
 - Report now submits backend-friendly habitat clue values and habitat type context.
 - Report now lets users choose public, obscured, or private location privacy while defaulting to obscured.
 - Report result now surfaces backend pipeline status when available.

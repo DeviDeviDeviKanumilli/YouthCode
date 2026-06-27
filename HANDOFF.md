@@ -19,6 +19,27 @@ This file is the running handoff log for mobile UI work. Update it after every s
 
 ## Handoff Log
 
+### 2026-06-27 - Selected demo scenario detail in Explore
+
+Changed:
+
+- Updated the mobile demo scenario hook to fetch `GET /demo/scenarios/{scenario_id}` when a scenario is selected.
+- Explore now prefers the selected detail response for map framing, selected card display, and opening the seeded observation.
+- Kept list-card data as a fallback while selected detail is loading or unavailable.
+- Added helper coverage for preferring selected detail data over list fallback.
+- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+
+Verified:
+
+- `npm run typecheck` passes in `apps/mobile`.
+- `npm test` passes in `apps/mobile`: 17 files, 43 tests.
+
+Notes:
+
+- Working branch is `main`, tracking `origin/main`.
+- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
+- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+
 ### 2026-06-27 - Submitted observation metadata on saved detail
 
 Changed:

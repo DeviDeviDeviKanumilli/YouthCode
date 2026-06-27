@@ -18,7 +18,7 @@ import { usePublicForecast, usePublicForecastBbox } from '@/forecast/usePublicFo
 import { useNearbyRegion } from '@/regions/useNearbyRegion';
 import { useSamplingGaps } from '@/sampling/useSamplingGaps';
 import { useDemoScenarios } from '@/demo/useDemoScenarios';
-import { summarizeDemoScenario } from '@/lib/demoScenarios';
+import { selectedDemoScenario, summarizeDemoScenario } from '@/lib/demoScenarios';
 import { goodPlaceImage, watchItemImage } from '@/lib/images';
 import { summarizeRegionAssistantContext } from '@/lib/assistantContext';
 import { summarizeNearbyRegion } from '@/lib/regions';
@@ -37,10 +37,13 @@ export default function ExploreScreen() {
   const nearbyRegion = useNearbyRegion(coords.lat, coords.lon, 10);
   const samplingGaps = useSamplingGaps(coords.lat, coords.lon, 10);
   const regionAssistant = useRegionAssistantContext(coords.lat, coords.lon, 10);
-  const demoScenarios = useDemoScenarios();
   const [activeDemoScenarioId, setActiveDemoScenarioId] = useState<string | null>(null);
-  const activeDemoScenario =
-    demoScenarios.scenarios.find((scenario) => scenario.id === activeDemoScenarioId) ?? null;
+  const demoScenarios = useDemoScenarios(activeDemoScenarioId);
+  const activeDemoScenario = selectedDemoScenario(
+    demoScenarios.scenarios,
+    activeDemoScenarioId,
+    demoScenarios.selectedScenario
+  );
   const demoForecast = usePublicForecastBbox(activeDemoScenario?.map_query.bbox ?? null);
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,10 +151,22 @@ export default function ExploreScreen() {
           />
         ) : null}
 
+        {demoScenarios.selectedError && activeDemoScenarioId ? (
+          <StatusPanel
+            title="Selected demo is unavailable"
+            message={demoScenarios.selectedError}
+            actionLabel="Retry selected demo"
+            onActionPress={() => void demoScenarios.refreshSelected()}
+            tone="error"
+          />
+        ) : null}
+
         {demoScenarios.scenarios.length > 0 ? (
           <DemoScenarioDeck
             scenarios={demoScenarios.scenarios}
             activeScenarioId={activeDemoScenarioId}
+            selectedScenario={demoScenarios.selectedScenario}
+            selectedLoading={demoScenarios.selectedLoading}
             onSelect={(scenario) => setActiveDemoScenarioId(scenario.id)}
             onClear={() => setActiveDemoScenarioId(null)}
             onOpenSighting={(scenario) =>
@@ -266,12 +281,16 @@ export default function ExploreScreen() {
 function DemoScenarioDeck({
   scenarios,
   activeScenarioId,
+  selectedScenario,
+  selectedLoading,
   onSelect,
   onClear,
   onOpenSighting,
 }: {
   scenarios: DemoScenario[];
   activeScenarioId: string | null;
+  selectedScenario: DemoScenario | null;
+  selectedLoading: boolean;
   onSelect: (scenario: DemoScenario) => void;
   onClear: () => void;
   onOpenSighting: (scenario: DemoScenario) => void;
@@ -294,10 +313,11 @@ function DemoScenarioDeck({
         {scenarios.map((scenario) => (
           <DemoScenarioCard
             key={scenario.id}
-            scenario={scenario}
+            scenario={scenario.id === selectedScenario?.id ? selectedScenario : scenario}
             selected={scenario.id === activeScenarioId}
+            loading={scenario.id === activeScenarioId && selectedLoading}
             onSelect={() => onSelect(scenario)}
-            onOpenSighting={() => onOpenSighting(scenario)}
+            onOpenSighting={() => onOpenSighting(scenario.id === selectedScenario?.id ? selectedScenario : scenario)}
           />
         ))}
       </ScrollView>
@@ -308,11 +328,13 @@ function DemoScenarioDeck({
 function DemoScenarioCard({
   scenario,
   selected,
+  loading,
   onSelect,
   onOpenSighting,
 }: {
   scenario: DemoScenario;
   selected: boolean;
+  loading: boolean;
   onSelect: () => void;
   onOpenSighting: () => void;
 }) {
@@ -326,7 +348,7 @@ function DemoScenarioCard({
       <View style={styles.demoCardTop}>
         <Text style={styles.demoPersona}>{scenario.persona}</Text>
         <Text style={styles.demoCheck}>
-          {summary.passingAssertionCount}/{summary.assertionCount} checks
+          {loading ? 'Loading detail' : `${summary.passingAssertionCount}/${summary.assertionCount} checks`}
         </Text>
       </View>
       <Text style={styles.demoTitle}>{scenario.title}</Text>

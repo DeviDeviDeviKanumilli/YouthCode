@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeDemoScenario } from './demoScenarios';
+import { selectedDemoScenario, summarizeDemoScenario } from './demoScenarios';
 import type { DemoScenario } from '@/types/demo';
 
 describe('demo scenario helpers', () => {
-  it('summarizes approved scenario outputs for the mobile demo deck', () => {
-    const scenario: DemoScenario = {
+  function scenario(overrides: Partial<DemoScenario> = {}): DemoScenario {
+    return {
       id: 'student_knotweed_near_creek',
       title: 'Student uploads possible Japanese knotweed near creek',
       persona: 'student',
@@ -29,9 +29,14 @@ describe('demo scenario helpers', () => {
         corridor_type: false,
       },
       deterministic: true,
+      ...overrides,
     };
+  }
 
-    expect(summarizeDemoScenario(scenario)).toEqual({
+  it('summarizes approved scenario outputs for the mobile demo deck', () => {
+    const item = scenario();
+
+    expect(summarizeDemoScenario(item)).toEqual({
       possibleSpecies: 'Japanese knotweed',
       signalLabel: 'high value verification candidate',
       verificationStatus: 'needs review',
@@ -41,5 +46,14 @@ describe('demo scenario helpers', () => {
       firstStep: 'Open the public map around Demo Creek.',
       bbox: '-74.03,40.69,-73.98,40.75',
     });
+  });
+
+  it('prefers selected scenario detail over list fallback', () => {
+    const listItem = scenario({ title: 'List title' });
+    const detail = scenario({ title: 'Detail title' });
+
+    expect(selectedDemoScenario([listItem], listItem.id, detail)?.title).toBe('Detail title');
+    expect(selectedDemoScenario([listItem], listItem.id, null)?.title).toBe('List title');
+    expect(selectedDemoScenario([listItem], null, detail)).toBeNull();
   });
 });

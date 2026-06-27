@@ -26,6 +26,22 @@ export function summarizeDemoScenario(scenario: DemoScenario): DemoScenarioSumma
   };
 }
 
+export function selectedDemoScenario(
+  scenarios: DemoScenario[],
+  selectedScenarioId: string | null,
+  detailedScenario: DemoScenario | null
+) {
+  if (!selectedScenarioId) {
+    return null;
+  }
+
+  if (detailedScenario?.id === selectedScenarioId) {
+    return detailedScenario;
+  }
+
+  return scenarios.find((scenario) => scenario.id === selectedScenarioId) ?? null;
+}
+
 export function formatToken(value: string) {
   return value.replaceAll('_', ' ');
 }

@@ -7,10 +7,8 @@
     "icon": "./assets/images/icon.png",
     "scheme": "ecosentinel",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "supportsTablet": true
-    },
     "android": {
+      "package": "com.youthcode.ecosentinel",
       "adaptiveIcon": {
         "backgroundColor": "#F4F1E8",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -18,6 +16,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
+    },
+    "ios": {
+      "bundleIdentifier": "com.youthcode.ecosentinel",
+      "supportsTablet": true
     },
     "web": {
       "bundler": "metro",

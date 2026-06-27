@@ -19,6 +19,28 @@ This file is the running handoff log for mobile UI work on the `mobile-ui` branc
 
 ## Handoff Log
 
+### 2026-06-26 - Dev client setup for physical phones
+
+Changed:
+
+- Added `expo-dev-client` to `apps/mobile` so the project can run as a development build on a physical Android phone.
+- Added `apps/mobile/eas.json` with an Android `development` profile that builds an installable APK dev client.
+- Added `android.package` and `ios.bundleIdentifier` to `apps/mobile/app.json` so EAS Build has stable native identifiers.
+- Added `npm run dev-client` and `npm run android:dev-client` scripts to simplify running the dev server once the dev client is installed.
+
+Verified:
+
+- `expo-dev-client` was installed into `apps/mobile` and recorded in `package.json` and `package-lock.json`.
+- The existing Expo app structure still loads under SDK 56.
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
+- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
+
+Next:
+
+- Build the Android dev client with `eas build -p android --profile development`.
+- Install the resulting APK on the physical phone.
+- Start Metro with `npm run dev-client` and the correct `EXPO_PUBLIC_API_BASE_URL`.
+
 ### 2026-06-26 - Typed route fix and runtime verification
 
 Changed:

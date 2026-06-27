@@ -62,6 +62,19 @@ cd apps/mobile
 npx expo start --android
 ```
 
+Physical Android phone development build:
+
+```bash
+cd apps/mobile
+npm run dev-client
+```
+
+Use `eas build -p android --profile development` to produce the installable dev client APK. Set `EXPO_PUBLIC_API_BASE_URL` to your computer's LAN IP when running the packager for a physical phone, for example:
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://10.0.0.142:8000 npm run dev-client
+```
+
 ## App Structure
 
 Create:

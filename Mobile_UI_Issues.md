@@ -1,7 +1,8 @@
 # Mobile UI Issues Log
 
-Date: 2026-06-27
-Branch: `main`
+Date: 2026-06-27  
+Branch: `main`  
+Platform handoff: see **`HANDOFF.md`** for full EcoSentinel status (backend + mobile + web dashboard).
 
 ## Fixed In This Pass
 

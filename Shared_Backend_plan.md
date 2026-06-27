@@ -1,5 +1,7 @@
 # EcoSentinel Shared Backend Plan
 
+**Status (2026-06-27):** Milestones M1–M15 are **complete** on `main` (Alembic `0017`, `make check` passing). Consumer mobile app and research web dashboard are merged and call this API. Remaining work is expansion-phase: production auth/deploy, live external providers, and spec features beyond the MVP vertical slice. See `HANDOFF.md` for platform progress.
+
 Use this file as the detailed milestone checklist for building the EcoSentinel backend. Use `AGENTS.md` as the compact operating guide for product rules, wording, architecture boundaries, and quality gates.
 
 ## How To Read This Plan

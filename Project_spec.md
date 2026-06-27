@@ -1,6 +1,6 @@
 ## EcoSentinel Brief Project Spec
 
-This is the compact product spec. For agent build behavior, architecture boundaries, wording rules, and milestone gates, read `AGENTS.md`. For backend implementation tasks, read `Shared_Backend_plan.md`.
+This is the compact product spec. For **live platform progress and runbooks**, read `HANDOFF.md`. For agent build behavior, architecture boundaries, wording rules, and milestone gates, read `AGENTS.md`. For backend implementation tasks, read `Shared_Backend_plan.md`.
 
 **Project name:** EcoSentinel
 **Category:** AI ecological intelligence platform

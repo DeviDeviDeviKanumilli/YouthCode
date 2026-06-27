@@ -7,6 +7,26 @@ This file is the working memory for agents building EcoSentinel in this workspac
 - Work in the GitHub repository `DeviDeviDeviKanumilli/YouthCode`.
 - Use the `main` branch for this workspace.
 - Push all major changes to the remote `main` branch after committing them.
+- Platform handoff and live progress: read `HANDOFF.md` first.
+
+## Repository Layout
+
+```txt
+apps/
+  api/       # Shared FastAPI backend (ecological intelligence, all APIs)
+  mobile/    # Expo React Native consumer app (map-first, report, Watch)
+  web/       # Vite React research dashboard (verification, maps, exports)
+Project_spec.md              # Full product specification
+HANDOFF.md                   # Platform progress, runbooks, MVP status
+Shared_Backend_plan.md       # Backend milestone checklist (M1–M15)
+IMPLEMENTATION_ROADMAP.md    # Backend execution log and completion status
+Research_Dashboard_UI_Guide.md
+Web_Dashboard_UI_Handoff.md  # Web-dashboard-specific change log
+Mobile_UI_Issues.md          # Mobile issue/fix log
+mobileAppMigration.md        # Mobile implementation plan
+```
+
+Frontends are **not** Next.js. Mobile is Expo + React Native; research dashboard is Vite + React + Leaflet.
 
 ## Product Identity
 
@@ -33,18 +53,20 @@ Today, a student can upload one photo. EcoSentinel identifies what it might be, 
 - Architecture should remain region-agnostic for future U.S. expansion.
 - The MVP should prove one complete vertical slice, not every future ecological model.
 
-The MVP is complete when:
+The MVP vertical slice is **demonstrated locally** when all of the following work against the seeded API:
 
-1. A user can upload a sighting.
-2. The backend stores the observation and media metadata.
-3. The system suggests a possible species with uncertainty.
-4. The system enriches the sighting with ecological context.
-5. The system computes Ecological Signal Priority.
-6. The mobile app can show a Sighting Intelligence Card.
-7. The sighting appears on a Forecast Map.
-8. The research dashboard receives it in a verification queue.
-9. A reviewer can verify, reject, or request more evidence.
-10. A researcher can export CSV and GeoJSON.
+1. A user can upload a sighting — **mobile Report flow**
+2. The backend stores the observation and media metadata — **API**
+3. The system suggests a possible species with uncertainty — **API + intelligence card**
+4. The system enriches the sighting with ecological context — **API** (UI shows summaries)
+5. The system computes Ecological Signal Priority — **API**
+6. The mobile app can show a Sighting Intelligence Card — **mobile**
+7. The sighting appears on a Forecast Map — **mobile Explore/Watch + web Forecast Map**
+8. The research dashboard receives it in a verification queue — **web**
+9. A reviewer can verify, reject, or request more evidence — **web**
+10. A researcher can export CSV and GeoJSON — **web + API**
+
+Still outside the current MVP slice: production deploy, auth sign-in UI, live external biodiversity APIs, survey sessions, population-signal tracker UI, and full spec Phase 2+ features. See `HANDOFF.md` for detail.
 
 ## Product Boundaries
 
@@ -319,6 +341,12 @@ Before moving to the next milestone:
 - affected endpoints have integration coverage.
 - ecological wording follows the uncertainty rules.
 - privacy/provenance behavior is explicit where location or exports are involved.
+
+## Auth Note
+
+- Internal JWT helpers exist in the backend (M12), and `GET /auth/me` is exposed.
+- `POST /auth/token` appears in API docs/contracts but is **not** mounted as a public route yet.
+- Local research dashboard mode uses `VITE_REQUESTER_ID` from `npm run sync-api` and optional `VITE_API_TOKEN`.
 
 ## Strategic Product Notes
 

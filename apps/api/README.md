@@ -58,8 +58,8 @@ Health and system:
 
 Auth and users:
 
-- `POST /auth/token`
-- `GET /auth/me`
+- `GET /auth/me` (requires bearer token)
+- Internal JWT helpers exist for development; `POST /auth/token` is documented in contracts but not yet exposed as a public route
 - `POST /users`
 - `GET /users/{user_id}`
 - `PATCH /users/{user_id}/role`

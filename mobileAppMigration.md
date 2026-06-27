@@ -13,19 +13,24 @@ This plan describes how to add the EcoSentinel React Native consumer app to this
 
 ## Current Repo State
 
-- Backend exists under `apps/api`.
-- Mobile app now exists under `apps/mobile` and is wired to the backend Watch endpoints.
+- Backend exists under `apps/api` (M1–M15 complete on `main`).
+- Mobile app exists under `apps/mobile` and is wired to the consumer API surface.
+- Research web dashboard exists under `apps/web` on the same `main` branch.
 - `stitchDesignReference.txt` contains the HTML UI reference for Explore, Watch, Sightings, Guide/Profile-style screens, and Report flow screens.
-- `mobile-ui` is the working branch and tracks `origin/mobile-ui`.
-- Major changes should be committed and pushed to `origin/mobile-ui`.
-- `HANDOFF.md` should be updated after each semi-major change.
+- **`main` is the working branch** and tracks `origin/main`. Feature branch `mobile-ui` was merged and deleted.
+- `HANDOFF.md` is the platform handoff; update it after semi-major changes.
 
 ## Implementation Status
 
-- `apps/mobile` has been scaffolded with Expo Router and TypeScript.
-- The Watch tab, Watch detail routes, and Report placeholder are implemented.
-- Mobile unit tests pass and TypeScript checks pass with the current codebase.
-- Emulator verification notes are recorded in `HANDOFF.md`.
+- `apps/mobile` scaffolded with Expo Router and TypeScript.
+- **Explore** — public forecast map, draggable sheet, demo scenarios, nearby region card.
+- **Watch** — `GET /consumer/watch`, item/place detail routes, map overlay summaries.
+- **Report** — full sighting pipeline: capture, habitat clues, privacy, media upload, identify, intelligence card, assistant context, draft persistence.
+- **Sightings** — user observations list, intelligence detail (`/sightings/[id]`), follow-up report params.
+- **Profile** — API/session/location status, field-guide styling.
+- **Observation detail** — `/observations/[id]` alternate detail route with pipeline status.
+- Mobile unit tests: **51 passing** across 20 files; typecheck passes.
+- Emulator/device runtime QA: see `HANDOFF.md` Mobile Judge Demo QA Checklist.
 
 ## Environment And Local Wiring
 
@@ -336,4 +341,4 @@ Repo workflow:
 
 - Update `HANDOFF.md` after semi-major changes.
 - Commit scoped changes.
-- Push to `origin/mobile-ui`.
+- Push to `origin/main`.

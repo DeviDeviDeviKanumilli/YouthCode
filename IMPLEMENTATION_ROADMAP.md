@@ -1,6 +1,6 @@
 # EcoSentinel Backend Implementation Roadmap
 
-This roadmap turns `Shared_Backend_plan.md` into an execution sequence. Keep it updated as milestones are completed, and commit/push at each sub-milestone.
+This roadmap turns `Shared_Backend_plan.md` into an execution sequence. For **full platform status** (mobile + web + backend), read `HANDOFF.md`.
 
 ## Working Rules
 
@@ -200,3 +200,12 @@ M1.4 migration foundation:
 - M15 is complete against the current local verification gates.
 - Backend roadmap is complete against the current product and backend plans.
 - Watch Screen Data System is implemented and locally verified with `make check` passing 241 tests. Alembic head is `0017`.
+
+## Frontend Integration Status (2026-06-27)
+
+Both frontends are merged on `main` and integrate with the backend contract:
+
+- **`apps/mobile`** — Report upload pipeline, intelligence cards, public forecast map, Watch API, regions/nearby, assistant context panels. Typecheck + 51 unit tests pass.
+- **`apps/web`** — Research workbench (8 screens), live API mode, exports, verification workflow. Build + smoke pass; GitHub Actions CI on push.
+
+Remaining cross-cutting gaps: production deployment, `POST /auth/token` HTTP route for dashboard sign-in, live external biodiversity feeds (GBIF/iNat), survey sessions, population-signal UI.

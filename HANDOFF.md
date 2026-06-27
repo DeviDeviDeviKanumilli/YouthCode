@@ -1,618 +1,229 @@
-# EcoSentinel Mobile UI Handoff
+# EcoSentinel Platform Handoff
 
-This file is the running handoff log for mobile UI work. Update it after every semi-major change so collaborators can quickly see what changed, what was verified, and what remains.
+Running handoff for the full EcoSentinel platform: shared backend, mobile consumer app, and research web dashboard. Update this file after semi-major changes so collaborators can see current progress, verification status, and remaining work.
 
-## Current Branch
+**Product authority:** `Project_spec.md` (full product spec), `AGENTS.md` (agent rules and wording), `Shared_Backend_plan.md` (backend milestone checklist).
 
-- Branch: `main`
-- Remote tracking branch: `origin/main`
+## Repository
+
 - Repository: `DeviDeviDeviKanumilli/YouthCode`
+- Branch: `main` (tracks `origin/main`)
+- Feature branches `mobile-ui` and `web-dashboard-ui` were merged into `main` on 2026-06-27 and deleted.
 
-## Working Rules
+## What EcoSentinel Is
 
-- Keep mobile work under `apps/mobile`.
-- Use `stitchDesignReference.txt` as the visual and UX reference.
-- Use `mobileAppMigration.md` as the implementation plan.
-- Push major changes to `origin/main`.
-- Do not overwrite unrelated collaborator work.
-- Do not change the backend unless a small compatibility fix is absolutely required.
+EcoSentinel is an AI ecological intelligence platform for the tri-state MVP (NY, NJ, PA). It turns local nature sightings into structured, uncertainty-aware ecological signals for the public and researchers—not a basic species-ID app or a pin map.
 
-## Handoff Log
+```txt
+EcoSentinel turns local nature sightings into ecological forecasts.
+```
 
+Core pipeline:
 
-### 2026-06-27 - Non-blocking location startup
+```txt
+Observation → Identification → Taxonomic normalization → Environmental enrichment
+→ Signal scoring → Forecast visualization → Verification → Research export
+```
 
-Changed:
+## Platform Layout
 
-- Removed the automatic startup location permission request from `LocationProvider`.
-- The app now starts with `Using demo area` and keeps backend calls on fallback coordinates until the user explicitly taps a location refresh/target action.
-- Updated Profile location status copy to explain demo-area fallback and permission-denied state consistently.
-- Added helper coverage for demo-area, permission-denied, and granted-location labels.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+| Area | Path | Stack | Role |
+|------|------|-------|------|
+| Shared backend | `apps/api` | FastAPI, PostgreSQL/PostGIS, Alembic, Redis | All ecological intelligence, APIs, exports, demo seed |
+| Consumer app | `apps/mobile` | Expo, React Native, TypeScript, Expo Router | Map-first sightings, report flow, intelligence cards, Watch |
+| Research dashboard | `apps/web` | Vite, React 19, TypeScript, Leaflet | Verification queue, observations, maps, sampling gaps, exports, AI analyst |
 
-Verified:
+Supporting docs:
 
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 18 files, 46 tests.
+- Mobile integration: `apps/api/docs/mobile_integration.md`
+- Research integration: `apps/api/docs/research_dashboard_integration.md`
+- API contract: `apps/api/docs/frontend_contract.md`
+- Mobile UI issues log: `Mobile_UI_Issues.md`
+- Web dashboard detail log: `Web_Dashboard_UI_Handoff.md`
+- Research UI design: `Research_Dashboard_UI_Guide.md`
+- Mobile build plan: `mobileAppMigration.md`
+- Backend roadmap status: `IMPLEMENTATION_ROADMAP.md`
 
-Notes:
+## MVP Vertical Slice Status
 
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+Against the judge-facing demo path in `AGENTS.md` and `Project_spec.md`:
 
-### 2026-06-27 - Selected demo scenario detail in Explore
+| # | Requirement | Backend | Mobile | Web dashboard |
+|---|-------------|---------|--------|---------------|
+| 1 | Upload a sighting (photo, location, habitat answers) | Done | Done (`Report` tab) | N/A (research-facing) |
+| 2 | Store observation and media metadata | Done | Done | N/A |
+| 3 | Suggest possible species with uncertainty | Done | Done (intelligence card) | Done (queue/detail) |
+| 4 | Enrich with ecological context | Done | Partial (card summaries) | Done (detail panels) |
+| 5 | Compute Ecological Signal Priority | Done | Done (card) | Done (filters, queue, table) |
+| 6 | Show Sighting Intelligence Card | Done | Done | Done (verification detail) |
+| 7 | Appear on Forecast Map | Done | Done (Explore/Watch GeoJSON) | Done (Forecast Map screen) |
+| 8 | Enter research verification queue | Done | N/A | Done |
+| 9 | Verify, reject, or request more evidence | Done | N/A | Done (+ history) |
+| 10 | Export CSV and GeoJSON | Done | N/A | Done (live export lifecycle) |
 
-Changed:
+**MVP vertical slice:** functionally demonstrated end-to-end with local API + demo seed. Production deployment, full auth UI, and live external data feeds are not complete.
 
-- Updated the mobile demo scenario hook to fetch `GET /demo/scenarios/{scenario_id}` when a scenario is selected.
-- Explore now prefers the selected detail response for map framing, selected card display, and opening the seeded observation.
-- Kept list-card data as a fallback while selected detail is loading or unavailable.
-- Added helper coverage for preferring selected detail data over list fallback.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+## Component Status
 
-Verified:
+### Shared backend (`apps/api`)
 
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 17 files, 43 tests.
+- Milestones **M1–M15 complete** per `IMPLEMENTATION_ROADMAP.md` and `Shared_Backend_plan.md`.
+- Alembic head: **0017** (includes Watch screen data system).
+- Local verification: `make check` passes (~232+ tests); `python -m app.scripts.demo` runs full backend demo flow.
+- Key surfaces: observations, media upload, identification, intelligence card, signal scoring, forecast (public + research), sampling gaps, verification, exports, assistant context (observation/region/research), consumer Watch API, demo scenarios.
+- Auth: internal JWT helpers exist; **`GET /auth/me` is exposed**; **`POST /auth/token` is documented in contracts but not mounted as a public route**—frontends use `requester_id` / optional bearer env vars for local research mode.
+- Docker Compose defined; local dev often uses `apps/api/.venv` + Postgres when Docker is unavailable.
 
-Notes:
+### Mobile consumer app (`apps/mobile`)
 
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+**Screens (Expo Router):**
 
-### 2026-06-27 - Submitted observation metadata on saved detail
+- **Explore** (`index`) — map-first home, public forecast GeoJSON, draggable sheet, demo scenarios, nearby region summary.
+- **Watch** — backend Watch cards, good places, map overlay context.
+- **Report** — camera capture, habitat clues, privacy, upload, identification pipeline, intelligence card + grounded assistant context on result; local draft persistence.
+- **Sightings** — user observation list, intelligence detail (`/sightings/[id]`), follow-up report routing.
+- **Profile** — API/session/location status, field-guide cards.
+- **Detail routes** — `watch/item/[id]`, `watch/place/[id]`, `observations/[id]` (alternate observation detail).
 
-Changed:
+**Verified locally:**
 
-- Added mobile client support for `GET /observations/{observation_id}`.
-- Added observation metadata helpers for submitted date, privacy label, coordinate precision, and habitat clue counts.
-- Updated saved Sighting Intelligence Card detail with a submitted-record card showing timestamp, privacy level, coordinate uncertainty, habitat answer count, source, and region.
-- Kept metadata loading non-blocking so the Intelligence Card remains visible if the optional observation metadata request fails.
-- Added helper coverage for observation date, privacy, coordinate precision, and habitat answer summaries.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+- `npm run typecheck` passes
+- `npm test` passes (20 files, 51 tests)
 
-Verified:
+**Not built (product spec):**
 
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 17 files, 42 tests.
+- Full conversational AI chat (context panels only; no chat backend)
+- Survey sessions / structured class field surveys
+- Population Signal Tracker UI
+- Dedicated Native Biodiversity Stress layer screen
+- Production API host / store release
 
-Notes:
+**Runtime QA:** see Mobile Judge Demo QA Checklist below. Android emulator verification depends on local SDK availability.
 
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+### Research web dashboard (`apps/web`)
 
-### 2026-06-27 - Backend user details in Profile
+**Screens (8):** Overview, Verification Queue, Observations, Forecast Map, Sampling Gaps, Export Center, AI Analyst, Settings.
 
-Changed:
+**Modes:**
 
-- Updated `UserProvider` to retain the full backend `GET /users/{user_id}` response instead of only the user ID.
-- Updated Profile to show backend display name, role, user ID prefix, privacy settings, and trusted reviewer status.
-- Added helper coverage for user display, role, and privacy summary copy.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+- **Demo mode** — deterministic seeded data when API unavailable (default `npm run dev`).
+- **API mode** — `npm run sync-api` writes `.env.local` with reviewer `requester_id`; Vite proxies `/api` → `http://127.0.0.1:8000`.
 
-Verified:
+**Verified locally:**
 
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 16 files, 40 tests.
+- `npm run build` passes
+- `npm run smoke` passes (Playwright screenshots)
+- CI: `.github/workflows/web-dashboard.yml` (`npm ci` + `npm run build`)
 
-Notes:
+**Intentional gaps:**
 
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+- No auth sign-in UI (`POST /auth/token` route missing; uses `VITE_REQUESTER_ID` + optional `VITE_API_TOKEN`)
+- Stub actions still local-only: flag record, sampling plan, follow-up task, save view
+- Production CORS / deployed API URL not configured
 
-### 2026-06-27 - Evidence media on saved sighting detail
+## Product Spec: Still Open
 
-Changed:
+From `Project_spec.md`, not yet implemented as full product surfaces:
 
-- Added mobile client support for `GET /observations/{observation_id}/media`.
-- Added media evidence helpers for backend-relative URL resolution and evidence counts.
-- Updated saved Sighting Intelligence Card detail to use the first uploaded evidence image as the detail hero when available.
-- Added an evidence media card showing image count and metadata-removal context.
-- Kept media loading non-blocking so the Intelligence Card remains visible if the optional media request fails.
-- Added helper coverage for media URL resolution and evidence summaries.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+- Population Signal Tracker (time-slider trends, grid occupancy)
+- Dedicated Native Biodiversity Stress layer (beyond forecast signal types)
+- School survey sessions and negative (“not found”) records workflow
+- Live GBIF / iNaturalist / state invasive DB ingestion (MVP uses seeded/cached tri-state data)
+- Research Workbench extras: covariate explorer, model-card view, full bias diagnostics UI
+- Public “Local Ecosystem Home” as specified (partial via Explore + `GET /regions/nearby`)
+- Phase 2+ roadmap items in spec section 21
 
-Verified:
+## How to Run Locally
 
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 15 files, 37 tests.
+### Backend
 
-Notes:
+```bash
+cd apps/api
+source .venv/bin/activate
+python -m alembic upgrade head
+python -m app.scripts.demo    # or: python -m app.scripts.seed
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md`, `Web_Dashboard_UI_Handoff.md`, and `apps/web/`.
+With Docker (when available): `docker compose up -d postgres redis api` from repo root.
 
-### 2026-06-27 - Report pipeline status
+### Mobile
 
-Changed:
+```bash
+cd apps/mobile
+npm install
+EXPO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 npm run start
+# Android emulator host loopback: http://10.0.2.2:8000
+```
 
-- Added mobile types and API client support for `GET /observations/{observation_id}/pipeline-status`.
-- Added pipeline status copy helpers for status titles, backend step labels, and next-action messages.
-- Updated the Report result screen to show a processing status card when pipeline status is available.
-- The pipeline-status call is non-blocking, so users still see the Sighting Intelligence Card if the optional status fetch fails.
-- Added helper coverage for complete and failed pipeline status summaries.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
+### Research dashboard
 
-Verified:
+```bash
+cd apps/web
+npm install
+npm run dev              # demo mode
+npm run sync-api && npm run dev   # API mode after backend + demo seed
+```
 
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 14 files, 35 tests.
+## Recent Platform Changes (2026-06-27)
 
-Notes:
-
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
-
-### 2026-06-27 - Report location privacy selector
-
-Changed:
-
-- Added a Report Location Privacy selector for `obscured`, `private`, and `public` backend privacy levels.
-- Kept `obscured` as the default for normal consumer sightings.
-- Added explicit public-location warning copy so exact coordinate sharing is an active user choice.
-- Added private-location copy for sensitive sightings and public-export avoidance.
-- Added helper coverage for privacy defaults and copy.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
-
-Verified:
-
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 13 files, 33 tests.
-
-Notes:
-
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
-
-### 2026-06-27 - Report habitat answer alignment
-
-Changed:
-
-- Added shared mobile helpers for Report answer normalization and habitat answer payload construction.
-- Normalized user-facing `Not sure` answers to backend-friendly `unknown` values before observation submission.
-- Added an editable habitat type question to the Report clue step.
-- Inferred the initial habitat type from Watch/Good Place context, such as creek edges mapping to wetland and street trees mapping to roadside.
-- Preserved provenance keys in `habitat_answers` without adding `organism_type`, avoiding strict adaptive-validation conflicts with extra provenance fields.
-- Added helper coverage for normalization, habitat inference, and submitted payload shape.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
-
-Verified:
-
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 12 files, 30 tests.
-
-Notes:
-
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
-
-### 2026-06-27 - Demo scenarios in mobile Explore
-
-Changed:
-
-- Added mobile demo scenario types, API client, and hook for `GET /demo/scenarios`.
-- Added an Explore demo scenario deck for deterministic judge walkthroughs using backend-approved scenario title, script step, observed outputs, and check counts.
-- Added `bbox` support to the mobile public forecast client and a bbox forecast hook.
-- Selecting a demo scenario now frames the Explore map with the scenario `map_query.bbox`; opening a seeded demo card routes to the existing Sighting Intelligence Card detail screen.
-- Added helper coverage for demo scenario summary copy and deterministic check counts.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, and latest verification counts.
-
-Verified:
-
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 11 files, 27 tests.
-
-Notes:
-
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
-
-### 2026-06-27 - Mobile startup backend status
-
-Changed:
-
-- Added a mobile System Status provider that runs `/health` and `/version` at app startup.
-- Added a shared degraded-backend banner in the main `ScreenFrame` shell with retry behavior and user-safe status copy.
-- Refactored Profile to display the shared startup backend status instead of making a second health/version request.
-- Added helper coverage for healthy, unavailable, and degraded backend status summaries.
-- Updated `Mobile_UI_Issues.md` with the issue, fix, remaining runtime limitation, and latest verification counts.
-
-Verified:
-
-- `npm run typecheck` passes in `apps/mobile`.
-- `npm test` passes in `apps/mobile`: 10 files, 26 tests.
-
-Notes:
-
-- Working branch is `main`, tracking `origin/main`.
-- Android simulator/device runtime verification remains unavailable in the current macOS environment because no Android SDK/emulator/device is present.
-- Unrelated local work remains unstaged: `Research_Dashboard_UI_Guide.md` and `apps/web/`.
-
-### 2026-06-27 - Main branch mobile integration QA pass
-
-Changed:
-
-- Switched ongoing mobile work to `main` after merging both UI branches.
-- Added `Mobile_UI_Issues.md` as the dedicated mobile issue and verification log requested for this pass.
-- Added a mobile forecast API client for `GET /forecast/public`.
-- Added forecast layer summarization and wired Watch/Explore map headers to backend-derived public map counts.
-- Removed the global camera permission request from `LocationProvider`; camera permission is now scoped to the Report screen.
-- Replaced the Profile placeholder with backend health/version, anonymous user session, and location status cards.
-- Tightened Watch and Explore refresh behavior so target refreshes await both Watch data and Forecast Map data.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 2 files, 8 tests.
-- `cd apps/api && ./.venv/bin/python -m pytest tests/test_watch_api.py tests/test_forecast_public_api.py tests/test_user_sightings_api.py tests/test_observations_api.py tests/test_media_api.py tests/test_identifications_api.py tests/test_intelligence_cards_api.py tests/test_health.py` passes: 61 tests.
-- Local API server starts and `GET /health` plus `GET /version` respond.
-
-Could not verify here:
-
-- Android simulator/device runtime. `adb devices` returned no attached device and Android SDK/emulator binaries were not present in this environment.
-- Full live Postgres-backed API flow. DB-backed endpoints failed locally because Postgres was not running, and `docker` is not installed to start the compose stack.
-
-Still to do:
-
-- Run the Expo dev client on a real Android device or configured emulator and manually verify camera, permissions, Watch, Explore, Forecast Map counts, Report submission, Result card, Sightings, and Profile status.
-- Add a production mobile media upload contract. The current Report flow registers media metadata and same-device image URI context, but does not upload image bytes to shared storage.
-
-### 2026-06-27 - Report prefill context visibility
-
-Changed:
-
-- Added a visible Report context panel on the clue step so Watch item, Good Place, and sighting-history route params are no longer hidden from the user.
-- Added backend habitat-answer provenance for `watch_item_id`, `suggested_species_id`, `place_id`, `habitat_hint`, and follow-up observation ID.
-- Extracted Report route-context normalization into a tested helper.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 3 files, 11 tests.
-
-Still to do:
-
-- Manually verify the Report context panel in Android once a device or emulator is available.
-
-### 2026-06-27 - Mobile media byte upload
-
-Changed:
-
-- Added `POST /observations/{observation_id}/media/upload` for multipart image uploads.
-- Added local backend media storage and `/media-files` static serving for development/demo media.
-- Updated the mobile Report flow to upload captured photo bytes before running identification.
-- Updated Sightings thumbnails to resolve backend-relative media URLs.
-- Updated the frozen OpenAPI contract and mobile integration guide.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 4 files, 13 tests.
-- `cd apps/api && ./.venv/bin/python -m ruff check .` passes.
-- `cd apps/api && ./.venv/bin/python -m mypy app tests` passes.
-- `cd apps/api && ./.venv/bin/python -m pytest` passes: 243 tests.
-
-Still to do:
-
-- Manually verify multipart upload from Android once a device or emulator is available.
-- Add production S3-compatible storage or presigned URL support for deployed environments.
-
-### 2026-06-27 - Nearby Region Summary in Explore
-
-Changed:
-
-- Added a mobile client and hook for `GET /regions/nearby`.
-- Added an Explore "Local ecosystem" card with watched species, nearby signal count, recent point count, sampling note, and uncertainty notice.
-- Added unit coverage for summarizing Nearby Region counts.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 5 files, 14 tests.
-
-Still to do:
-
-- Manually verify the Explore region card in Android once a device or emulator is available.
-
-### 2026-06-27 - Saved Sighting Intelligence Card detail
-
-Changed:
-
-- Added `/sightings/[id]` in the Expo Router app.
-- Wired Sightings list cards to open `GET /observations/{observation_id}/intelligence-card`.
-- Kept "Create follow-up report" as a separate action from opening the saved intelligence card.
-- Added unit coverage for intelligence-card title and Ecological Signal Priority display fallbacks.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 6 files, 16 tests.
-
-Still to do:
-
-- Manually verify saved sighting detail navigation in Android once a device or emulator is available.
-
-### 2026-06-27 - Watch detail map overlay context
-
-Changed:
-
-- Added a shared `MapOverlaySummary` component for Watch item and Good Place detail screens.
-- Surfaced backend `mapOverlay` type, geometry availability, and record point availability with uncertainty-aware copy.
-- Added unit coverage for map overlay display behavior.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 7 files, 18 tests.
-
-Still to do:
-
-- Manually verify the detail map context panel in Android once a device or emulator is available.
-
-### 2026-06-27 - Grounded assistant context on saved sightings
-
-Changed:
-
-- Added a mobile client and types for `GET /assistant/context/observation/{observation_id}`.
-- Added a grounded assistant context panel on saved Sighting Intelligence Card detail.
-- The panel shows allowed claims, evidence availability, required uncertainty notice, data source count, and verification status.
-- Added unit coverage for assistant context summarization.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 8 files, 19 tests.
-
-Still to do:
-
-- Manually verify the assistant context panel in Android once a device or emulator is available.
-
-### 2026-06-27 - Sampling Gap Layer in Explore
-
-Changed:
-
-- Added a mobile client and hook for `GET /sampling-gaps?bbox=...&mode=public`.
-- Added an Explore Sampling Gap Layer card with grid-cell count, top sampling label, explanation, uncertainty, and label breakdown.
-- Added unit coverage for bbox generation and sampling label summarization.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 9 files, 21 tests.
-
-Still to do:
-
-- Manually verify the Sampling Gap Layer card in Android once a device or emulator is available.
-
-### 2026-06-27 - User-safe API error handling
-
-Changed:
-
-- Added a structured mobile `ApiError` class and `messageForError` helper.
-- Updated backend-backed screens/hooks to show user-safe messages for missing records, validation issues, rate limits, backend failures, and network failures.
-- Preserved native location errors as device-specific diagnostics.
-- Added unit coverage for API error message mapping.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 9 files, 22 tests.
-
-Still to do:
-
-- Manually verify retry/error states in Android once a device or emulator is available.
-
-### 2026-06-27 - Grounded area assistant context in Explore
-
-Changed:
-
-- Added a mobile client and hook for `GET /assistant/context/region`.
-- Added an Explore grounded area context card with observation count, sampling-cell count, nearby signals, sampling gaps, priority records, sparsity warning, uncertainty notice, and data-source count.
-- Added unit coverage for region assistant context summarization.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passes.
-- `cd apps/mobile && npm test` passes: 9 files, 23 tests.
-
-Still to do:
-
-- Manually verify the grounded area context card in Android once a device or emulator is available.
-
-### 2026-06-27 - Functional observation detail flow and richer mobile navigation
-
-Changed:
-
-- Added a new observation detail screen at `/observations/[id]` that loads the saved observation, attached media, intelligence card, and pipeline status from the backend.
-- Reworked the report result state so it no longer ends at a dead-end screen; users can now open the saved observation, return to Sightings, review a source sighting, or capture another report.
-- Wired Sightings list items to the new observation detail screen and added quick actions for capture and Watch so the tab can branch into real product flows.
-- Converted the Guide/Profile tab into a navigation hub with working actions into Watch, Report, and Sightings instead of static placeholder cards.
-- Registered the new observation route in the root stack and added typed backend helpers for observation detail, media, and pipeline status.
-
-Verified:
-
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
-
-Still to do:
-
-- Open the new observation detail flow on the Android emulator or physical device and confirm the navigation stack feels natural.
-- Consider regenerating Expo Router route typings during the next dev-client/start pass so the observation route appears in the generated type union.
-### 2026-06-26 - Persistent user session and real Sightings feed
-
-Changed:
-
-- Added `expo-secure-store` and a `UserProvider` that creates or restores an anonymous backend user session on launch.
-- Wired Report submissions to include the persisted `user_id`, so new sightings belong to a stable backend user instead of a temporary session.
-- Replaced the Sightings placeholder with a backend-backed observation list from `GET /users/{user_id}/observations`.
-- Made each sighting card clickable and gave it an image-backed layout instead of the old text-only stub.
-- Replaced the remaining guessed image URLs with confirmed Wikimedia Commons file paths that return real images on device.
-
-Verified:
-
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
-- `curl -L -sS -o /dev/null -w '%{http_code}\n'` against the Commons fallback URLs returns `200` for the confirmed image paths used in the app.
-- Rebuilt and reinstalled the Android dev client on the connected physical Pixel after adding `expo-secure-store`.
-
-Still to do:
-
-- Verify the Sightings feed on the phone with actual stored observations once the user captures a new report.
-- Continue polishing the detail screens and any remaining copy that still feels placeholder-like.
-
-### 2026-06-26 - Location-aware UI and report capture flow
-
-Changed:
-
-- Added `expo-location` and `expo-camera` to the mobile app and configured native permission prompts in `app.json`.
-- Added a shared `LocationProvider` that requests location and camera permissions on app open, reverse-geocodes the current area, and exposes refreshable coordinates to app screens.
-- Fixed the bottom tab bar so the blue `+` report button is centered between Watch and Sightings instead of overlapping a tab.
-- Reworked Explore to use backend Watch data for clickable near-you cards and Good Places cards, removed the static Princeton copy, and filled the top area with the map-style visual.
-- Reworked Watch to use current-device coordinates when available, removed demo-ranking copy, and refreshed the map/header copy from location state.
-- Updated Watch item and Good Place cards/details to use real image fallbacks when backend image URLs are missing or point at placeholder storage.
-- Replaced the report placeholder with a staged camera flow: capture, confirm photo, add habitat clues, submit to the backend, run mock identification, and show the intelligence card result.
-
-Verified:
-
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
-- Rebuilt and installed the Android debug dev client on the connected physical Pixel 10 Pro XL (`59040DLCQ000QZ`) with `expo-camera` and `expo-location` linked.
-- Started Metro for the dev client at `exp+ecosentinel-mobile://expo-development-client/?url=http%3A%2F%2F10.0.0.142%3A8083` using `EXPO_PUBLIC_API_BASE_URL=http://10.0.0.142:8000`.
-- Opened the installed dev client on the phone from Expo CLI and confirmed the JS bundle compiled without Metro runtime errors.
-
-Still to do:
-
-- Manually confirm the permission prompts, camera preview, backend submission, and result card on the phone screen.
-- Review image fallback URLs in-device; if any Commons filename does not resolve, replace it with a confirmed URL.
-- Continue removing/deepening remaining Profile/Guide/Sightings placeholder behavior in a later pass.
-
-### 2026-06-26 - Dev client setup for physical phones
-
-Changed:
-
-- Added `expo-dev-client` to `apps/mobile` so the project can run as a development build on a physical Android phone.
-- Added `apps/mobile/eas.json` with an Android `development` profile that builds an installable APK dev client.
-- Added `android.package` and `ios.bundleIdentifier` to `apps/mobile/app.json` so EAS Build has stable native identifiers.
-- Added `npm run dev-client` and `npm run android:dev-client` scripts to simplify running the dev server once the dev client is installed.
-
-Verified:
-
-- `expo-dev-client` was installed into `apps/mobile` and recorded in `package.json` and `package-lock.json`.
-- The existing Expo app structure still loads under SDK 56.
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
-
-Next:
-
-- Build the Android dev client with `eas build -p android --profile development`.
-- Install the resulting APK on the physical phone.
-- Start Metro with `npm run dev-client` and the correct `EXPO_PUBLIC_API_BASE_URL`.
-
-### 2026-06-26 - Typed route fix and runtime verification
-
-Changed:
-
-- Adjusted the Watch detail navigation helpers to return Expo Router typed route objects instead of plain strings, which resolves the current TypeScript route typing errors.
-- Kept the watch/detail/report navigation behavior unchanged while making the route surface type-safe.
-
-Verified:
-
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm test` passes in `apps/mobile`.
-- `PATH=/home/chessdroid108/.local/node20/bin:$PATH npm run typecheck` passes in `apps/mobile`.
-- Backend watch data is still reachable at `GET /consumer/watch?lat=40.714&lon=-74.006&radius_km=5`.
-- The Android emulator is attached as `emulator-5554` through the explicit SDK `adb` path.
-
-Notes:
-
-- The shell `adb` command is not on PATH in this environment; use `/home/chessdroid108/Android/Sdk/platform-tools/adb`.
-- The shell `node` binary is older than what the mobile package expects; use `/home/chessdroid108/.local/node20/bin` for Expo app checks.
-
-### 2026-06-26 - Expo mobile scaffold and Watch UI implementation
-
-Changed:
-
-- Created `apps/mobile` as an Expo Router app with a custom EcoSentinel tab shell.
-- Replaced the starter tab/modal example screens with Watch, Explore, Report, Sightings, Profile, and detail routes.
-- Added shared theme, API, layout, card, and watch helper modules under `apps/mobile/src`.
-- Added Expo Google fonts, `expo-image`, `expo-linear-gradient`, `@expo/vector-icons`, and vitest for the mobile package.
-- Added unit tests for watch helper behavior.
-
-Verified:
-
-- `apps/mobile` now typechecks cleanly with `npm run typecheck`.
-- `apps/mobile` unit tests pass with `npm test`.
-- The watch screen is wired to `GET /consumer/watch` and the item/place detail screens are wired to the corresponding backend endpoints.
-
-Still to do:
-
-- Start the Android emulator and verify the Expo app in-device.
-- Confirm the Watch screen loads data from `http://10.0.2.2:8000`.
-- Confirm report routing and detail navigation in the emulator.
-
-### 2026-06-26 - Mobile migration planning docs
-
-Changed:
-
-- Added the React Native/FastAPI integration plan to `mobileAppMigration.md`.
-- Added this `HANDOFF.md` file for future semi-major change notes.
-- Preserved `stitchDesignReference.txt` as the UI design reference artifact.
-
-Verified:
-
-- Confirmed the repo is on `mobile-ui`.
-- Confirmed `apps/mobile` does not exist yet.
-- Confirmed the backend Watch API contract exists under `apps/api`.
-- Confirmed `mobileAppMigration.md` was empty before this planning update.
-
-Next:
-
-- Scaffold `apps/mobile` with Expo, TypeScript, and Expo Router.
-- Implement shared theme tokens from the stitch reference.
-- Implement the tab shell and Watch backend integration first.
-- Update this file after the scaffold and after the first working Watch screen.
-
-### 2026-06-27 - Mobile UI full integration (Phases B–E)
-
-Changed:
-
-- **Phase B — Stitch fidelity:** Added draggable/snapping bottom sheet on Explore and Watch, deduplicated map vs shell headers via `mapHeaderMode`, and polished Profile/Sightings field-guide styling.
-- **Phase A follow-up (already on main):** Interactive geospatial forecast map with tappable observation pins.
-- **Phase C — Intelligence card parity:** Shared `ObservationAssistantContextPanel` on saved detail and Report result screens.
-- **Phase D — Mobile resilience:** Local report draft persistence (photo, clues, privacy), centralized API base URL resolution, and EAS env profiles for dev/preview/prod.
-- **Phase E — Demo hardening:** Added judge demo QA checklist below.
-
-Verified:
-
-- `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 20 files, 51 tests.
-- Backend health: `GET /health`, `GET /demo/scenarios` available when API is running on `:8000`.
+- Merged `mobile-ui` and `web-dashboard-ui` into `main`; deleted both feature branches.
+- Mobile: observation detail route (`/observations/[id]`), pipeline status helpers, type fixes after merge.
+- Web: full research dashboard with live API filters, verification history, export lifecycle, design cleanup, demo date alignment.
+- Backend validation confirmed on local API (Docker unavailable on some machines; venv path works).
 
 ## Mobile Judge Demo QA Checklist
 
-Run with API + Postgres seeded, Android emulator or device, and `EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8000`.
+Run with API seeded, Android emulator or device, `EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8000`.
 
-1. **Explore map:** App opens to forecast map; pan/zoom works; layer pills show signal/gap counts.
-2. **Draggable sheet:** Explore/Watch bottom sheet drags between snap points and scrolls independently.
-3. **Observation tap:** Tap an observation pin → opens Sighting Intelligence Card detail.
-4. **Demo scenarios:** Select a seeded demo scenario → map reframes; Open card reaches intelligence detail.
-5. **Report flow:** Capture photo → clues → analyze → result shows intelligence card + grounded assistant context.
-6. **Draft resume:** Force-close app mid-report → reopen Report → resume draft banner works; clear discards draft.
-7. **Sightings:** Submitted observations list loads; cards open intelligence detail with assistant context.
-8. **Watch:** Watched items and good places load from backend; map refresh works.
-9. **Profile:** API/session/location status cards reflect live backend state.
-10. **Uncertainty copy:** No confirmed invasion language; uses possible/needs verification framing.
+1. **Explore map:** Forecast map loads; pan/zoom; layer pills show signal/gap counts.
+2. **Draggable sheet:** Explore/Watch sheet snaps and scrolls independently.
+3. **Observation tap:** Pin opens Sighting Intelligence Card detail.
+4. **Demo scenarios:** Seeded scenario reframes map; Open card reaches intelligence detail.
+5. **Report flow:** Photo → clues → analyze → intelligence card + assistant context.
+6. **Draft resume:** Mid-report force-close → resume banner works.
+7. **Sightings:** List loads; cards open intelligence detail.
+8. **Watch:** Items and places load; map refresh works.
+9. **Profile:** API/session/location status reflects backend.
+10. **Uncertainty copy:** Uses possible / needs verification framing only.
 
-Known constraints:
+## Web Dashboard QA Checklist
 
-- Conversational assistant chat UI is out of scope (no chat backend).
-- Production API host `https://api.ecosentinel.app` is a placeholder until deployed.
-- Native rebuild required after adding `react-native-maps` / gesture-handler (`npx expo run:android`).
+1. **Demo mode:** `npm run dev` — observations visible in Overview, Queue, Observations.
+2. **API mode:** `npm run sync-api` — live queue, verify action, export download URL.
+3. **Smoke:** `npm run build && npm run preview` then `npm run smoke`.
+4. **Screens:** All 8 nav items render without console errors.
+
+## Handoff Log (condensed)
+
+Detailed mobile issue history lives in `Mobile_UI_Issues.md`. Web dashboard iteration history lives in `Web_Dashboard_UI_Handoff.md`.
+
+### 2026-06-27 — Platform merge to `main`
+
+- Merged mobile and research dashboard feature branches into `main`.
+- Resolved mobile merge conflicts favoring evolved `main` mobile flows while keeping `/observations/[id]` route.
+- Research dashboard taken from `web-dashboard-ui` branch (complete `apps/web`).
+- Post-merge: mobile typecheck fixed; web build/smoke pass.
+
+### 2026-06-27 — Research dashboard complete on feature branch (now on `main`)
+
+- Live API: research filters, verification history, `POST /research/export` lifecycle, error states, CI workflow.
+- Visual: minimal scientific workbench across 8 screens per `Research_Dashboard_UI_Guide.md`.
+- Demo data dates aligned to default June 2026 filter window.
+
+### 2026-06-27 — Mobile integration phases B–E (on `main`)
+
+- Interactive forecast map, draggable sheets, intelligence card parity, report drafts, env handling.
+- `npm test`: 51 tests passing.
+
+### 2026-06-26 — Mobile scaffold
+
+- Created `apps/mobile` with Expo Router; first Watch backend wiring.
+
+## Working Rules for Contributors
+
+- Work on `main`; push major changes to `origin/main`.
+- Keep ecological logic in `apps/api`, not frontends.
+- Follow uncertainty language in `AGENTS.md` (Ecological Signal Priority, not “danger score”).
+- Update this file after semi-major changes; update `Mobile_UI_Issues.md` or `Web_Dashboard_UI_Handoff.md` for surface-specific detail.
+- Do not commit secrets, `node_modules`, or build artifacts.

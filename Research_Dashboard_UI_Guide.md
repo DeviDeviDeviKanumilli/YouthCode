@@ -2,6 +2,8 @@
 
 Living design notes for the desktop research dashboard. Update this file whenever the dashboard direction changes, new screens are added, or implementation reveals a product gap.
 
+**Implementation:** `apps/web` on `main` — see `Web_Dashboard_UI_Handoff.md` and `HANDOFF.md` for build status.
+
 Last updated: 2026-06-27
 
 ## Product Intent

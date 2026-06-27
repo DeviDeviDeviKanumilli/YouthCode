@@ -1,4 +1,3 @@
-import { Camera } from 'expo-camera';
 import * as Location from 'expo-location';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -12,7 +11,6 @@ type LocalAreaState = {
   coords: LocalCoordinates | null;
   label: string;
   locationGranted: boolean;
-  cameraGranted: boolean;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -33,7 +31,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [coords, setCoords] = useState<LocalCoordinates | null>(null);
   const [label, setLabel] = useState('Finding local area');
   const [locationGranted, setLocationGranted] = useState(false);
-  const [cameraGranted, setCameraGranted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,9 +39,6 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const camera = await Camera.requestCameraPermissionsAsync();
-      setCameraGranted(camera.status === 'granted');
-
       const location = await Location.requestForegroundPermissionsAsync();
       if (location.status !== 'granted') {
         setLocationGranted(false);
@@ -91,12 +85,11 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       coords,
       label,
       locationGranted,
-      cameraGranted,
       loading,
       error,
       refresh,
     }),
-    [cameraGranted, coords, error, label, loading, locationGranted, refresh]
+    [coords, error, label, loading, locationGranted, refresh]
   );
 
   return <LocalAreaContext.Provider value={value}>{children}</LocalAreaContext.Provider>;

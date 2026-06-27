@@ -3,14 +3,30 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
+import type { ForecastLayerSummary } from '@/types/forecast';
 
 type MapBackdropProps = {
   locationLabel: string;
   demoLabel?: string;
+  layerSummary?: ForecastLayerSummary | null;
+  isLoadingLayers?: boolean;
+  layerError?: string | null;
   onTargetPress?: () => void;
 };
 
-export function MapBackdrop({ locationLabel, demoLabel, onTargetPress }: MapBackdropProps) {
+export function MapBackdrop({
+  locationLabel,
+  demoLabel,
+  layerSummary,
+  isLoadingLayers = false,
+  layerError,
+  onTargetPress,
+}: MapBackdropProps) {
+  const signalCount = layerSummary
+    ? layerSummary.observations + layerSummary.knownRecords + layerSummary.possibleCorridors
+    : 0;
+  const samplingCount = layerSummary?.samplingGaps ?? 0;
+
   return (
     <View style={styles.root}>
       <LinearGradient
@@ -54,6 +70,37 @@ export function MapBackdrop({ locationLabel, demoLabel, onTargetPress }: MapBack
         <View style={[styles.markerRing, { top: '60%', left: '28%', borderColor: 'rgba(91,126,181,0.32)' }]} />
         <View style={[styles.markerDot, { top: '64%', left: '32%', backgroundColor: colors.blue }]} />
       </View>
+      <View style={styles.layerPanel}>
+        <View style={styles.layerRow}>
+          <LayerPill icon="timeline" label="Signals" value={isLoadingLayers ? '...' : String(signalCount)} />
+          <LayerPill icon="grid-on" label="Gaps" value={isLoadingLayers ? '...' : String(samplingCount)} />
+        </View>
+        <Text style={styles.layerCaption}>
+          {layerError
+            ? 'Forecast layer unavailable'
+            : layerSummary
+              ? `${layerSummary.totalFeatures} public map features`
+              : 'Loading forecast layer'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function LayerPill({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.layerPill}>
+      <MaterialIcons name={icon} size={14} color="#DCE9FF" />
+      <Text style={styles.layerPillValue}>{value}</Text>
+      <Text style={styles.layerPillLabel}>{label}</Text>
     </View>
   );
 }
@@ -156,6 +203,51 @@ const styles = StyleSheet.create({
   },
   markers: {
     ...StyleSheet.absoluteFill,
+  },
+  layerPanel: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    bottom: 18,
+    gap: 8,
+  },
+  layerRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  layerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(9,22,17,0.62)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  layerPillValue: {
+    color: colors.white,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 13,
+  },
+  layerPillLabel: {
+    color: 'rgba(255,255,255,0.72)',
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+  },
+  layerCaption: {
+    alignSelf: 'flex-start',
+    color: 'rgba(255,255,255,0.72)',
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    backgroundColor: 'rgba(9,22,17,0.46)',
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   userPulse: {
     position: 'absolute',

@@ -12,6 +12,7 @@ import type { GoodPlaceToCheck, WatchItem, WatchScreenResponse } from '@/types/w
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { FALLBACK_RADIUS_KM, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
+import { usePublicForecast } from '@/forecast/usePublicForecast';
 import { goodPlaceImage, watchItemImage } from '@/lib/images';
 import { reportParamsForGoodPlace, reportParamsForWatchItem, watchItemActionHref, watchPlaceActionHref } from '@/lib/watch';
 
@@ -19,21 +20,22 @@ export default function ExploreScreen() {
   const router = useRouter();
   const area = useLocalArea();
   const coords = useBackendCoordinates();
+  const forecast = usePublicForecast(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  function load() {
+  async function load() {
     setLoading(true);
-    getWatchScreen(coords.lat, coords.lon, FALLBACK_RADIUS_KM)
-      .then((data) => {
-        setResponse(data);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Unable to load local context.');
-      })
-      .finally(() => setLoading(false));
+    try {
+      const data = await getWatchScreen(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
+      setResponse(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to load local context.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -52,7 +54,15 @@ export default function ExploreScreen() {
       regionLabel={regionLabel}
       showTargetButton={false}
       topHeight={420}
-      topContent={<MapBackdrop locationLabel={regionLabel} onTargetPress={() => void area.refresh().then(load)} />}>
+      topContent={
+        <MapBackdrop
+          locationLabel={regionLabel}
+          layerSummary={forecast.summary}
+          isLoadingLayers={forecast.loading}
+          layerError={forecast.error}
+          onTargetPress={() => void area.refresh().then(() => Promise.all([load(), forecast.refresh()]))}
+        />
+      }>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -71,6 +81,16 @@ export default function ExploreScreen() {
 
         {error && !response ? (
           <StatusPanel title="Could not load Explore" message={error} actionLabel="Retry" onActionPress={load} tone="error" />
+        ) : null}
+
+        {forecast.error ? (
+          <StatusPanel
+            title="Forecast map is unavailable"
+            message={forecast.error}
+            actionLabel="Retry map"
+            onActionPress={() => void forecast.refresh()}
+            tone="error"
+          />
         ) : null}
 
         {leadingPlace ? (

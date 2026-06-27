@@ -16,6 +16,7 @@ import { GoodPlaceCard } from '@/components/cards/GoodPlaceCard';
 import { WatchItemCard } from '@/components/cards/WatchItemCard';
 import { getWatchScreen } from '@/api/watch';
 import type { GoodPlaceToCheck, WatchItem, WatchScreenResponse } from '@/types/watch';
+import { usePublicForecast } from '@/forecast/usePublicForecast';
 import {
   formatUpdatedAt,
   reportParamsForGoodPlace,
@@ -31,29 +32,28 @@ export default function WatchScreen() {
   const router = useRouter();
   const area = useLocalArea();
   const coords = useBackendCoordinates();
+  const forecast = usePublicForecast(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  function load() {
+  async function load() {
     const initialLoad = response === null;
     setLoading(true);
     if (initialLoad) {
       setError(null);
     }
 
-    getWatchScreen(coords.lat, coords.lon, FALLBACK_RADIUS_KM)
-      .then((data) => {
-        setResponse(data);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        const message = err instanceof Error ? err.message : 'Unable to load watch data.';
-        setError(message);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    try {
+      const data = await getWatchScreen(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
+      setResponse(data);
+      setError(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unable to load watch data.';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -71,7 +71,15 @@ export default function WatchScreen() {
       regionLabel={regionLabel}
       subtitle={area.locationGranted ? 'Things worth noticing nearby' : 'Enable location to rank signals around you.'}
       topHeight={300}
-      topContent={<MapBackdrop locationLabel={regionLabel} onTargetPress={() => void area.refresh().then(load)} />}>
+      topContent={
+        <MapBackdrop
+          locationLabel={regionLabel}
+          layerSummary={forecast.summary}
+          isLoadingLayers={forecast.loading}
+          layerError={forecast.error}
+          onTargetPress={() => void area.refresh().then(() => Promise.all([load(), forecast.refresh()]))}
+        />
+      }>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -110,6 +118,16 @@ export default function WatchScreen() {
             message={error}
             actionLabel="Retry"
             onActionPress={load}
+            tone="error"
+          />
+        ) : null}
+
+        {forecast.error ? (
+          <StatusPanel
+            title="Forecast map is unavailable"
+            message={forecast.error}
+            actionLabel="Retry map"
+            onActionPress={() => void forecast.refresh()}
             tone="error"
           />
         ) : null}

@@ -1,11 +1,11 @@
 # EcoSentinel Mobile UI Handoff
 
-This file is the running handoff log for mobile UI work on the `mobile-ui` branch. Update it after every semi-major change so collaborators can quickly see what changed, what was verified, and what remains.
+This file is the running handoff log for mobile UI work. Update it after every semi-major change so collaborators can quickly see what changed, what was verified, and what remains.
 
 ## Current Branch
 
-- Branch: `mobile-ui`
-- Remote tracking branch: `origin/mobile-ui`
+- Branch: `main`
+- Remote tracking branch: `origin/main`
 - Repository: `DeviDeviDeviKanumilli/YouthCode`
 
 ## Working Rules
@@ -13,11 +13,40 @@ This file is the running handoff log for mobile UI work on the `mobile-ui` branc
 - Keep mobile work under `apps/mobile`.
 - Use `stitchDesignReference.txt` as the visual and UX reference.
 - Use `mobileAppMigration.md` as the implementation plan.
-- Push major changes to `origin/mobile-ui`.
+- Push major changes to `origin/main`.
 - Do not overwrite unrelated collaborator work.
 - Do not change the backend unless a small compatibility fix is absolutely required.
 
 ## Handoff Log
+
+### 2026-06-27 - Main branch mobile integration QA pass
+
+Changed:
+
+- Switched ongoing mobile work to `main` after merging both UI branches.
+- Added `Mobile_UI_Issues.md` as the dedicated mobile issue and verification log requested for this pass.
+- Added a mobile forecast API client for `GET /forecast/public`.
+- Added forecast layer summarization and wired Watch/Explore map headers to backend-derived public map counts.
+- Removed the global camera permission request from `LocationProvider`; camera permission is now scoped to the Report screen.
+- Replaced the Profile placeholder with backend health/version, anonymous user session, and location status cards.
+- Tightened Watch and Explore refresh behavior so target refreshes await both Watch data and Forecast Map data.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 2 files, 8 tests.
+- `cd apps/api && ./.venv/bin/python -m pytest tests/test_watch_api.py tests/test_forecast_public_api.py tests/test_user_sightings_api.py tests/test_observations_api.py tests/test_media_api.py tests/test_identifications_api.py tests/test_intelligence_cards_api.py tests/test_health.py` passes: 61 tests.
+- Local API server starts and `GET /health` plus `GET /version` respond.
+
+Could not verify here:
+
+- Android simulator/device runtime. `adb devices` returned no attached device and Android SDK/emulator binaries were not present in this environment.
+- Full live Postgres-backed API flow. DB-backed endpoints failed locally because Postgres was not running, and `docker` is not installed to start the compose stack.
+
+Still to do:
+
+- Run the Expo dev client on a real Android device or configured emulator and manually verify camera, permissions, Watch, Explore, Forecast Map counts, Report submission, Result card, Sightings, and Profile status.
+- Add a production mobile media upload contract. The current Report flow registers media metadata and same-device image URI context, but does not upload image bytes to shared storage.
 
 ### 2026-06-26 - Persistent user session and real Sightings feed
 

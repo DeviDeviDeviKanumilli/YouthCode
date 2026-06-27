@@ -1,21 +1,95 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { MaterialIcons } from '@expo/vector-icons';
+import { getHealth, getVersion } from '@/api/system';
+import { useLocalArea } from '@/location/LocationProvider';
+import { useLocalUser } from '@/user/UserProvider';
+
+type ApiStatus = {
+  health: string;
+  version: string;
+  error: string | null;
+  loading: boolean;
+};
 
 export default function ProfileScreen() {
+  const area = useLocalArea();
+  const user = useLocalUser();
+  const [apiStatus, setApiStatus] = useState<ApiStatus>({
+    health: 'checking',
+    version: 'unknown',
+    error: null,
+    loading: true,
+  });
+
+  function loadApiStatus() {
+    setApiStatus((current) => ({ ...current, loading: true, error: null }));
+    Promise.all([getHealth(), getVersion()])
+      .then(([health, version]) => {
+        setApiStatus({
+          health: health.status,
+          version: version.version,
+          error: null,
+          loading: false,
+        });
+      })
+      .catch((err: unknown) => {
+        setApiStatus({
+          health: 'unavailable',
+          version: 'unknown',
+          error: err instanceof Error ? err.message : 'Unable to reach EcoSentinel API.',
+          loading: false,
+        });
+      });
+  }
+
+  useEffect(() => {
+    loadApiStatus();
+  }, []);
+
   return (
     <ScreenFrame
-      eyebrow="Guide"
+      eyebrow="Field profile"
       title="Profile"
-      regionLabel="Settings and lessons"
-      subtitle="Minimal placeholder until auth and profile flows are added."
+      regionLabel={area.label}
+      subtitle="Session, permissions, and field learning."
       topContent={<GuideHero />}
     >
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SectionHeading title="Start here" subtitle="Short lessons for the mobile app" />
+        <SectionHeading title="Device session" subtitle="Backend integration status for this app." />
+        <StatusCard
+          icon="cloud-done"
+          title="EcoSentinel API"
+          value={apiStatus.loading ? 'Checking' : apiStatus.health}
+          detail={apiStatus.error ?? `Backend version ${apiStatus.version}`}
+          tone={apiStatus.error ? 'error' : 'ok'}
+          actionLabel="Retry"
+          onActionPress={loadApiStatus}
+        />
+        <StatusCard
+          icon="person"
+          title="Observer session"
+          value={user.ready && user.userId ? 'Ready' : user.ready ? 'Unavailable' : 'Preparing'}
+          detail={user.error ?? (user.userId ? `Anonymous user ${user.userId.slice(0, 8)}` : 'Creating local observer session')}
+          tone={user.error ? 'error' : 'ok'}
+          actionLabel="Refresh"
+          onActionPress={() => void user.refresh()}
+        />
+        <StatusCard
+          icon="my-location"
+          title="Location"
+          value={area.locationGranted ? 'Enabled' : 'Approximate'}
+          detail={area.error ?? area.label}
+          tone={area.error ? 'warning' : 'ok'}
+          actionLabel="Refresh"
+          onActionPress={() => void area.refresh()}
+        />
+
+        <SectionHeading title="Start here" subtitle="Short lessons for field observations." />
         <GuideCard icon="school" title="What is a habitat?" subtitle="The places and conditions species depend on." />
         <SectionHeading title="Learning paths" />
         <GuideCard
@@ -30,6 +104,43 @@ export default function ProfileScreen() {
         />
       </ScrollView>
     </ScreenFrame>
+  );
+}
+
+function StatusCard({
+  icon,
+  title,
+  value,
+  detail,
+  tone,
+  actionLabel,
+  onActionPress,
+}: {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  title: string;
+  value: string;
+  detail: string;
+  tone: 'ok' | 'warning' | 'error';
+  actionLabel: string;
+  onActionPress: () => void;
+}) {
+  const toneColor = tone === 'error' ? '#B6473D' : tone === 'warning' ? colors.amber : colors.moss;
+  return (
+    <View style={styles.statusCard}>
+      <View style={[styles.iconWrap, { backgroundColor: tone === 'error' ? '#F4D8D4' : colors.mossSoft }]}>
+        <MaterialIcons name={icon} size={22} color={toneColor} />
+      </View>
+      <View style={styles.cardCopy}>
+        <View style={styles.statusHeader}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={[styles.statusValue, { color: toneColor }]}>{value}</Text>
+        </View>
+        <Text style={styles.cardSubtitle}>{detail}</Text>
+      </View>
+      <Pressable accessibilityRole="button" onPress={onActionPress} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}>
+        <Text style={styles.retryButtonText}>{actionLabel}</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -80,6 +191,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  statusCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  statusValue: {
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  retryButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 12,
+  },
   iconWrap: {
     width: 44,
     height: 44,
@@ -108,5 +252,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pressed: {
+    opacity: 0.84,
+  },
 });
-

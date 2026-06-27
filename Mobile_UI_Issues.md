@@ -23,6 +23,11 @@ Branch: `main`
   - Converted screen load functions to async flows.
   - Refresh now waits for both Watch data and Forecast Map data.
 
+- Report actions from Watch, Good Places, and Sightings did not visibly show all route context before submission.
+  - Added a compact Report context panel on the clue step.
+  - Preserved `watch_item_id`, `suggested_species_id`, `place_id`, `habitat_hint`, and follow-up observation ID in submitted habitat answers.
+  - Added unit coverage for Report context normalization.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -43,12 +48,13 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 2 files, 8 tests.
+- `cd apps/mobile && npm test` passed: 3 files, 11 tests.
 - `cd apps/api && ./.venv/bin/python -m pytest tests/test_watch_api.py tests/test_forecast_public_api.py tests/test_user_sightings_api.py tests/test_observations_api.py tests/test_media_api.py tests/test_identifications_api.py tests/test_intelligence_cards_api.py tests/test_health.py` passed: 61 tests.
 
 ## Product Checklist Notes
 
 - Observation upload flow is wired through backend observation, media metadata, identification, and intelligence card endpoints.
+- Report prefill context from Watch, Good Places, and sighting history is now visible before submission and carried into backend habitat answers.
 - My Sightings is wired to `GET /users/{user_id}/observations`.
 - Watch and Explore are wired to backend local signal endpoints.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.

@@ -9,6 +9,15 @@ import { createObservation, createObservationMedia, getIntelligenceCard, identif
 import { FALLBACK_COORDS, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
 import { useLocalUser } from '@/user/UserProvider';
 import type { SightingIntelligenceCard } from '@/types/report';
+import {
+  buildRawNoteFromContext,
+  buildReportContext,
+  habitatHintLabel,
+  placeTypeLabel,
+  readRouteParam,
+  sourceLabel,
+  type ReportContext,
+} from '@/lib/reportContext';
 import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
@@ -30,12 +39,13 @@ export default function ReportScreen() {
     placeType?: string | string[];
     habitatHint?: string | string[];
   }>();
-  const followUpObservationId = readParam(params.observationId);
+  const reportContext = buildReportContext(params);
+  const followUpObservationId = reportContext.observationId;
 
   const [stage, setStage] = useState<Stage>('camera');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, Answer>>({
-    near_water: readParam(params.habitatHint) === 'near_water' ? 'yes' : 'not_sure',
+    near_water: readRouteParam(params.habitatHint) === 'near_water' ? 'yes' : 'not_sure',
     near_road_or_trail: 'not_sure',
     growth_pattern: 'not_sure',
   });
@@ -63,11 +73,16 @@ export default function ReportScreen() {
         coordinate_uncertainty_m: area.locationGranted ? 35 : 5000,
         timestamp: new Date().toISOString(),
         privacy_level: 'obscured',
-        raw_note: buildRawNote(params),
+        raw_note: buildRawNoteFromContext(reportContext),
         habitat_answers: {
-          source: readParam(params.source) ?? 'manual',
-          suggested_species_name: readParam(params.suggestedSpeciesName),
-          place_type: readParam(params.placeType),
+          source: reportContext.source,
+          watch_item_id: reportContext.watchItemId,
+          suggested_species_id: reportContext.suggestedSpeciesId,
+          suggested_species_name: reportContext.suggestedSpeciesName,
+          place_id: reportContext.placeId,
+          place_type: reportContext.placeType,
+          habitat_hint: reportContext.habitatHint,
+          follow_up_observation_id: reportContext.observationId,
           near_water: answers.near_water,
           near_road_or_trail: answers.near_road_or_trail,
           growth_pattern: answers.growth_pattern,
@@ -168,6 +183,7 @@ export default function ReportScreen() {
               {followUpObservationId ? <Text style={styles.sheetMeta}>Revisiting a previous sighting.</Text> : null}
             </View>
           </View>
+          <ReportContextPanel context={reportContext} />
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
           <Question
             icon="water"
@@ -326,25 +342,45 @@ function ResultBlock({ title, text }: { title: string; text: string }) {
   );
 }
 
+function ReportContextPanel({ context }: { context: ReportContext }) {
+  const rows = [
+    ['Source', sourceLabel(context.source)],
+    ['Suggested species', context.suggestedSpeciesName],
+    ['Species ID', context.suggestedSpeciesId],
+    ['Place type', context.placeType ? placeTypeLabel(context.placeType) : undefined],
+    ['Place ID', context.placeId],
+    ['Habitat hint', context.habitatHint ? habitatHintLabel(context.habitatHint) : undefined],
+    ['Follow-up', context.observationId ? context.observationId.slice(0, 8) : undefined],
+  ].filter((row): row is [string, string] => Boolean(row[1]));
+
+  if (rows.length === 0 || (rows.length === 1 && context.source === 'manual')) {
+    return null;
+  }
+
+  return (
+    <View style={styles.contextPanel}>
+      <View style={styles.contextHeader}>
+        <MaterialIcons name="near-me" size={18} color={colors.blue} />
+        <Text style={styles.contextTitle}>Report context</Text>
+      </View>
+      <View style={styles.contextRows}>
+        {rows.map(([label, value]) => (
+          <View key={label} style={styles.contextRow}>
+            <Text style={styles.contextLabel}>{label}</Text>
+            <Text style={styles.contextValue}>{value}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function IconButton({ icon, onPress }: { icon: keyof typeof MaterialIcons.glyphMap; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
       <MaterialIcons name={icon} size={24} color={colors.white} />
     </Pressable>
   );
-}
-
-function readParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function buildRawNote(params: ReturnType<typeof useLocalSearchParams>) {
-  const species = readParam(params.suggestedSpeciesName);
-  const source = readParam(params.source);
-  if (species) {
-    return `Mobile report opened from ${source ?? 'EcoSentinel'} for ${species}.`;
-  }
-  return `Mobile report opened from ${source ?? 'EcoSentinel'}.`;
 }
 
 function labelForAnswer(answer: Answer) {
@@ -603,6 +639,48 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodySemibold,
     fontSize: 13,
     lineHeight: 19,
+  },
+  contextPanel: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 14,
+    gap: 10,
+  },
+  contextHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  contextTitle: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 15,
+  },
+  contextRows: {
+    gap: 8,
+  },
+  contextRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  contextLabel: {
+    flex: 1,
+    color: colors.muted,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  contextValue: {
+    flex: 1.3,
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 13,
+    textAlign: 'right',
+    textTransform: 'capitalize',
   },
   questionCard: {
     backgroundColor: colors.surfaceAlt,

@@ -48,6 +48,23 @@ Still to do:
 - Run the Expo dev client on a real Android device or configured emulator and manually verify camera, permissions, Watch, Explore, Forecast Map counts, Report submission, Result card, Sightings, and Profile status.
 - Add a production mobile media upload contract. The current Report flow registers media metadata and same-device image URI context, but does not upload image bytes to shared storage.
 
+### 2026-06-27 - Report prefill context visibility
+
+Changed:
+
+- Added a visible Report context panel on the clue step so Watch item, Good Place, and sighting-history route params are no longer hidden from the user.
+- Added backend habitat-answer provenance for `watch_item_id`, `suggested_species_id`, `place_id`, `habitat_hint`, and follow-up observation ID.
+- Extracted Report route-context normalization into a tested helper.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 3 files, 11 tests.
+
+Still to do:
+
+- Manually verify the Report context panel in Android once a device or emulator is available.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

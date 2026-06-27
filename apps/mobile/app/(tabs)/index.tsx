@@ -13,7 +13,10 @@ import { colors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 import { FALLBACK_RADIUS_KM, useBackendCoordinates, useLocalArea } from '@/location/LocationProvider';
 import { usePublicForecast } from '@/forecast/usePublicForecast';
+import { useNearbyRegion } from '@/regions/useNearbyRegion';
 import { goodPlaceImage, watchItemImage } from '@/lib/images';
+import { summarizeNearbyRegion } from '@/lib/regions';
+import type { NearbyRegionSummary } from '@/types/regions';
 import { reportParamsForGoodPlace, reportParamsForWatchItem, watchItemActionHref, watchPlaceActionHref } from '@/lib/watch';
 
 export default function ExploreScreen() {
@@ -21,6 +24,7 @@ export default function ExploreScreen() {
   const area = useLocalArea();
   const coords = useBackendCoordinates();
   const forecast = usePublicForecast(coords.lat, coords.lon, FALLBACK_RADIUS_KM);
+  const nearbyRegion = useNearbyRegion(coords.lat, coords.lon, 10);
   const [response, setResponse] = useState<WatchScreenResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +64,11 @@ export default function ExploreScreen() {
           layerSummary={forecast.summary}
           isLoadingLayers={forecast.loading}
           layerError={forecast.error}
-          onTargetPress={() => void area.refresh().then(() => Promise.all([load(), forecast.refresh()]))}
+          onTargetPress={() =>
+            void area.refresh().then(() =>
+              Promise.all([load(), forecast.refresh(), nearbyRegion.refresh()])
+            )
+          }
         />
       }>
       <ScrollView
@@ -93,6 +101,16 @@ export default function ExploreScreen() {
           />
         ) : null}
 
+        {nearbyRegion.error ? (
+          <StatusPanel
+            title="Local ecosystem context is unavailable"
+            message={nearbyRegion.error}
+            actionLabel="Retry context"
+            onActionPress={() => void nearbyRegion.refresh()}
+            tone="error"
+          />
+        ) : null}
+
         {leadingPlace ? (
           <ExploreSignalCard
             label="Worth checking"
@@ -119,6 +137,15 @@ export default function ExploreScreen() {
           />
         ) : null}
 
+        {nearbyRegion.region ? <RegionSummaryCard region={nearbyRegion.region} /> : null}
+
+        {nearbyRegion.loading && !nearbyRegion.region ? (
+          <View style={styles.regionCard}>
+            <View style={styles.loadingLine} />
+            <View style={[styles.loadingLine, { width: '58%' }]} />
+          </View>
+        ) : null}
+
         <SectionHeading title="Good places to check" />
         {response && response.goodPlacesToCheck.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.placeRow}>
@@ -133,6 +160,53 @@ export default function ExploreScreen() {
         ) : null}
       </ScrollView>
     </ScreenFrame>
+  );
+}
+
+function RegionSummaryCard({ region }: { region: NearbyRegionSummary }) {
+  const stats = summarizeNearbyRegion(region);
+  const watchedSpecies = region.watched_species.slice(0, 3);
+
+  return (
+    <View style={styles.regionCard}>
+      <View style={styles.regionHeader}>
+        <View style={styles.regionIcon}>
+          <MaterialIcons name="public" size={20} color={colors.mossDark} />
+        </View>
+        <View style={styles.regionCopy}>
+          <Text style={styles.regionEyebrow}>Local ecosystem</Text>
+          <Text style={styles.regionTitle}>{region.region_summary}</Text>
+        </View>
+      </View>
+
+      <View style={styles.regionStats}>
+        <MiniStat value={String(stats.watchedSpeciesCount)} label="watched species" />
+        <MiniStat value={String(stats.nearbySignalCount)} label="nearby signals" />
+        <MiniStat value={String(stats.recentObservationCount)} label="recent points" />
+      </View>
+
+      {watchedSpecies.length > 0 ? (
+        <View style={styles.speciesRow}>
+          {watchedSpecies.map((species) => (
+            <Text key={species} style={styles.speciesPill}>
+              {species}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+
+      <Text style={styles.regionNote}>{region.under_sampled_note}</Text>
+      <Text style={styles.regionUncertainty}>{region.uncertainty_notice}</Text>
+    </View>
+  );
+}
+
+function MiniStat({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={styles.miniStat}>
+      <Text style={styles.miniStatValue}>{value}</Text>
+      <Text style={styles.miniStatLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -307,6 +381,98 @@ const styles = StyleSheet.create({
     height: 92,
     borderRadius: 16,
     backgroundColor: colors.surfaceSoft,
+  },
+  regionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 16,
+    gap: 14,
+  },
+  regionHeader: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  regionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.mossSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  regionCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  regionEyebrow: {
+    color: colors.mossDark,
+    fontFamily: fonts.label,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  regionTitle: {
+    color: colors.ink,
+    fontFamily: fonts.bodySemibold,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  regionStats: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  miniStat: {
+    flex: 1,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    padding: 10,
+    gap: 3,
+  },
+  miniStatValue: {
+    color: colors.ink,
+    fontFamily: fonts.displayBold,
+    fontSize: 22,
+  },
+  miniStatLabel: {
+    color: colors.muted,
+    fontFamily: fonts.label,
+    fontSize: 9,
+    letterSpacing: 0.7,
+    lineHeight: 13,
+    textTransform: 'uppercase',
+  },
+  speciesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  speciesPill: {
+    color: colors.ink,
+    backgroundColor: colors.mossSoft,
+    borderRadius: 999,
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    textTransform: 'capitalize',
+  },
+  regionNote: {
+    color: colors.ink,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  regionUncertainty: {
+    color: colors.muted,
+    fontFamily: fonts.body,
+    fontSize: 12,
+    lineHeight: 18,
   },
   placeRow: {
     gap: 12,

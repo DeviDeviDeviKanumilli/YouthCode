@@ -88,6 +88,23 @@ Still to do:
 - Manually verify multipart upload from Android once a device or emulator is available.
 - Add production S3-compatible storage or presigned URL support for deployed environments.
 
+### 2026-06-27 - Nearby Region Summary in Explore
+
+Changed:
+
+- Added a mobile client and hook for `GET /regions/nearby`.
+- Added an Explore "Local ecosystem" card with watched species, nearby signal count, recent point count, sampling note, and uncertainty notice.
+- Added unit coverage for summarizing Nearby Region counts.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 5 files, 14 tests.
+
+Still to do:
+
+- Manually verify the Explore region card in Android once a device or emulator is available.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

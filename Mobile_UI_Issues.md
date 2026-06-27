@@ -34,6 +34,11 @@ Branch: `main`
   - Updated Report to upload the captured photo before identification.
   - Updated Sightings thumbnail handling for backend-relative media URLs.
 
+- Nearby Region Summary existed in the backend but was not surfaced in the mobile UI.
+  - Added a mobile client for `GET /regions/nearby`.
+  - Added a local ecosystem card on Explore with watched species, nearby signal, recent point, sampling, and uncertainty context.
+  - Added unit coverage for region summary counts.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -53,7 +58,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 4 files, 13 tests.
+- `cd apps/mobile && npm test` passed: 5 files, 14 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -64,6 +69,7 @@ Branch: `main`
 - Report prefill context from Watch, Good Places, and sighting history is now visible before submission and carried into backend habitat answers.
 - My Sightings is wired to `GET /users/{user_id}/observations`.
 - Watch and Explore are wired to backend local signal endpoints.
+- Explore now uses `GET /regions/nearby` for local ecosystem and sampling context.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.

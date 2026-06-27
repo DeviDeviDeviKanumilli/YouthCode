@@ -123,6 +123,23 @@ Still to do:
 
 - Manually verify saved sighting detail navigation in Android once a device or emulator is available.
 
+### 2026-06-27 - Watch detail map overlay context
+
+Changed:
+
+- Added a shared `MapOverlaySummary` component for Watch item and Good Place detail screens.
+- Surfaced backend `mapOverlay` type, geometry availability, and record point availability with uncertainty-aware copy.
+- Added unit coverage for map overlay display behavior.
+
+Verified:
+
+- `cd apps/mobile && npm run typecheck` passes.
+- `cd apps/mobile && npm test` passes: 7 files, 18 tests.
+
+Still to do:
+
+- Manually verify the detail map context panel in Android once a device or emulator is available.
+
 ### 2026-06-26 - Persistent user session and real Sightings feed
 
 Changed:

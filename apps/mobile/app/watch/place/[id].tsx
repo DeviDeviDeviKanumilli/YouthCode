@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { DetailFrame } from '@/components/layout/DetailFrame';
+import { MapOverlaySummary } from '@/components/layout/MapOverlaySummary';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
 import { getWatchPlaceDetail } from '@/api/watch';
@@ -73,6 +74,8 @@ export default function WatchPlaceDetailScreen() {
 
             <Text style={styles.summary}>{place.summary}</Text>
             <Text style={styles.why}>{place.whyItMatters}</Text>
+
+            <MapOverlaySummary overlay={place.mapOverlay} />
 
             <SectionHeading title="What to look for" />
             <BulletList items={place.whatToLookFor} />

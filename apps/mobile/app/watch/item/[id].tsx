@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { DetailFrame } from '@/components/layout/DetailFrame';
+import { MapOverlaySummary } from '@/components/layout/MapOverlaySummary';
 import { SectionHeading } from '@/components/layout/SectionHeading';
 import { StatusPanel } from '@/components/layout/StatusPanel';
 import { getWatchItemDetail } from '@/api/watch';
@@ -79,6 +80,8 @@ export default function WatchItemDetailScreen() {
               <Row label="Nearest observation" value={formatMeters(item.localContext.nearestObservationMeters)} />
               <Row label="Confidence" value={item.localContext.confidenceLabel} />
             </View>
+
+            <MapOverlaySummary overlay={item.mapOverlay} />
 
             <SectionHeading title="What to look for" />
             <BulletList items={item.whatToLookFor} />

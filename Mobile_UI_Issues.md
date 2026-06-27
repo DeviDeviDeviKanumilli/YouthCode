@@ -44,6 +44,11 @@ Branch: `main`
   - Updated Sightings list cards to open the intelligence card while keeping follow-up reporting as a separate action.
   - Added unit coverage for intelligence-card title and priority display fallbacks.
 
+- Watch item and Good Place detail screens ignored backend `mapOverlay` context.
+  - Added a shared Map Overlay Summary component for detail screens.
+  - Shows potential spread corridor/context type, geometry availability, record point availability, and uncertainty-aware map copy.
+  - Added unit coverage for map overlay display copy.
+
 ## Remaining Issues / Limitations
 
 - Android simulator verification could not be completed in this environment.
@@ -63,7 +68,7 @@ Branch: `main`
 ## Verification Run
 
 - `cd apps/mobile && npm run typecheck` passed.
-- `cd apps/mobile && npm test` passed: 6 files, 16 tests.
+- `cd apps/mobile && npm test` passed: 7 files, 18 tests.
 - `cd apps/api && ./.venv/bin/python -m ruff check .` passed.
 - `cd apps/api && ./.venv/bin/python -m mypy app tests` passed.
 - `cd apps/api && ./.venv/bin/python -m pytest` passed: 243 tests.
@@ -76,6 +81,7 @@ Branch: `main`
 - My Sightings is wired to `GET /users/{user_id}/observations`.
 - Watch and Explore are wired to backend local signal endpoints.
 - Explore now uses `GET /regions/nearby` for local ecosystem and sampling context.
+- Watch detail screens now surface backend map overlay context where provided.
 - Forecast Map now consumes the public forecast endpoint, but still renders a simplified abstract map rather than geospatial shapes.
 - Profile now provides a practical integration status screen.
 - Research dashboard flows remain outside the mobile app scope.
